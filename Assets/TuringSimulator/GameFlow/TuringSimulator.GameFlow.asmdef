@@ -1,0 +1,19 @@
+{
+    "name": "TuringSimulator.GameFlow",
+    "rootNamespace": "",
+    "references": [
+        "GUID:bcffb3c7c4ebf1f4c9bcd1e489cb78df",
+        "GUID:eb0b31a0ef1045218b1a53448ca3bd96",
+        "GUID:cbfd5ab04ba58ca42918461a564647fc",
+        "GUID:75469ad4d38634e559750d17036d5f7c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
