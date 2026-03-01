@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c86604d78d14dd78e4796fadf38bbc7, type: 3}
+  m_Name: Level 2 Definition
+  m_EditorClassIdentifier: 
+  title: "Transforma\xE7\xE3o"
+  description: "A M\xE1quina de Turing consegue transformar entradas em sa\xEDdas
+    de acordo com as condi\xE7\xF5es"
+  mainTest: {fileID: 11400000, guid: 02e397e956475814d872570aab910898, type: 2}
+  validationTests:
+  - {fileID: 11400000, guid: b19d6a1e4004fed429b395625f800c23, type: 2}

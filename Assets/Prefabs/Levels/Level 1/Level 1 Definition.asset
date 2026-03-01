@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c86604d78d14dd78e4796fadf38bbc7, type: 3}
+  m_Name: Level 1 Definition
+  m_EditorClassIdentifier: 
+  title: "Condi\xE7\xE3o, Escrita e Movimento"
+  description: "A Maquina de Turing executa fundamentalmente apenas a seguinte instru\xE7\xE3o:
+    Se <condi\xE7\xE3o> Escreva <numero> Mova <dire\xE7\xE3o>"
+  mainTest: {fileID: 11400000, guid: 166e22489fdc2054db806839c5689672, type: 2}
+  validationTests:
+  - {fileID: 11400000, guid: 516f1dfde9d9436448e4032fc5dfa713, type: 2}
+  - {fileID: 11400000, guid: b4efa3cbbded2924a9bc83873a82eada, type: 2}
