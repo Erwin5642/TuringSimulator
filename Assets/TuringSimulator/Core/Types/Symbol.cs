@@ -2,13 +2,18 @@
 
 namespace TuringSimulator.Core.Types
 {
+    /// <summary>
+    /// Tape symbols. Explicit numeric values preserve Unity asset serialization
+    /// (legacy Zero=2, Mark=3, One=4 → Gear, Mark, Screw).
+    /// </summary>
     public enum Symbol
     {
-        None,
-        Blank,
-        Zero,
-        Mark,
-        One
+        None = 0,
+        Blank = 1,
+        Gear = 2,
+        Mark = 3,
+        Screw = 4,
+        Nut = 5,
     }
 
     public static class SymbolExtensions
@@ -18,22 +23,24 @@ namespace TuringSimulator.Core.Types
         /// </summary>
         public static char ToChar(this Symbol symbol) => symbol switch
         {
-            Symbol.Zero => '0',
-            Symbol.One => '1',
+            Symbol.Gear => 'G',
+            Symbol.Nut => 'N',
+            Symbol.Screw => 'S',
             Symbol.Blank => '_',
             Symbol.Mark => 'M',
             Symbol.None => '?',
             _ => throw new ArgumentOutOfRangeException(nameof(symbol), $"Unknown symbol: {symbol}")
         };
-        
-        
+
+
         /// <summary>
         /// Converts a character to a Symbol enum.
         /// </summary>
-        public static Symbol FromChar(this char c) => c switch
+        public static Symbol FromChar(this char c) => char.ToUpperInvariant(c) switch
         {
-            '0' => Symbol.Zero,
-            '1' => Symbol.One,
+            'G' => Symbol.Gear,
+            'N' => Symbol.Nut,
+            'S' => Symbol.Screw,
             '_' => Symbol.Blank,
             'M' => Symbol.Mark,
             '?' => Symbol.None,

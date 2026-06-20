@@ -20,6 +20,8 @@ using System;
 using System.Collections;
 using UnityEngine;
 
+#pragma warning disable CS0414, CS0067
+
 public class AgentTTS : MonoBehaviour
 {
     // ── Singleton ────────────────────────────────────────────────────────────
@@ -264,3 +266,5 @@ internal class TTSProgressListener : AndroidJavaProxy
 }
 
 #endif
+
+#pragma warning restore CS0414, CS0067

@@ -13,9 +13,9 @@ namespace Tests.EditModeTests
     public class SimulationBufferTests
     {
         [TestCase("")]
-        [TestCase("0")]
-        [TestCase("101")]
-        [TestCase("0101")]
+        [TestCase("G")]
+        [TestCase("SGS")]
+        [TestCase("GSGS")]
         public async Task ProducesBinaryString_WritesAndMovesRightCorrectly(string input)
         {
             var program = TestProgramFactory.ProducesBinaryString(input);
@@ -47,9 +47,13 @@ namespace Tests.EditModeTests
                             $"Unexpected head position before step {i}");
 
                         // Correct symbol written
-                        var expectedSymbol = input[writeIndex] == '0'
-                            ? Symbol.Zero
-                            : Symbol.One;
+                        var expectedSymbol = char.ToUpperInvariant(input[writeIndex]) switch
+                        {
+                            'G' => Symbol.Gear,
+                            'N' => Symbol.Nut,
+                            'S' => Symbol.Screw,
+                            _ => throw new InvalidOperationException($"Unexpected tape char '{input[writeIndex]}'")
+                        };
 
                         Assert.That(diff.SymbolAfter, Is.EqualTo(expectedSymbol),
                             $"Wrong symbol written at step {i}");

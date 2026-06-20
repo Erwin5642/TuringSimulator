@@ -15,6 +15,7 @@ MonoBehaviour:
   title: "Condi\xE7\xE3o, Escrita e Movimento"
   description: "A Maquina de Turing executa fundamentalmente apenas a seguinte instru\xE7\xE3o:
     Se <condi\xE7\xE3o> Escreva <numero> Mova <dire\xE7\xE3o>"
+  levelId: AppendScrew
   mainTest: {fileID: 11400000, guid: 166e22489fdc2054db806839c5689672, type: 2}
   validationTests:
   - {fileID: 11400000, guid: 516f1dfde9d9436448e4032fc5dfa713, type: 2}

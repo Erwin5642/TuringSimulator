@@ -2,16 +2,19 @@
 // Handles all HTTP communication with the ITS FastAPI server.
 // Attach to a persistent GameObject (e.g. your GameManager).
 //
-// Dependencies: none beyond Unity built-ins.
-// Usage: ITSClient.Instance.SendEvent(...) / .Ask(...) / .RequestHint(...)
+// Dependencies: Newtonsoft.Json (REST snake_case), UnityWebRequest.
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
+using ITS;
+using ITS.Protocol;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
-using ITS;
 
+[DefaultExecutionOrder(-200)]
 public class ITSClient : MonoBehaviour
 {
     // ── Singleton ────────────────────────────────────────────────────────────
@@ -28,10 +31,12 @@ public class ITSClient : MonoBehaviour
     [SerializeField] private float _timeoutSeconds = 10f;
 
     // ── Events ───────────────────────────────────────────────────────────────
-    // Subscribe to these from AgentDialogue or any other consumer.
 
     /// <summary>Fires when the server returns a comment after a game event.</summary>
     public event Action<string> OnAgentComment;
+
+    /// <summary>BKT skill probabilities returned with /event (may be empty).</summary>
+    public event Action<IReadOnlyDictionary<string, float>> OnSkillsUpdated;
 
     /// <summary>Fires when the server returns an answer to a student question.</summary>
     public event Action<string> OnAskReply;
@@ -45,6 +50,9 @@ public class ITSClient : MonoBehaviour
     // ── Internals ─────────────────────────────────────────────────────────────
 
     private bool _serverAvailable = false;
+
+    static string SerializeBody(object o) =>
+        JsonConvert.SerializeObject(o, ItsRestJson.Settings);
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -87,7 +95,7 @@ public class ITSClient : MonoBehaviour
             correct    = correct,
             skill_ids  = skillIds ?? Array.Empty<string>(),
         };
-        StartCoroutine(Post("/event", JsonUtility.ToJson(req), OnEventResponse));
+        StartCoroutine(Post("/event", SerializeBody(req), OnEventResponse));
     }
 
     /// <summary>
@@ -107,7 +115,7 @@ public class ITSClient : MonoBehaviour
             level_id   = levelId,
             question   = question,
         };
-        StartCoroutine(Post("/ask", JsonUtility.ToJson(req), OnAskResponse));
+        StartCoroutine(Post("/ask", SerializeBody(req), OnAskResponse));
     }
 
     /// <summary>
@@ -129,7 +137,7 @@ public class ITSClient : MonoBehaviour
             level_id   = levelId,
             skill_id   = skillId,
         };
-        StartCoroutine(Post("/hint", JsonUtility.ToJson(req), OnHintResponse));
+        StartCoroutine(Post("/hint", SerializeBody(req), OnHintResponse));
     }
 
     // ── Response handlers ─────────────────────────────────────────────────────
@@ -137,24 +145,36 @@ public class ITSClient : MonoBehaviour
     private void OnEventResponse(string json, bool success)
     {
         if (!success) return;
-        var resp = JsonUtility.FromJson<EventResponse>(json);
-        if (!string.IsNullOrEmpty(resp.comment))
-            OnAgentComment?.Invoke(resp.comment);
+        var dto = JsonConvert.DeserializeObject<EventResponseDto>(json, ItsRestJson.Settings);
+        if (dto == null) return;
+
+        if (dto.UpdatedSkills != null && dto.UpdatedSkills.Count > 0)
+            OnSkillsUpdated?.Invoke(dto.UpdatedSkills);
+
+        if (!string.IsNullOrEmpty(dto.Comment))
+            OnAgentComment?.Invoke(dto.Comment);
     }
 
     private void OnAskResponse(string json, bool success)
     {
         if (!success) return;
-        var resp = JsonUtility.FromJson<AskResponse>(json);
-        if (!string.IsNullOrEmpty(resp.reply))
-            OnAskReply?.Invoke(resp.reply);
+        var dto = JsonConvert.DeserializeObject<AskResponseDto>(json, ItsRestJson.Settings);
+        if (!string.IsNullOrEmpty(dto?.Reply))
+            OnAskReply?.Invoke(dto.Reply);
     }
 
     private void OnHintResponse(string json, bool success)
     {
         if (!success) return;
-        var resp = JsonUtility.FromJson<HintResponse>(json);
-        OnHintReply?.Invoke(resp);
+        var dto = JsonConvert.DeserializeObject<HintResponseDto>(json, ItsRestJson.Settings);
+        if (dto == null) return;
+
+        OnHintReply?.Invoke(new HintResponse
+        {
+            reply = dto.Reply,
+            skill_id = dto.SkillId,
+            hint_level = dto.HintLevel
+        });
     }
 
     // ── HTTP helpers ──────────────────────────────────────────────────────────

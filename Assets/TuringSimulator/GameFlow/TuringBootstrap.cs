@@ -1,8 +1,7 @@
-﻿using System;
-using System.Threading;
+using System;
 using System.Threading.Tasks;
-using UnityEngine;
 using TuringSimulator.Core.Level;
+using UnityEngine;
 
 namespace TuringSimulator.GameFlow
 {
@@ -14,15 +13,13 @@ namespace TuringSimulator.GameFlow
         [Header("Controller Prefabs")]
         [SerializeField] private ControllerPrefabs controllerPrefabs;
 
-        [Header("Level Database")]
+        [Header("Levels")]
         [SerializeField] private LevelDatabase levelDatabase;
 
         // Installers
         private ModelInstaller _modelInstaller;
         private ViewInstaller _viewInstaller;
         private ControllerInstaller _controllerInstaller;
-
-        private CancellationTokenSource _cts;
 
         private async void Awake()
         {
@@ -45,7 +42,18 @@ namespace TuringSimulator.GameFlow
         // Phase 1 – Foundation
         private void BindObjects()
         {
-            _cts = new CancellationTokenSource();
+            AddComponentIfMissing<ITSClient>();
+            AddComponentIfMissing<SkillTracker>();
+            AddComponentIfMissing<AgentTTS>();
+            AddComponentIfMissing<AgentDialogue>();
+            AddComponentIfMissing<LiveTutorSocket>();
+        }
+
+        private void AddComponentIfMissing<TComponent>()
+            where TComponent : Component
+        {
+            if (GetComponent<TComponent>() == null)
+                gameObject.AddComponent<TComponent>();
         }
 
         // Phase 2 – Data / Services
@@ -75,8 +83,7 @@ namespace TuringSimulator.GameFlow
             _controllerInstaller = new ControllerInstaller(
                 controllerPrefabs,
                 _modelInstaller,
-                _viewInstaller,
-                _cts.Token);
+                _viewInstaller);
 
             // 4. Start controllers (wire events, subscriptions, and internal state)
             _controllerInstaller.Install();
@@ -91,9 +98,5 @@ namespace TuringSimulator.GameFlow
             return Task.CompletedTask;
         }
 
-        private void OnDestroy()
-        {
-            _cts?.Cancel();
-        }
     }
 }

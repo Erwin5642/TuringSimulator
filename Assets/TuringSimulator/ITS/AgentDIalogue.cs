@@ -16,6 +16,7 @@ using UnityEngine.UI;
 using TMPro;
 using ITS;
 
+[DefaultExecutionOrder(-100)]
 public class AgentDialogue : MonoBehaviour
 {
     public static AgentDialogue Instance { get; private set; }

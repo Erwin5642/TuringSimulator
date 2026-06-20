@@ -16,6 +16,9 @@ namespace TuringSimulator.Core.Level
         [TextArea] public string description;
         
         [Header("Gameplay")]
+        [Tooltip("Stable id for ITS/BKT and Python LEVEL_META (e.g. AppendScrew).")]
+        public string levelId = "";
+
         public ValidationTest mainTest;
         public ValidationTest[] validationTests;
     }

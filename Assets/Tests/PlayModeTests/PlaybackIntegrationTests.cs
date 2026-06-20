@@ -120,8 +120,8 @@ namespace Tests.PlayModeTests
             {
                 // specific values to ensure DirectionMoved = Right (1 - 0 = 1)
                 var diff = new StepDiff(
-                    symbolBefore: Symbol.Zero,
-                    symbolAfter: Symbol.One,
+                    symbolBefore: Symbol.Gear,
+                    symbolAfter: Symbol.Screw,
                     headIndexBefore: 0,
                     headIndexAfter: 1,      // Implies MoveDirection.Right
                     previousState: 0,

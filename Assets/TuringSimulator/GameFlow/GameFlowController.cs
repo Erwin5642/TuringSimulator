@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Types;
 using UnityEngine;
-using UnityEngine.InputSystem.HID;
 
 namespace TuringSimulator.GameFlow
 {
@@ -16,7 +15,8 @@ namespace TuringSimulator.GameFlow
 
         private readonly GameStateMachine _stateMachine = GameStateMachine.Instance;
 
-        private readonly SemaphoreSlim _flowLock = new(1, 1);
+		private readonly SemaphoreSlim _flowLock = new SemaphoreSlim(1, 1);
+        
         private bool _busy;
 
         public GameFlowController(ModelInstaller model, ViewInstaller view, ControllerInstaller controller)
@@ -38,8 +38,22 @@ namespace TuringSimulator.GameFlow
 
             _controller.Playback.Disable();
             _controller.ProgramEdit.Enable();
-            
-            _controller.ProgramEdit.AddTransition(0, Symbol.Blank, new Transition(1, Symbol.Zero, MoveDirection.Right));
+
+            ApplyInitialProgram();
+        }
+
+        void ApplyInitialProgram()
+        {
+            if (_controller.Workbench != null)
+                _controller.Workbench.RebuildProgramFromScene();
+            else
+                ApplyFallbackSeedProgram();
+        }
+
+        void ApplyFallbackSeedProgram()
+        {
+            _controller.ProgramEdit.Clear();
+            _controller.ProgramEdit.AddTransition(0, Symbol.Blank, new Transition(1, Symbol.Gear, MoveDirection.Right));
             _controller.ProgramEdit.AddFinalState(1);
         }
 
@@ -61,6 +75,8 @@ namespace TuringSimulator.GameFlow
 
                 _controller.ProgramEdit.Disable();
                 Debug.Log("[GameFlow] Starting simulation");
+                LiveTutorSocket.Instance?.SendRunLifecycle("run_start");
+                SkillTracker.Instance?.OnProgramRun(true);
                 await _model.Simulation.Start();
                 Debug.Log($"[GameFlow]: Result of simulation: {_model.Buffer.Status}");
                 var i = 0;
@@ -68,6 +84,7 @@ namespace TuringSimulator.GameFlow
                 {
                     Debug.Log(step);
                 }
+                LiveTutorSocket.Instance?.SendRunLifecycle("run_finished");
                 _controller.Playback.Enable();
             }
             catch (Exception e)
@@ -95,6 +112,7 @@ namespace TuringSimulator.GameFlow
             try
             {
                 _model.Simulation.Cancel();
+                LiveTutorSocket.Instance?.SendRunLifecycle("run_abort");
 
                 _controller.Playback.Disable();
                 _controller.ProgramEdit.Enable();
@@ -135,10 +153,20 @@ namespace TuringSimulator.GameFlow
                 
                 await _model.Validation.Start();
 
+                var program = _controller.ProgramEdit.Current;
+                var runEvidence = ProgramResultAnalyzer.Analyze(program, _model.Buffer);
+
                 if (_model.Validation.AllPassed)
+                {
+                    SkillTracker.Instance?.OnProgramSuccess(runEvidence);
+                    SkillTracker.Instance?.OnLevelComplete();
                     Victory();
+                }
                 else
+                {
+                    SkillTracker.Instance?.OnProgramFail(runEvidence);
                     Defeat();
+                }
             }
             catch (Exception e)
             {
@@ -171,6 +199,8 @@ namespace TuringSimulator.GameFlow
 
             _controller.Playback.Disable();
             _controller.ProgramEdit.Enable();
+
+            ApplyInitialProgram();
         }
 
         public void Victory()

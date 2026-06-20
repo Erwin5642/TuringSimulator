@@ -19,10 +19,10 @@ namespace Tests.EditModeTests
             var builder = new TableProgramBuilder(startState: 0);
             var program = builder
                 .AddFinalState(1)
-                .AddTransition(0, Symbol.One, new Transition(1, Symbol.One, MoveDirection.Stay))
+                .AddTransition(0, Symbol.Screw, new Transition(1, Symbol.Screw, MoveDirection.Stay))
                 .Build();
 
-            var tape = new TestSimulationTape(Symbol.One);
+            var tape = new TestSimulationTape(Symbol.Screw);
             var buffer = new SimulationBuffer();
             var engine = new SimulationEngine();
 
@@ -41,21 +41,21 @@ namespace Tests.EditModeTests
         public async Task Simulation_RewritesSymbol_AndAccepts()
         {
             // Program:
-            // If we read One, rewrite to Zero and halt in accept state.
+            // If we read Screw, rewrite to Gear and halt in accept state.
             var builder = new TableProgramBuilder(startState: 0);
             var program = builder
                 .AddFinalState(1)
-                .AddTransition(0, Symbol.One, new Transition(1, Symbol.Zero, MoveDirection.Stay))
+                .AddTransition(0, Symbol.Screw, new Transition(1, Symbol.Gear, MoveDirection.Stay))
                 .Build();
 
-            var tape = new TestSimulationTape(Symbol.One);
+            var tape = new TestSimulationTape(Symbol.Screw);
             var buffer = new SimulationBuffer();
             var engine = new SimulationEngine();
 
             await engine.RunSimulationAsync(program, tape, buffer, CancellationToken.None);
 
             Assert.AreEqual(HaltStatus.Accept, buffer.Status);
-            Assert.AreEqual(Symbol.Zero, tape.Read());
+            Assert.AreEqual(Symbol.Gear, tape.Read());
         }
 
         [Test]
@@ -67,7 +67,7 @@ namespace Tests.EditModeTests
                 // No transition
                 .Build();
 
-            var tape = new TestSimulationTape(Symbol.Zero);
+            var tape = new TestSimulationTape(Symbol.Gear);
             var buffer = new SimulationBuffer();
             var engine = new SimulationEngine();
 
@@ -81,16 +81,16 @@ namespace Tests.EditModeTests
         {
             // Program:
             // State 0:
-            //   One   -> write Zero, move right
+            //   Screw -> write Gear, move right
             //   Blank -> accept
             var builder = new TableProgramBuilder(startState: 0);
             var program = builder
                 .AddFinalState(1)
-                .AddTransition(0, Symbol.One, new Transition(0, Symbol.Zero, MoveDirection.Right))
+                .AddTransition(0, Symbol.Screw, new Transition(0, Symbol.Gear, MoveDirection.Right))
                 .AddTransition(0, Symbol.Blank, new Transition(1, Symbol.Blank, MoveDirection.Stay))
                 .Build();
 
-            var tape = new TestSimulationTape(Symbol.One, Symbol.One, Symbol.One);
+            var tape = new TestSimulationTape(Symbol.Screw, Symbol.Screw, Symbol.Screw);
             var buffer = new SimulationBuffer();
             var engine = new SimulationEngine();
 
@@ -100,11 +100,11 @@ namespace Tests.EditModeTests
 
             // Validate entire tape
             tape.ResetHead();
-            Assert.AreEqual(Symbol.Zero, tape.Read());
+            Assert.AreEqual(Symbol.Gear, tape.Read());
             tape.Move(MoveDirection.Right);
-            Assert.AreEqual(Symbol.Zero, tape.Read());
+            Assert.AreEqual(Symbol.Gear, tape.Read());
             tape.Move(MoveDirection.Right);
-            Assert.AreEqual(Symbol.Zero, tape.Read());
+            Assert.AreEqual(Symbol.Gear, tape.Read());
         }
 
         [Test]
@@ -112,10 +112,10 @@ namespace Tests.EditModeTests
         {
             var builder = new TableProgramBuilder(startState: 0);
             var program = builder
-                .AddTransition(0, Symbol.One, new Transition(0, Symbol.One, MoveDirection.Stay))
+                .AddTransition(0, Symbol.Screw, new Transition(0, Symbol.Screw, MoveDirection.Stay))
                 .Build();
 
-            var tape = new TestSimulationTape(Symbol.One);
+            var tape = new TestSimulationTape(Symbol.Screw);
             var buffer = new SimulationBuffer();
             var engine = new SimulationEngine();
 
@@ -137,15 +137,15 @@ namespace Tests.EditModeTests
 
             var builder = new TableProgramBuilder(startState: 0);
             var program = builder
-                .AddTransition(0, Symbol.One,
-                    new Transition(0, Symbol.One, MoveDirection.Stay))
+                .AddTransition(0, Symbol.Screw,
+                    new Transition(0, Symbol.Screw, MoveDirection.Stay))
                 .Build();
             
             var tasks = new List<Task>();
             var buffers = new List<BlockingSimulationBuffer>();
             for (var i = 0; i < 20; i++)
             {
-                var tape = new TestSimulationTape(Symbol.One);
+                var tape = new TestSimulationTape(Symbol.Screw);
 
                 var buffer = new BlockingSimulationBuffer();
                 buffers.Add(buffer);
