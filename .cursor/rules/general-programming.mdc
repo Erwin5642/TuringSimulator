@@ -1,0 +1,24 @@
+---
+description: General programming standards focusing on Interface-First design and Data-Oriented Programming.
+globs: Assets/TuringSimulator/**/*.cs
+alwaysApply: true
+---
+
+# Programming Standards & Architecture
+
+## 1. Interface-First Development
+- **Workflow:** Before creating any concrete class for a new entity, you MUST define an interface (e.g., `IEntity`, `IWeapon`).
+- **Mocking:** All logic must depend on the interface, never the concrete implementation, to allow for easy unit testing and mocking.
+- **Contract:** Interfaces should define the "behavior contract." Keep them small and focused (Interface Segregation Principle).
+
+## 2. Data-Oriented Programming (DOP)
+- **Separation:** Strictly separate **Data** (structs/POCOs) from **Logic** (Stateless Static Methods or Systems).
+- **Data Packets:** Since the game relies on packet flows, treat entities as "Data Containers." 
+- **Immutability:** Prefer `readonly struct` or `record` for data packets to ensure thread safety and predictability during flow.
+- **No Side Effects:** Logic functions should ideally be "Pure Functions" that take data as input and return modified data or a new state.
+
+## 3. General Clean Code
+- **DRY:** Extract common data manipulation logic into static "Utility" or "System" classes.
+- **Fail Fast:** Use Guard Clauses (e.g., `if (data == null) throw...`) at the start of methods.
+- **Naming:** - Interfaces: `I` prefix (e.g., `IDataProcessor`).
+  - Data structures: Suffix with `Data` or `Packet` (e.g., `PositionData`, `DamagePacket`).

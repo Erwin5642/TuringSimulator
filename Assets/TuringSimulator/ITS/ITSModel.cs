@@ -1,5 +1,5 @@
 // ITSModels.cs
-// Data classes for serialising requests to and deserialising responses
+// Data classes for serializing requests to and deserializing responses
 // from the ITS FastAPI server.
 // All classes use [System.Serializable] so JsonUtility can handle them.
 
@@ -38,11 +38,32 @@ namespace ITS
 
     // ── Responses ───────────────────────────────────────────────────────────
 
+    /// <summary>REST /event response — deserialize with Newtonsoft.Json (snake_case; see ITS.Protocol.ItsRestJson).</summary>
+    [Serializable]
+    public class EventResponseDto
+    {
+        public Dictionary<string, float> UpdatedSkills { get; set; }
+        public string Comment { get; set; }
+    }
+
+    [Serializable]
+    public class AskResponseDto
+    {
+        public string Reply { get; set; }
+    }
+
+    [Serializable]
+    public class HintResponseDto
+    {
+        public string Reply { get; set; }
+        public string SkillId { get; set; }
+        public int HintLevel { get; set; }
+    }
+
     [Serializable]
     public class EventResponse
     {
-        // JsonUtility cannot deserialise arbitrary dicts, so updated_skills
-        // is parsed manually in ITSClient from the raw JSON string.
+        // Legacy JsonUtility shape — prefer EventResponseDto + Newtonsoft for full payloads.
         public string comment;   // may be null — agent reactive comment
     }
 

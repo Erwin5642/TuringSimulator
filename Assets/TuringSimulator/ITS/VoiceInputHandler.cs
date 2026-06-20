@@ -19,9 +19,8 @@
 //   Subscribe to OnTranscriptionReady to receive the Portuguese text.
 
 using System;
+using Oculus.Voice;
 using UnityEngine;
-using Meta.WitAi;
-using Meta.WitAi.Requests;
 
 public class VoiceInputHandler : MonoBehaviour
 {
@@ -35,8 +34,10 @@ public class VoiceInputHandler : MonoBehaviour
     [Tooltip("Drag the AppVoiceExperience GameObject here.")]
     [SerializeField] private AppVoiceExperience _voiceExperience;
 
-    [Tooltip("Minimum confidence threshold to accept a transcription (0–1).")]
+#pragma warning disable CS0414
+    [Tooltip("Reserved when switching to low-level Wit APIs that expose utterance confidence.")]
     [SerializeField] [Range(0f, 1f)] private float _minConfidence = 0.55f;
+#pragma warning restore CS0414
 
     // ── Events ───────────────────────────────────────────────────────────────
 

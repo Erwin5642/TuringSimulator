@@ -31,33 +31,33 @@ namespace Tests.EditModeTests
                 .SetName("AcceptsOnlyEmptyInput_BlankAccept");
 
             // Producing output
-            yield return new TestCaseData(TestProgramFactory.ProducesSingleSymbol(Symbol.Zero), "")
-                .SetName("ProducesSingleOne_WritesZero");
+            yield return new TestCaseData(TestProgramFactory.ProducesSingleSymbol(Symbol.Gear), "")
+                .SetName("ProducesSingleSymbol_WritesGear");
             
-            yield return new TestCaseData(TestProgramFactory.ProducesSingleSymbol(Symbol.One), "")
-                .SetName("ProducesSingleOne_WritesOne");
+            yield return new TestCaseData(TestProgramFactory.ProducesSingleSymbol(Symbol.Screw), "")
+                .SetName("ProducesSingleSymbol_WritesScrew");
 
-            yield return new TestCaseData(TestProgramFactory.ProducesBinaryString("0101"), "")
-                .SetName("ProducesBinaryString_0101");
+            yield return new TestCaseData(TestProgramFactory.ProducesBinaryString("GSGS"), "")
+                .SetName("ProducesTapeString_GSGS");
 
-            yield return new TestCaseData(TestProgramFactory.InvertsBinaryAndHalts(), "0101")
-                .SetName("InvertsBinaryAndHalts_0101");
+            yield return new TestCaseData(TestProgramFactory.InvertsBinaryAndHalts(), "GSGS")
+                .SetName("InvertsGearScrew_GSGS");
 
             yield return new TestCaseData(TestProgramFactory.WritesThenMovesLeftOnce(), "")
                 .SetName("WritesThenMovesLeftOnce_HeadMovesLeft");
 
             // Language recognition
-            yield return new TestCaseData(TestProgramFactory.AcceptsBinaryWithEvenOnes(), "1010")
-                .SetName("AcceptsBinaryWithEvenOnes_1010");
+            yield return new TestCaseData(TestProgramFactory.AcceptsBinaryWithEvenOnes(), "SGSG")
+                .SetName("AcceptsEvenScrewCount_SGSG");
 
-            yield return new TestCaseData(TestProgramFactory.AcceptsBinaryWithEvenOnes(), "101")
-                .SetName("AcceptsBinaryWithEvenOnes_101");
+            yield return new TestCaseData(TestProgramFactory.AcceptsBinaryWithEvenOnes(), "SGS")
+                .SetName("AcceptsEvenScrewCount_SGS");
 
-            yield return new TestCaseData(TestProgramFactory.AcceptsOnlyBinaryPalindromes(), "10101")
-                .SetName("AcceptsOnlyBinaryPalindromes_10101");
+            yield return new TestCaseData(TestProgramFactory.AcceptsOnlyBinaryPalindromes(), "SGSGS")
+                .SetName("AcceptsPalindrome_SGSGS");
 
-            yield return new TestCaseData(TestProgramFactory.AcceptsOnlyBinaryPalindromes(), "010")
-                .SetName("AcceptsOnlyBinaryPalindromes_010");
+            yield return new TestCaseData(TestProgramFactory.AcceptsOnlyBinaryPalindromes(), "GSG")
+                .SetName("AcceptsPalindrome_GSG");
 
             // Stress / non-halting
             yield return new TestCaseData(TestProgramFactory.NeverHalts(), "")
@@ -102,35 +102,35 @@ namespace Tests.EditModeTests
             {
                 Assert.AreEqual(HaltStatus.StepLimitExceeded, status);
             }
-            else if (program == TestProgramFactory.ProducesSingleSymbol(Symbol.Zero))
+            else if (program == TestProgramFactory.ProducesSingleSymbol(Symbol.Gear))
             {
                 Assert.AreEqual(HaltStatus.Accept, status);
-                Assert.AreEqual("0", tapeOutput);
+                Assert.AreEqual("G", tapeOutput);
             }
-            else if (program == TestProgramFactory.ProducesSingleSymbol(Symbol.One))
+            else if (program == TestProgramFactory.ProducesSingleSymbol(Symbol.Screw))
             {
                 Assert.AreEqual(HaltStatus.Accept, status);
-                Assert.AreEqual("1", tapeOutput);
+                Assert.AreEqual("S", tapeOutput);
             }
-            else if (program == TestProgramFactory.ProducesBinaryString("0101"))
+            else if (program == TestProgramFactory.ProducesBinaryString("GSGS"))
             {
                 Assert.AreEqual(HaltStatus.Accept, status);
-                Assert.AreEqual("0101", tapeOutput);
+                Assert.AreEqual("GSGS", tapeOutput);
             }
             else if (program == TestProgramFactory.InvertsBinaryAndHalts())
             {
                 Assert.AreEqual(HaltStatus.Accept, status);
-                // Example: input "0101" → output "1010"
-                Assert.AreEqual("1010", tapeOutput);
+                // input GSGS → SGSG (gear ↔ screw)
+                Assert.AreEqual("SGSG", tapeOutput);
             }
             else if (program == TestProgramFactory.WritesThenMovesLeftOnce())
             {
                 Assert.AreEqual(HaltStatus.Accept, status);
-                Assert.AreEqual("1", tapeOutput);
+                Assert.AreEqual("S", tapeOutput);
             }
             else if (program == TestProgramFactory.AcceptsBinaryWithEvenOnes())
             {
-                if (input.Count(c => c == '1') % 2 == 0)
+                if (input.Count(c => char.ToUpperInvariant(c) == 'S') % 2 == 0)
                     Assert.AreEqual(HaltStatus.Accept, status);
                 else
                     Assert.AreNotEqual(HaltStatus.Accept, status);

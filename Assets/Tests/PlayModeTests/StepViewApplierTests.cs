@@ -25,7 +25,7 @@ namespace Tests.PlayModeTests
             _buffer.Clear();
             
             _ = _engine.RunSimulationAsync(
-                TestProgramFactory.ProducesBinaryString("010110101"),
+                TestProgramFactory.ProducesBinaryString("GSGSGSGSG"),
                 _simulationTape,
                 _buffer,
                 CancellationToken.None);

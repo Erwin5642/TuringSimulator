@@ -15,6 +15,7 @@ MonoBehaviour:
   title: "Transforma\xE7\xE3o"
   description: "A M\xE1quina de Turing consegue transformar entradas em sa\xEDdas
     de acordo com as condi\xE7\xF5es"
+  levelId: ReplaceAllWithNuts
   mainTest: {fileID: 11400000, guid: 02e397e956475814d872570aab910898, type: 2}
   validationTests:
   - {fileID: 11400000, guid: b19d6a1e4004fed429b395625f800c23, type: 2}

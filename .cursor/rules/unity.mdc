@@ -1,0 +1,29 @@
+---
+description: Standards for Unity C# development, MonoBehaviour lifecycle, and component architecture.
+globs: Assets/**/*.cs
+alwaysApply: true
+---
+
+# Unity C# Development Standards
+
+## 1. Naming & Style
+- **Classes/Files:** Use PascalCase (e.g., `PlayerController.cs`).
+- **Private Fields:** Use camelCase with an underscore prefix (e.g., `private int _health;`).
+- **Public/Protected Fields:** Use PascalCase (e.g., `public float MoveSpeed;`).
+- **Methods:** Use PascalCase and start with a verb (e.g., `CalculateDamage()`).
+- **Serialized Fields:** Always use `[SerializeField]` for private variables that need Inspector access.
+
+## 2. Performance & Lifecycle
+- **No Heavy Operations in Update:** Avoid `GetComponent`, `Find`, or `GameObject.FindWithTag` inside `Update()`, `FixedUpdate()`, or `LateUpdate()`. Cache references in `Awake()` or `Start()`.
+- **String Comparisons:** Use `CompareTag("Player")` instead of `tag == "Player"`.
+- **Null Checks:** For Unity Objects, use the standard `if (object != null)` but be aware of the "fake null" behavior. For hot paths, consider `System.Object.ReferenceEquals`.
+
+## 3. Modern Unity Patterns (2026)
+- **Input System:** Use the New Input System (Input Actions) exclusively. Avoid `Input.GetKey`.
+- **Async:** Use `UniTask` or `Awaitable` (Unity 2023.1+) instead of traditional Coroutines where possible.
+- **UI:** Prefer **UI Toolkit** for editor tools and **UGUI** for complex world-space UI.
+
+## 4. Attributes
+- Use `[RequireComponent(typeof(T))]` to enforce dependencies.
+- Use `[Header("Section")]` and `[Tooltip("Info")]` to organize the Inspector.
+- Use `[SelectionBase]` for root GameObjects of prefabs.

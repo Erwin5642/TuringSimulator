@@ -13,7 +13,11 @@ namespace TuringSimulator.Controller
 
         public IProgram Current => _current;
 
+        public bool CanEdit => !_blockEdition;
+
         public event Action<IProgram> OnProgramChanged;
+
+        public event Action<bool> EditingAvailabilityChanged;
 
         public ProgramEditController()
         {
@@ -57,17 +61,27 @@ namespace TuringSimulator.Controller
             Rebuild();
         }
 
+        public void ReplaceProgramBuilder(TableProgramBuilder newBuilder)
+        {
+            if (_blockEdition)
+                return;
+            if (newBuilder == null)
+                throw new ArgumentNullException(nameof(newBuilder));
+            _builder = newBuilder;
+            Rebuild();
+        }
+
         public void Enable()
         {
             _blockEdition = false;
-            
+            EditingAvailabilityChanged?.Invoke(true);
             Rebuild();
         }
 
         public void Disable()
         {
             _blockEdition = true;
-            
+            EditingAvailabilityChanged?.Invoke(false);
             Rebuild();
         }
 

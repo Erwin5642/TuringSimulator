@@ -1,0 +1,23 @@
+---
+description: Standards for VR/AR development using the XR Interaction Toolkit (XRI).
+globs: Assets/TuringSimulator/XR/**/*.cs, Assets/Scripts/Interactions/**/*.cs
+---
+
+# XR Interaction Toolkit (XRI) Standards
+
+## 1. Input Handling
+- **Action-Based Only:** Always use Action-Based components. Avoid the deprecated Device-Based approach.
+- **Input Action References:** Access inputs via `InputActionProperty` or `InputActionReference`. Do not hardcode button strings.
+
+## 2. Interaction Logic
+- **Interfaces:** Prefer using XRI interfaces like `IXRInteractable`, `IXRInteractor`, and `IXRSelectInteractable` for custom logic.
+- **Events:** Use `base.OnSelectEntered(SelectEnterEventArgs args)` and similar overrides when extending XRI classes.
+- **Haptics:** When triggers or interactions occur, remind to implement `SendHapticImpulse()` for user feedback.
+
+## 3. Spatial Mathematics
+- **Transformations:** Use `InverseTransformPoint` and `TransformPoint` for local-to-world conversions during grabbing/snapping.
+- **Physics:** Ensure `Rigidbody` settings for interactables are set correctly (e.g., `isKinematic` for attached objects).
+
+## 4. Optimization
+- **Raycasts:** Be mindful of Raycast length and frequency for XR Interactors.
+- **Gaze Interaction:** Use `XRGazeInteractor` specific logic for eye-tracking features.

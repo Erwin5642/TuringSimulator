@@ -14,6 +14,7 @@
 // exercised by each game event. Adjust them if your game tracks
 // more granular information (e.g. which specific block type failed).
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using ITS;
@@ -67,6 +68,29 @@ public class SkillTracker : MonoBehaviour
     // ── Game event handlers ───────────────────────────────────────────────────
 
     /// <summary>
+    /// Table-driven TM flow: sends coarse ProgramFail when simulation halts without passing validation tests.
+    /// </summary>
+    public void OnSimulationValidationFailedCoarse()
+    {
+        if (!Ready()) return;
+
+        var skills = new List<string>
+        {
+            SkillID.PlaceWire,
+            SkillID.ConnectPort,
+            SkillID.MoveLeftRight,
+            SkillID.ConditionBlock
+        };
+
+        ITSClient.Instance.SendEvent(
+            StudentId,
+            _currentLevelId,
+            ITS.EventType.ProgramFail,
+            correct: false,
+            skills.ToArray());
+    }
+
+    /// <summary>
     /// Call from ProgramRunner when the player presses Run.
     /// programCorrect = true if the program is structurally valid
     /// (all ports wired, no dangling connections) before execution.
@@ -80,7 +104,7 @@ public class SkillTracker : MonoBehaviour
 
         ITSClient.Instance.SendEvent(
             StudentId, _currentLevelId,
-            EventType.ProgramRun,
+            ITS.EventType.ProgramRun,
             programCorrect,
             skills.ToArray()
         );
@@ -99,7 +123,7 @@ public class SkillTracker : MonoBehaviour
 
         ITSClient.Instance.SendEvent(
             StudentId, _currentLevelId,
-            EventType.ProgramSuccess,
+            ITS.EventType.ProgramSuccess,
             correct: true,
             skills.ToArray()
         );
@@ -117,7 +141,7 @@ public class SkillTracker : MonoBehaviour
 
         ITSClient.Instance.SendEvent(
             StudentId, _currentLevelId,
-            EventType.ProgramFail,
+            ITS.EventType.ProgramFail,
             correct: false,
             skills.ToArray()
         );
@@ -136,9 +160,9 @@ public class SkillTracker : MonoBehaviour
 
         ITSClient.Instance.SendEvent(
             StudentId, _currentLevelId,
-            EventType.LevelComplete,
+            ITS.EventType.LevelComplete,
             correct: true,
-            skills.ToArray()
+            skills
         );
 
         OnLevelCompleteAnimEvent?.Invoke();

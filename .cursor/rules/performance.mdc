@@ -1,0 +1,10 @@
+---
+description: Optimization rules for CPU-heavy or high-frequency code.
+---
+
+# Unity Performance Optimization
+
+- **Memory:** Avoid allocating memory (using `new`) inside loops or `Update`. Use **Object Pooling** for projectiles, particles, and enemies.
+- **Loops:** Use `for` instead of `foreach` for large collections to avoid iterator allocations.
+- **Physics:** All physics modifications must happen in `FixedUpdate`.
+- **Math:** Use `sqrMagnitude` instead of `Vector3.Distance` when comparing distances to save on square root calculations.

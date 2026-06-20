@@ -50,8 +50,9 @@ namespace Tests.EditModeTests.Mocks
         {
             var builder = new TableProgramBuilder(startState: 0);
             return builder
-                .AddTransition(0, Symbol.Zero, new Transition(0, Symbol.Zero, MoveDirection.Stay))
-                .AddTransition(0, Symbol.One, new Transition(0, Symbol.One, MoveDirection.Stay))
+                .AddTransition(0, Symbol.Gear, new Transition(0, Symbol.Gear, MoveDirection.Stay))
+                .AddTransition(0, Symbol.Nut, new Transition(0, Symbol.Nut, MoveDirection.Stay))
+                .AddTransition(0, Symbol.Screw, new Transition(0, Symbol.Screw, MoveDirection.Stay))
                 .AddTransition(0, Symbol.Blank, new Transition(0, Symbol.Blank, MoveDirection.Stay))
                 .Build();
         }
@@ -63,8 +64,9 @@ namespace Tests.EditModeTests.Mocks
         {
             var builder = new TableProgramBuilder(startState: 0);
             return builder
-                .AddTransition(0, Symbol.Zero, new Transition(0, Symbol.Zero, MoveDirection.Right))
-                .AddTransition(0, Symbol.One, new Transition(0, Symbol.One, MoveDirection.Right))
+                .AddTransition(0, Symbol.Gear, new Transition(0, Symbol.Gear, MoveDirection.Right))
+                .AddTransition(0, Symbol.Nut, new Transition(0, Symbol.Nut, MoveDirection.Right))
+                .AddTransition(0, Symbol.Screw, new Transition(0, Symbol.Screw, MoveDirection.Right))
                 .AddTransition(0, Symbol.Blank, new Transition(0, Symbol.Blank, MoveDirection.Right))
                 .Build();
         }
@@ -86,12 +88,9 @@ namespace Tests.EditModeTests.Mocks
         }
 
         /// <summary>
-        /// Writes the given binary string on a blank tape and halts.
+        /// Writes the given tape string on a blank tape and halts.
         /// </summary>
-        /// <param name="str">Binary string to write (only '0' and '1').</param>
-        /// <returns>A halting program that writes <paramref name="str"/>.</returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="str"/> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="str"/> contains characters other than '0' or '1'.</exception>
+        /// <param name="str">Characters G/g (gear), N/n (nut), S/s (screw).</param>
         public static IProgram ProducesBinaryString(string str)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
@@ -99,13 +98,7 @@ namespace Tests.EditModeTests.Mocks
             var builder = new TableProgramBuilder(startState: 0);
             int currentState = 0;
 
-            foreach (var symbolToWrite in str.Select(c => c switch
-            {
-                '0' => Symbol.Zero,
-                '1' => Symbol.One,
-                _ => throw new ArgumentException(
-                    $"Invalid character '{c}'. Only '0' and '1' are allowed.", nameof(str))
-            }))
+            foreach (var symbolToWrite in str.Select(ParseTapeChar))
             {
                 builder.AddTransition(
                     currentState, Symbol.Blank,
@@ -119,16 +112,26 @@ namespace Tests.EditModeTests.Mocks
             return builder.Build();
         }
 
+        static Symbol ParseTapeChar(char c) => char.ToUpperInvariant(c) switch
+        {
+            'G' => Symbol.Gear,
+            'N' => Symbol.Nut,
+            'S' => Symbol.Screw,
+            _ => throw new ArgumentException(
+                $"Invalid character '{c}'. Use G (gear), N (nut), or S (screw).")
+        };
+
         /// <summary>
-        /// Inverts binary symbols (0 ↔ 1) on the tape and halts.
+        /// Inverts gear ↔ screw on the tape (nut unchanged) and halts.
         /// </summary>
         public static IProgram InvertsBinaryAndHalts()
         {
             var builder = new TableProgramBuilder(startState: 0);
             return builder
                 .AddFinalState(1)
-                .AddTransition(0, Symbol.Zero, new Transition(0, Symbol.One, MoveDirection.Right))
-                .AddTransition(0, Symbol.One, new Transition(0, Symbol.Zero, MoveDirection.Right))
+                .AddTransition(0, Symbol.Gear, new Transition(0, Symbol.Screw, MoveDirection.Right))
+                .AddTransition(0, Symbol.Screw, new Transition(0, Symbol.Gear, MoveDirection.Right))
+                .AddTransition(0, Symbol.Nut, new Transition(0, Symbol.Nut, MoveDirection.Right))
                 .AddTransition(0, Symbol.Blank, new Transition(1, Symbol.Blank, MoveDirection.Stay))
                 .Build();
         }
@@ -136,14 +139,14 @@ namespace Tests.EditModeTests.Mocks
         // ───────── Tape / Movement Programs ─────────
 
         /// <summary>
-        /// Writes '1', moves right, then moves left once, then halts.
+        /// Writes screw, moves right, then moves left once, then halts.
         /// </summary>
         public static IProgram WritesThenMovesLeftOnce()
         {
             var builder = new TableProgramBuilder(startState: 0);
             return builder
                 .AddFinalState(2)
-                .AddTransition(0, Symbol.Blank, new Transition(1, Symbol.One, MoveDirection.Right))
+                .AddTransition(0, Symbol.Blank, new Transition(1, Symbol.Screw, MoveDirection.Right))
                 .AddTransition(1, Symbol.Blank, new Transition(2, Symbol.Blank, MoveDirection.Left))
                 .Build();
         }
@@ -151,7 +154,7 @@ namespace Tests.EditModeTests.Mocks
         // ───────── Language Recognition Programs ─────────
 
         /// <summary>
-        /// Accepts binary strings with an even number of '1's.
+        /// Accepts tapes with an even number of screws (S); gear/nut do not toggle parity.
         /// </summary>
         public static IProgram AcceptsBinaryWithEvenOnes()
         {
@@ -160,19 +163,21 @@ namespace Tests.EditModeTests.Mocks
             return builder
                 // Even state
                 .AddFinalState(0)
-                .AddTransition(0, Symbol.One, new Transition(1, Symbol.One, MoveDirection.Right))
-                .AddTransition(0, Symbol.Zero, new Transition(0, Symbol.Zero, MoveDirection.Right))
+                .AddTransition(0, Symbol.Screw, new Transition(1, Symbol.Screw, MoveDirection.Right))
+                .AddTransition(0, Symbol.Gear, new Transition(0, Symbol.Gear, MoveDirection.Right))
+                .AddTransition(0, Symbol.Nut, new Transition(0, Symbol.Nut, MoveDirection.Right))
                 .AddTransition(0, Symbol.Blank, new Transition(0, Symbol.Blank, MoveDirection.Stay))
 
                 // Odd state
-                .AddTransition(1, Symbol.One, new Transition(0, Symbol.One, MoveDirection.Right))
-                .AddTransition(1, Symbol.Zero, new Transition(1, Symbol.Zero, MoveDirection.Right))
+                .AddTransition(1, Symbol.Screw, new Transition(0, Symbol.Screw, MoveDirection.Right))
+                .AddTransition(1, Symbol.Gear, new Transition(1, Symbol.Gear, MoveDirection.Right))
+                .AddTransition(1, Symbol.Nut, new Transition(1, Symbol.Nut, MoveDirection.Right))
                 .AddTransition(1, Symbol.Blank, new Transition(1, Symbol.Blank, MoveDirection.Stay))
                 .Build();
         }
 
         /// <summary>
-        /// Accepts only binary palindromes.
+        /// Accepts only palindromes over gear and screw (two-symbol alphabet).
         /// </summary>
         public static IProgram AcceptsOnlyBinaryPalindromes()
         {
@@ -181,22 +186,22 @@ namespace Tests.EditModeTests.Mocks
             return b
                 .AddFinalState(6)
                 // Scan left → right
-                .AddTransition(0, Symbol.Zero, new Transition(1, Symbol.Mark, MoveDirection.Right))
-                .AddTransition(0, Symbol.One, new Transition(2, Symbol.Mark, MoveDirection.Right))
+                .AddTransition(0, Symbol.Gear, new Transition(1, Symbol.Mark, MoveDirection.Right))
+                .AddTransition(0, Symbol.Screw, new Transition(2, Symbol.Mark, MoveDirection.Right))
                 .AddTransition(0, Symbol.Blank, new Transition(6, Symbol.Blank, MoveDirection.Stay))
-                // Find matching 0
-                .AddTransition(1, Symbol.Zero, new Transition(1, Symbol.Zero, MoveDirection.Right))
-                .AddTransition(1, Symbol.One, new Transition(1, Symbol.One, MoveDirection.Right))
+                // Find matching gear
+                .AddTransition(1, Symbol.Gear, new Transition(1, Symbol.Gear, MoveDirection.Right))
+                .AddTransition(1, Symbol.Screw, new Transition(1, Symbol.Screw, MoveDirection.Right))
                 .AddTransition(1, Symbol.Blank, new Transition(3, Symbol.Blank, MoveDirection.Left))
-                .AddTransition(3, Symbol.Zero, new Transition(4, Symbol.Mark, MoveDirection.Left))
-                // Find matching 1
-                .AddTransition(2, Symbol.Zero, new Transition(2, Symbol.Zero, MoveDirection.Right))
-                .AddTransition(2, Symbol.One, new Transition(2, Symbol.One, MoveDirection.Right))
+                .AddTransition(3, Symbol.Gear, new Transition(4, Symbol.Mark, MoveDirection.Left))
+                // Find matching screw
+                .AddTransition(2, Symbol.Gear, new Transition(2, Symbol.Gear, MoveDirection.Right))
+                .AddTransition(2, Symbol.Screw, new Transition(2, Symbol.Screw, MoveDirection.Right))
                 .AddTransition(2, Symbol.Blank, new Transition(5, Symbol.Blank, MoveDirection.Left))
-                .AddTransition(5, Symbol.One, new Transition(4, Symbol.Mark, MoveDirection.Left))
+                .AddTransition(5, Symbol.Screw, new Transition(4, Symbol.Mark, MoveDirection.Left))
                 // Return to start
-                .AddTransition(4, Symbol.Zero, new Transition(4, Symbol.Zero, MoveDirection.Left))
-                .AddTransition(4, Symbol.One, new Transition(4, Symbol.One, MoveDirection.Left))
+                .AddTransition(4, Symbol.Gear, new Transition(4, Symbol.Gear, MoveDirection.Left))
+                .AddTransition(4, Symbol.Screw, new Transition(4, Symbol.Screw, MoveDirection.Left))
                 .AddTransition(4, Symbol.Mark, new Transition(0, Symbol.Mark, MoveDirection.Right))
                 .Build();
         }

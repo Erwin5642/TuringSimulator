@@ -1,11 +1,11 @@
 ﻿using System;
-using System.Threading;
 using TuringSimulator.Controller;
 using TuringSimulator.Controller.Syncronizer;
 using TuringSimulator.Core.Tape;
 using UnityEngine;
 using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.Core.Types;
+using ITS;
 
 namespace TuringSimulator.GameFlow
 {
@@ -13,13 +13,13 @@ namespace TuringSimulator.GameFlow
     public class ControllerPrefabs
     {
         public GameObject input;
+        public ProgramWorkbench programWorkbench;
     }
     
     public sealed class ControllerInstaller 
     {
         private readonly ModelInstaller _model;
         private readonly ViewInstaller _view;
-        private readonly CancellationToken _lifetime;
         
         // Controller prefabs
         
@@ -33,13 +33,17 @@ namespace TuringSimulator.GameFlow
         
         public ControllerPrefabs Prefabs { get; set; }
 
-        public ControllerInstaller(ControllerPrefabs prefabs, ModelInstaller model, ViewInstaller view, CancellationToken lifetime)
+        private readonly ProgramWorkbench _workbench;
+
+        public ControllerInstaller(ControllerPrefabs prefabs, ModelInstaller model, ViewInstaller view)
         {
             _model = model ?? throw new ArgumentNullException(nameof(model));
             _view = view ?? throw new ArgumentNullException(nameof(view));
             Prefabs = prefabs ?? throw new ArgumentNullException(nameof(prefabs));
-            _lifetime = lifetime;
+            _workbench = prefabs.programWorkbench;
         }
+
+        public ProgramWorkbench Workbench => _workbench;
         
         public void Install()
         {
@@ -48,6 +52,8 @@ namespace TuringSimulator.GameFlow
             ProgramEdit = new ProgramEditController();
             GameFlowController = new GameFlowController(_model, _view, this);
             PlayerInputCatcher = UnityEngine.Object.Instantiate(Prefabs.input).GetComponent<PlayerInputCatcher>();
+
+            _workbench?.Initialize(ProgramEdit);
             
             PlayerInputCatcher.OnStartRequest += GameFlowController.Run;
             PlayerInputCatcher.OnPauseRequest += Playback.Pause;
@@ -64,6 +70,7 @@ namespace TuringSimulator.GameFlow
 
             Playback.OnStep += result =>
             {
+                LiveTutorSocket.Instance?.SendPlaybackStep(result);
                 Debug.Log("[Event] OnStep triggered");
                 if (result.Kind == ResultKind.Halt) GameFlowController.Halt();
             };
@@ -82,6 +89,17 @@ namespace TuringSimulator.GameFlow
                 
                 _view.LevelUI.SetLevelTitle(level.title);
                 _view.LevelUI.SetLevelDescription(level.description);
+
+                var levelId = string.IsNullOrWhiteSpace(level.levelId)
+                    ? ITS.LevelID.MoveLeftRight     
+                    : level.levelId;
+                SkillTracker.Instance?.OnLevelLoaded(levelId);
+
+                LiveTutorSocket.Instance?.SendLevelSnapshot(
+                    level.title,
+                    level.description,
+                    test.initialSymbols,
+                    test.headIndex);
             };
         }
     }

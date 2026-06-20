@@ -4,7 +4,10 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "TuringSimulator.Core"
+        "TuringSimulator.Core",
+        "GUID:cbfd5ab04ba58ca42918461a564647fc",
+        "TuringSimulator.ITS",
+        "Newtonsoft.Json"
     ],
     "includePlatforms": [
         "Editor"

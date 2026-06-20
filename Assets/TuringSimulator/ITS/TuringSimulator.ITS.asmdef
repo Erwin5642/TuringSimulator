@@ -1,0 +1,22 @@
+{
+    "name": "TuringSimulator.ITS",
+    "rootNamespace": "",
+    "references": [
+        "GUID:bcffb3c7c4ebf1f4c9bcd1e489cb78df",
+        "GUID:4504b1a6e0fdcc3498c30b266e4a63bf",
+        "GUID:e545cc0678493234a9368f4e470c29e8",
+        "Newtonsoft.Json",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
