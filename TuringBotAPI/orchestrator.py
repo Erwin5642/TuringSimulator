@@ -16,48 +16,68 @@ import os
 import time
 from typing import Optional
 
-import google.generativeai as genai
 from dotenv import load_dotenv
 
 from domain.concepts import CONCEPT_MAP
 from domain.hints import HINT_FOREST, HintLevel, get_hint_template
 from student_model import STUDENT_MODEL
+from tutor_provider import (
+    TutorProvider,
+    TutorProviderUnavailable,
+    build_tutor_provider,
+)
 
 load_dotenv()
 
 _log = logging.getLogger("orchestrator")
 
-# ── Gemini setup ────────────────────────────────────────────────────────────
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-
-_MODEL_NAME  = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 _AGENT_NAME  = os.getenv("AGENT_NAME", "MarquinhosDoGrau")
-_gemini      = genai.GenerativeModel(_MODEL_NAME)
+_provider: TutorProvider = build_tutor_provider()
 
 
-async def _timed_gemini_generate(parts: list, context: str) -> str:
+def tutor_provider_name() -> str:
+    """Return the active provider name for health/debug diagnostics."""
+
+    return _provider.name
+
+
+async def _timed_tutor_generate(
+    parts: list,
+    context: str,
+    fallback: str,
+) -> str:
     t0 = time.perf_counter()
     try:
-        response = await _gemini.generate_content_async(
-            [{"role": "user", "parts": parts}]
-        )
+        response = await _provider.generate("\n\n".join(parts), context)
         ms = (time.perf_counter() - t0) * 1000.0
         _log.info(
-            "gemini_ok ctx=%s latency_ms=%.1f",
+            "tutor_ok provider=%s ctx=%s latency_ms=%.1f",
+            _provider.name,
             context,
             ms,
             extra={"latency_ms": round(ms, 2)},
         )
-        return response.text
+        return response
+    except TutorProviderUnavailable as exc:
+        ms = (time.perf_counter() - t0) * 1000.0
+        _log.warning(
+            "tutor_fallback provider=%s ctx=%s reason=%s latency_ms=%.1f",
+            _provider.name,
+            context,
+            exc,
+            ms,
+        )
+        return fallback
     except Exception:
         ms = (time.perf_counter() - t0) * 1000.0
         _log.exception(
-            "gemini_fail ctx=%s latency_ms=%.1f",
+            "tutor_fallback provider=%s ctx=%s latency_ms=%.1f",
+            _provider.name,
             context,
             ms,
             extra={"latency_ms": round(ms, 2)},
         )
-        raise
+        return fallback
 
 
 # ── Prompt constants ────────────────────────────────────────────────────────
@@ -247,9 +267,11 @@ async def generate_ask_response(
     ])
 
     prompt = f"Student question: {question}"
-    return await _timed_gemini_generate(
+    return await _timed_tutor_generate(
         [system + "\n\n" + prompt],
         "ask",
+        "The tutor signal is offline. Trace the current symbol and follow "
+        "the wire one block at a time.",
     )
 
 
@@ -288,7 +310,11 @@ async def generate_hint_response(
         ),
     ])
 
-    response_text = await _timed_gemini_generate([system], "hint")
+    response_text = await _timed_tutor_generate(
+        [system],
+        "hint",
+        template,
+    )
     return {
         "reply"      : response_text,
         "skill_id"   : chosen_skill,
@@ -327,4 +353,9 @@ async def generate_event_comment(
         prompt_extra,
     ])
 
-    return await _timed_gemini_generate([system], "event_comment")
+    fallback = (
+        "Excellent work, trainee! The factory cycle is complete."
+        if event_type == "level_complete"
+        else "Pause and trace the active wire again before changing the circuit."
+    )
+    return await _timed_tutor_generate([system], "event_comment", fallback)

@@ -61,6 +61,12 @@ namespace ITS
     }
 
     [Serializable]
+    public class SessionNewResponseDto
+    {
+        public string StudentId { get; set; }
+    }
+
+    [Serializable]
     public class EventResponse
     {
         // Legacy JsonUtility shape — prefer EventResponseDto + Newtonsoft for full payloads.

@@ -279,7 +279,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 13.1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 2125000001}
   m_Father: {fileID: 668754850}
   m_LocalEulerAnglesHint: {x: 100, y: 0, z: 0}
 --- !u!114 &299639870
@@ -2333,6 +2334,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2119072312}
   - component: {fileID: 2119072313}
+  - component: {fileID: 2119072314}
   m_Layer: 0
   m_Name: SimulationRoot
   m_TagString: Untagged
@@ -2367,6 +2369,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae26896ce3b547f18fcf347de0e77a46, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  viewSceneBindings: {fileID: 0}
+  controllerSceneBindings: {fileID: 0}
   viewPrefabs:
     machine: {fileID: 3530154216776541221, guid: 63b069509ef60cf408278756ab4b47a2,
       type: 3}
@@ -2378,6 +2382,136 @@ MonoBehaviour:
     input: {fileID: 7504894180890597411, guid: dabfc76d53a157749a10d1ec25bcf1fd, type: 3}
     programWorkbench: {fileID: 0}
   levelDatabase: {fileID: 11400000, guid: 8e4377e592321854693192b42739f296, type: 2}
+  itsClient: {fileID: 2125000002}
+  skillTracker: {fileID: 2125000003}
+  agentTTS: {fileID: 0}
+  agentDialogue: {fileID: 2125000005}
+  liveTutorSocket: {fileID: 2125000004}
+  autoStartOnAwake: 1
+  dontDestroyRoot: 1
+--- !u!114 &2119072314
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119072311}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e3b1c0d9a2f84c5a4d1f2b8e6f7a9c0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bootstrap: {fileID: 2119072313}
+  levelDatabase: {fileID: 11400000, guid: 8e4377e592321854693192b42739f296, type: 2}
+  programWorkbench: {fileID: 0}
+  cardDrawer: {fileID: 0}
+  itsClient: {fileID: 2125000002}
+  skillTracker: {fileID: 2125000003}
+  agentDialogue: {fileID: 2125000005}
+  liveTutorSocket: {fileID: 2125000004}
+  logWarningsOnStart: 1
+  requiredScenarioCount: 10
+--- !u!1 &2125000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2125000001}
+  - component: {fileID: 2125000002}
+  - component: {fileID: 2125000003}
+  - component: {fileID: 2125000004}
+  - component: {fileID: 2125000005}
+  m_Layer: 0
+  m_Name: TutorSystems
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2125000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2119072312}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2125000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5bda7f1c7044fc5988d3ad59ab62acb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _baseUrl: http://localhost:8000
+  _timeoutSeconds: 10
+--- !u!114 &2125000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e82f449686b47aaa842874274747a77, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _studentId:
+--- !u!114 &2125000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8d42e19c7ab401d9e3b6543210fedaa, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  wsUrl: ws://localhost:8000/ws/live
+  connectOnStart: 1
+--- !u!114 &2125000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3377ed6dcfaa48c393f7c698ca31cb98, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _bubbleRoot: {fileID: 0}
+  _bubbleText: {fileID: 0}
+  _typewriterSpeed: 40
+  _autoDismissAfter: 7
+  _micButton: {fileID: 0}
+  _micActiveIndicator: {fileID: 0}
+  _partialLabel: {fileID: 0}
+  _askPanelRoot: {fileID: 0}
+  _askInput: {fileID: 0}
+  _askSendButton: {fileID: 0}
+  _askCancelButton: {fileID: 0}
+  _hintButton: {fileID: 0}
+  _loadingIndicator: {fileID: 0}
 --- !u!1 &2120581488
 GameObject:
   m_ObjectHideFlags: 0

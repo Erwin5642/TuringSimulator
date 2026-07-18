@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5b1a08f42e745f5b85c62724f954963, type: 3}
   m_Name: Level 1 BackgroundTest 2
   m_EditorClassIdentifier: 
+  scenarioId: append_screw_screw_guard
   headIndex: 0
   initialSymbols: 04000000
   expectedHeadIndex: 1

@@ -209,8 +209,16 @@ public class AgentDialogue : MonoBehaviour
         if (_partialLabel != null) _partialLabel.text = "";
 
         // Send the transcribed Portuguese text to the ITS server as a question
-        string studentId = SkillTracker.Instance?.StudentId ?? "student_default";
+        string studentId = SkillTracker.Instance != null && SkillTracker.Instance.HasActiveSession
+            ? SkillTracker.Instance.StudentId
+            : "";
         string levelId   = SkillTracker.Instance?.GetCurrentLevelId() ?? "";
+        if (string.IsNullOrWhiteSpace(studentId))
+        {
+            SetThinking(false);
+            SayAndSpeak("Inicie uma nova sessão no menu antes de conversar comigo.");
+            return;
+        }
 
         ITSClient.Instance?.Ask(studentId, levelId, text);
     }
@@ -223,8 +231,16 @@ public class AgentDialogue : MonoBehaviour
         AgentTTS.Instance?.Stop();
         SetThinking(true);
 
-        string studentId = SkillTracker.Instance?.StudentId ?? "student_default";
+        string studentId = SkillTracker.Instance != null && SkillTracker.Instance.HasActiveSession
+            ? SkillTracker.Instance.StudentId
+            : "";
         string levelId   = SkillTracker.Instance?.GetCurrentLevelId() ?? "";
+        if (string.IsNullOrWhiteSpace(studentId))
+        {
+            SetThinking(false);
+            SayAndSpeak("Inicie uma nova sessão no menu antes de pedir uma dica.");
+            return;
+        }
 
         ITSClient.Instance?.RequestHint(studentId, levelId, null);
     }
@@ -263,8 +279,16 @@ public class AgentDialogue : MonoBehaviour
         CloseAskPanel();
         SetThinking(true);
 
-        string studentId = SkillTracker.Instance?.StudentId ?? "student_default";
+        string studentId = SkillTracker.Instance != null && SkillTracker.Instance.HasActiveSession
+            ? SkillTracker.Instance.StudentId
+            : "";
         string levelId   = SkillTracker.Instance?.GetCurrentLevelId() ?? "";
+        if (string.IsNullOrWhiteSpace(studentId))
+        {
+            SetThinking(false);
+            SayAndSpeak("Inicie uma nova sessão no menu antes de enviar perguntas.");
+            return;
+        }
 
         ITSClient.Instance?.Ask(studentId, levelId, question);
     }
