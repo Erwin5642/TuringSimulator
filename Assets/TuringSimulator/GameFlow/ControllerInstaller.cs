@@ -3,7 +3,6 @@ using TuringSimulator.Controller;
 using TuringSimulator.Controller.Syncronizer;
 using TuringSimulator.Core.Level;
 using TuringSimulator.Core.Program;
-using TuringSimulator.Core.Tape;
 using UnityEngine;
 using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.Core.Types;
@@ -17,6 +16,13 @@ namespace TuringSimulator.GameFlow
     {
         public PlayerInputCatcher input;
         public ProgramWorkbench programWorkbench;
+
+        [Header("Event Channels")]
+        public RunRequestedEventChannel runRequestedChannel;
+        public LevelLoadedEventChannel levelLoadedChannel;
+        public ProgramChangedEventChannel programChangedChannel;
+        public PlaybackStepEventChannel playbackStepChannel;
+        public HaltReachedEventChannel haltReachedChannel;
     }
 
     [Serializable]
@@ -24,6 +30,13 @@ namespace TuringSimulator.GameFlow
     {
         public GameObject input;
         public ProgramWorkbench programWorkbench;
+
+        [Header("Optional Event Channels")]
+        public RunRequestedEventChannel runRequestedChannel;
+        public LevelLoadedEventChannel levelLoadedChannel;
+        public ProgramChangedEventChannel programChangedChannel;
+        public PlaybackStepEventChannel playbackStepChannel;
+        public HaltReachedEventChannel haltReachedChannel;
     }
     
     public sealed class ControllerInstaller 
@@ -46,6 +59,12 @@ namespace TuringSimulator.GameFlow
         readonly bool _useSceneBindings;
 
         private readonly ProgramWorkbench _workbench;
+        private readonly RunRequestedEventChannel _runRequestedChannel;
+        private readonly LevelLoadedEventChannel _levelLoadedChannel;
+        private readonly ProgramChangedEventChannel _programChangedChannel;
+        private readonly PlaybackStepEventChannel _playbackStepChannel;
+        private readonly HaltReachedEventChannel _haltReachedChannel;
+        private readonly ILevelLoadedActionHandler[] _levelLoadedHandlers;
         private int _playbackStepIndex = -1;
 
         public ControllerInstaller(ControllerPrefabs prefabs, ModelInstaller model, ViewInstaller view)
@@ -54,6 +73,12 @@ namespace TuringSimulator.GameFlow
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _prefabs = prefabs ?? throw new ArgumentNullException(nameof(prefabs));
             _workbench = prefabs.programWorkbench;
+            _runRequestedChannel = prefabs.runRequestedChannel;
+            _levelLoadedChannel = prefabs.levelLoadedChannel;
+            _programChangedChannel = prefabs.programChangedChannel;
+            _playbackStepChannel = prefabs.playbackStepChannel;
+            _haltReachedChannel = prefabs.haltReachedChannel;
+            _levelLoadedHandlers = BuildLevelLoadedHandlers();
             _useSceneBindings = false;
         }
 
@@ -63,6 +88,12 @@ namespace TuringSimulator.GameFlow
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _scene = sceneBindings ?? throw new ArgumentNullException(nameof(sceneBindings));
             _workbench = sceneBindings.programWorkbench;
+            _runRequestedChannel = sceneBindings.runRequestedChannel;
+            _levelLoadedChannel = sceneBindings.levelLoadedChannel;
+            _programChangedChannel = sceneBindings.programChangedChannel;
+            _playbackStepChannel = sceneBindings.playbackStepChannel;
+            _haltReachedChannel = sceneBindings.haltReachedChannel;
+            _levelLoadedHandlers = BuildLevelLoadedHandlers();
             _useSceneBindings = true;
         }
 
@@ -84,6 +115,8 @@ namespace TuringSimulator.GameFlow
             {
                 PlayerInputCatcher = UnityEngine.Object.Instantiate(_prefabs.input).GetComponent<PlayerInputCatcher>();
             }
+
+            ValidateEventChannelWiring();
 
             _workbench?.Initialize(ProgramEdit);
             
@@ -118,6 +151,7 @@ namespace TuringSimulator.GameFlow
                 program?.States?.Count ?? 0,
                 program?.FinalStates?.Count ?? 0);
             EventTraceLog.Record(nameof(ProgramChangedEventData), eventData.ToString(), _workbench);
+            _programChangedChannel?.Raise(eventData, _workbench);
         }
 
         void HandlePlaybackStep(StepResult result)
@@ -128,6 +162,7 @@ namespace TuringSimulator.GameFlow
                 _playbackStepIndex,
                 result.Kind);
             EventTraceLog.Record(nameof(PlaybackStepEventData), stepData.ToString(), PlayerInputCatcher);
+            _playbackStepChannel?.Raise(stepData, PlayerInputCatcher);
 
             LiveTutorSocket.Instance?.SendPlaybackStep(result);
             if (result.Kind != ResultKind.Halt)
@@ -137,6 +172,7 @@ namespace TuringSimulator.GameFlow
                 BuildEventContext(nameof(PlaybackController), $"halt-{_playbackStepIndex}"),
                 result.AsHalt());
             EventTraceLog.Record(nameof(HaltReachedEventData), haltData.ToString(), PlayerInputCatcher);
+            _haltReachedChannel?.Raise(haltData, PlayerInputCatcher);
             GameFlowController.Halt();
         }
 
@@ -144,22 +180,7 @@ namespace TuringSimulator.GameFlow
         {
             _playbackStepIndex = -1;
 
-            var test = level.mainTest;
-            var tape = new SimulationTape(test.headIndex, test.initialSymbols);
-            
-            _model.Buffer.Clear();
-            _model.Simulation.SetTape(tape);
-            _model.Validation.SetTests(level.validationTests);
-
-            _view.Tape.SetTape(test.initialSymbols, test.headIndex);
-            _view.Halt.Reset();
-            
-            _view.LevelUI.SetLevelTitle(level.title);
-            _view.LevelUI.SetLevelDescription(level.description);
-
-            var levelId = string.IsNullOrWhiteSpace(level.levelId)
-                ? ITS.LevelID.MoveLeftRight
-                : level.levelId;
+            var levelId = LevelLoadedActionHelpers.ResolveLevelId(level);
 
             var levelData = new LevelLoadedEventData(
                 BuildEventContext(nameof(LevelDefinition), levelId),
@@ -167,13 +188,11 @@ namespace TuringSimulator.GameFlow
                 level.title,
                 level.ValidationScenarioCount);
             EventTraceLog.Record(nameof(LevelLoadedEventData), levelData.ToString(), level);
+            _levelLoadedChannel?.Raise(levelData, level);
 
-            SkillTracker.Instance?.OnLevelLoaded(levelId);
-            LiveTutorSocket.Instance?.SendLevelSnapshot(
-                level.title,
-                level.description,
-                test.initialSymbols,
-                test.headIndex);
+            var levelContext = new LevelLoadedActionContext(level, _model, _view);
+            for (var i = 0; i < _levelLoadedHandlers.Length; i++)
+                _levelLoadedHandlers[i].Apply(levelContext);
         }
 
         static EventContextData BuildEventContext(string sourceName, string correlationId)
@@ -189,6 +208,12 @@ namespace TuringSimulator.GameFlow
             var gsm = GameStateMachine.Instance;
             if (gsm.CurrentState == GameState.Menu)
             {
+                var startFromMenu = new RunRequestedEventData(
+                    BuildEventContext(nameof(PlayerInputCatcher), "start-from-menu"),
+                    GameState.Menu.ToString());
+                EventTraceLog.Record(nameof(RunRequestedEventData), startFromMenu.ToString(), PlayerInputCatcher);
+                _runRequestedChannel?.Raise(startFromMenu, PlayerInputCatcher);
+
                 if (ITSClient.Instance != null && SkillTracker.Instance != null)
                 {
                     var studentId = await ITSClient.Instance.RequestNewSessionAsync();
@@ -199,7 +224,42 @@ namespace TuringSimulator.GameFlow
                 return;
             }
 
+            var runFromEditing = new RunRequestedEventData(
+                BuildEventContext(nameof(PlayerInputCatcher), "run-from-editing"),
+                GameState.Editing.ToString());
+            EventTraceLog.Record(nameof(RunRequestedEventData), runFromEditing.ToString(), PlayerInputCatcher);
+            _runRequestedChannel?.Raise(runFromEditing, PlayerInputCatcher);
             GameFlowController.Run();
+        }
+
+        ILevelLoadedActionHandler[] BuildLevelLoadedHandlers()
+        {
+            return new ILevelLoadedActionHandler[]
+            {
+                new LevelModelTapeSetupActionHandler(),
+                new LevelValidationTestsSetupActionHandler(),
+                new LevelViewResetActionHandler(),
+                new LevelUiMetadataActionHandler(),
+                new LevelTutorSnapshotActionHandler()
+            };
+        }
+
+        void ValidateEventChannelWiring()
+        {
+            if (!_useSceneBindings)
+                return;
+
+            WarnIfMissing(_runRequestedChannel, nameof(ControllerSceneBindings.runRequestedChannel));
+            WarnIfMissing(_levelLoadedChannel, nameof(ControllerSceneBindings.levelLoadedChannel));
+            WarnIfMissing(_programChangedChannel, nameof(ControllerSceneBindings.programChangedChannel));
+            WarnIfMissing(_playbackStepChannel, nameof(ControllerSceneBindings.playbackStepChannel));
+            WarnIfMissing(_haltReachedChannel, nameof(ControllerSceneBindings.haltReachedChannel));
+        }
+
+        static void WarnIfMissing(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+                Debug.LogWarning($"[ControllerInstaller] Missing event channel wiring: {fieldName}");
         }
     }
 }
