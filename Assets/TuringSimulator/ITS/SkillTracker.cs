@@ -28,8 +28,8 @@ public class SkillTracker : MonoBehaviour
     // ── Session state (set by your login / session system) ───────────────────
 
     [Header("Session")]
-    [Tooltip("Set this from your session/login system before any level starts.")]
-    public string StudentId = "student_default";
+    [Tooltip("Current active student session id (assigned at runtime).")]
+    [SerializeField] private string _studentId = "";
 
     // ── Internals ─────────────────────────────────────────────────────────────
 
@@ -52,6 +52,9 @@ public class SkillTracker : MonoBehaviour
     /// </summary>
     public event Action OnLevelCompleteAnimEvent;
 
+    public string StudentId => _studentId;
+    public bool HasActiveSession => !string.IsNullOrWhiteSpace(_studentId);
+
     // ── Level tracking ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -63,6 +66,22 @@ public class SkillTracker : MonoBehaviour
     {
         _currentLevelId = levelId;
         Debug.Log($"[SkillTracker] Level loaded: {levelId}");
+    }
+
+    public void BeginSession(string studentId)
+    {
+        _studentId = string.IsNullOrWhiteSpace(studentId) ? $"local_{Guid.NewGuid():N}" : studentId;
+        _currentLevelId = "";
+        LiveTutorSocket.Instance?.SetActiveStudentSession(_studentId);
+        Debug.Log($"[SkillTracker] Session started: {_studentId}");
+    }
+
+    public void ClearSession()
+    {
+        LiveTutorSocket.Instance?.ClearActiveStudentSession();
+        _studentId = "";
+        _currentLevelId = "";
+        Debug.Log("[SkillTracker] Session cleared.");
     }
 
     // ── Game event handlers ───────────────────────────────────────────────────
@@ -83,7 +102,7 @@ public class SkillTracker : MonoBehaviour
         };
 
         ITSClient.Instance.SendEvent(
-            StudentId,
+            _studentId,
             _currentLevelId,
             ITS.EventType.ProgramFail,
             correct: false,
@@ -103,7 +122,7 @@ public class SkillTracker : MonoBehaviour
         var skills = new List<string> { SkillID.PlaceWire, SkillID.ConnectPort };
 
         ITSClient.Instance.SendEvent(
-            StudentId, _currentLevelId,
+            _studentId, _currentLevelId,
             ITS.EventType.ProgramRun,
             programCorrect,
             skills.ToArray()
@@ -122,7 +141,7 @@ public class SkillTracker : MonoBehaviour
         var skills = BuildSkillsFromResult(result, correct: true);
 
         ITSClient.Instance.SendEvent(
-            StudentId, _currentLevelId,
+            _studentId, _currentLevelId,
             ITS.EventType.ProgramSuccess,
             correct: true,
             skills.ToArray()
@@ -140,7 +159,7 @@ public class SkillTracker : MonoBehaviour
         var skills = BuildSkillsFromResult(result, correct: false);
 
         ITSClient.Instance.SendEvent(
-            StudentId, _currentLevelId,
+            _studentId, _currentLevelId,
             ITS.EventType.ProgramFail,
             correct: false,
             skills.ToArray()
@@ -159,7 +178,7 @@ public class SkillTracker : MonoBehaviour
         var skills = SkillsForLevel(_currentLevelId);
 
         ITSClient.Instance.SendEvent(
-            StudentId, _currentLevelId,
+            _studentId, _currentLevelId,
             ITS.EventType.LevelComplete,
             correct: true,
             skills
@@ -271,6 +290,11 @@ public class SkillTracker : MonoBehaviour
         if (ITSClient.Instance == null)
         {
             Debug.LogWarning("[SkillTracker] ITSClient not found.");
+            return false;
+        }
+        if (!HasActiveSession)
+        {
+            Debug.LogWarning("[SkillTracker] No active student session.");
             return false;
         }
         if (string.IsNullOrEmpty(_currentLevelId))

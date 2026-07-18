@@ -8,6 +8,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using ITS;
 using ITS.Protocol;
 using Newtonsoft.Json;
@@ -46,6 +47,9 @@ public class ITSClient : MonoBehaviour
 
     /// <summary>Fires when any server request fails.</summary>
     public event Action<string> OnServerError;
+
+    /// <summary>Fires when a new student session is allocated.</summary>
+    public event Action<string> OnSessionCreated;
 
     // ── Internals ─────────────────────────────────────────────────────────────
 
@@ -140,6 +144,48 @@ public class ITSClient : MonoBehaviour
         StartCoroutine(Post("/hint", SerializeBody(req), OnHintResponse));
     }
 
+    /// <summary>
+    /// Request a new student session identifier from the server.
+    /// Falls back to a local ephemeral identifier if the server is unavailable.
+    /// </summary>
+    public void RequestNewSession(Action<string> onComplete)
+    {
+        if (onComplete == null) return;
+        StartCoroutine(Post("/session/new", "{}", (json, success) =>
+        {
+            if (!success)
+            {
+                var fallback = BuildLocalFallbackStudentId();
+                OnServerError?.Invoke("Session endpoint unavailable. Using local temporary session id.");
+                OnSessionCreated?.Invoke(fallback);
+                onComplete(fallback);
+                return;
+            }
+
+            var dto = JsonConvert.DeserializeObject<SessionNewResponseDto>(json, ItsRestJson.Settings);
+            if (string.IsNullOrWhiteSpace(dto?.StudentId))
+            {
+                var fallback = BuildLocalFallbackStudentId();
+                Debug.LogWarning("[ITSClient] /session/new returned empty student_id; using local fallback.");
+                OnSessionCreated?.Invoke(fallback);
+                onComplete(fallback);
+                return;
+            }
+
+            _serverAvailable = true;
+            OnSessionCreated?.Invoke(dto.StudentId);
+            onComplete(dto.StudentId);
+        }));
+    }
+
+    /// <summary>Task wrapper around <see cref="RequestNewSession"/>.</summary>
+    public Task<string> RequestNewSessionAsync()
+    {
+        var tcs = new TaskCompletionSource<string>();
+        RequestNewSession(id => tcs.TrySetResult(id));
+        return tcs.Task;
+    }
+
     // ── Response handlers ─────────────────────────────────────────────────────
 
     private void OnEventResponse(string json, bool success)
@@ -220,4 +266,7 @@ public class ITSClient : MonoBehaviour
         else
             Debug.LogWarning("[ITSClient] Server not reachable — ITS features disabled.");
     }
+
+    private static string BuildLocalFallbackStudentId() =>
+        $"local_{Guid.NewGuid():N}";
 }

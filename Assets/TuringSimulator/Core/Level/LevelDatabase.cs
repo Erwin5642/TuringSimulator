@@ -14,6 +14,21 @@ namespace TuringSimulator.Core.Level
 
         public int Count => levels.Length;
 
+        public int ValidationScenarioCount
+        {
+            get
+            {
+                var count = 0;
+                foreach (var level in levels)
+                {
+                    if (level != null)
+                        count += level.ValidationScenarioCount;
+                }
+
+                return count;
+            }
+        }
+
         public LevelDefinition Get(int index)
         {
             if (index < 0 || index >= levels.Length)

@@ -15,14 +15,14 @@ namespace TuringSimulator.GameFlow
             var result = CurrentState switch
             {
                 GameState.Menu => next == GameState.Loading,
-                GameState.Loading => next is GameState.Editing,
-                GameState.Editing => next is GameState.Running,
+                GameState.Loading => next is GameState.Editing or GameState.Menu,
+                GameState.Editing => next is GameState.Running or GameState.Menu,
                 GameState.Running => next is GameState.Halted,
-                GameState.Halted => next is GameState.Validating,
+                GameState.Halted => next is GameState.Validating or GameState.Menu,
                 GameState.Validating => next is GameState.Victory or GameState.Defeat,
-                GameState.Victory => next is GameState.Loading,
-                GameState.Defeat => next is GameState.Debugging or GameState.Loading,
-                GameState.Debugging => next is GameState.Loading,
+                GameState.Victory => next is GameState.Loading or GameState.Menu,
+                GameState.Defeat => next is GameState.Debugging or GameState.Loading or GameState.Menu,
+                GameState.Debugging => next is GameState.Loading or GameState.Menu,
                 _ => false
             };
             if (!result) Debug.Log($"[GSM] Cannot transition from {CurrentState} to {next} state.");

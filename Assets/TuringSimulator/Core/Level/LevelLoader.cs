@@ -21,6 +21,11 @@ namespace TuringSimulator.Core.Level
             return level;
         }
 
+        public void ResetProgress()
+        {
+            _index = 0;
+        }
+
         public LevelDefinition LoadNext()
         {
             _index = Mathf.Min(_index + 1, _database.Count - 1);

@@ -714,8 +714,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4d8b9c27f6a4019b8e7d5c3a1f0e2d4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  symbolCardPrefab: {fileID: 0}
-  directionCardPrefab: {fileID: 0}
+  symbolCardPrefab: {fileID: 100100000, guid: b08758b966be7314ebe5d32d04467354, type: 3}
+  directionCardPrefab: {fileID: 100100000, guid: 5f9449440b580664aa8a95e1e20f43c9, type: 3}
 --- !u!1 &5957520875796041064
 GameObject:
   m_ObjectHideFlags: 0

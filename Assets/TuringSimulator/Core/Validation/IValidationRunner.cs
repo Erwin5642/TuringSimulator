@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using TuringSimulator.Core.Program;
 
@@ -10,6 +11,7 @@ namespace TuringSimulator.Core.Validation
         void SetProgram(IProgram program);
         
         bool AllPassed { get; }
+        IReadOnlyList<ValidationResult> Results { get; }
 
         Task Start(CancellationToken cancellationToken = default);
         void Cancel();

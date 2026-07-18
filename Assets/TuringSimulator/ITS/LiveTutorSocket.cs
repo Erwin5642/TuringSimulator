@@ -28,6 +28,7 @@ public class LiveTutorSocket : MonoBehaviour
     ILiveTutorInboundHandler _inboundHandler;
 
     string _sessionId;
+    string _activeStudentId;
 
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX
     ClientWebSocket _socket;
@@ -48,18 +49,67 @@ public class LiveTutorSocket : MonoBehaviour
         _sessionId = Guid.NewGuid().ToString();
     }
 
+    /// <summary>
+    /// Binds the live channel to the currently active player session.
+    /// This is called after /session/new so the handshake cannot race session allocation.
+    /// </summary>
+    public void SetActiveStudentSession(string studentId)
+    {
+        if (string.IsNullOrWhiteSpace(studentId))
+            return;
+
+        _activeStudentId = studentId;
+        _sessionId = Guid.NewGuid().ToString();
+
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX
+        _handshakeSent = false;
+        if (connectOnStart)
+            _ = TryConnectAndHandshakeAsync();
+#endif
+    }
+
+    /// <summary>Stops live telemetry for the previous player.</summary>
+    public void ClearActiveStudentSession()
+    {
+        _activeStudentId = null;
+
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX
+        _handshakeSent = false;
+        _cts?.Cancel();
+        try
+        {
+            _socket?.Abort();
+        }
+        catch { /* ignore */ }
+        _socket?.Dispose();
+        _socket = null;
+#endif
+    }
+
     /// <summary>Optional override; defaults to <see cref="DefaultLiveTutorInboundHandler.Instance"/>.</summary>
     public void SetInboundHandler(ILiveTutorInboundHandler handler) => _inboundHandler = handler;
 
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX
-    async void Start()
+    void Start()
     {
         if (connectOnStart)
-            await TryConnectAndHandshakeAsync();
+        {
+            var studentId = SkillTracker.Instance != null && SkillTracker.Instance.HasActiveSession
+                ? SkillTracker.Instance.StudentId
+                : null;
+            if (!string.IsNullOrWhiteSpace(studentId))
+                SetActiveStudentSession(studentId);
+        }
     }
 
     public async Task TryConnectAndHandshakeAsync()
     {
+        if (string.IsNullOrWhiteSpace(_activeStudentId))
+        {
+            Debug.LogWarning("[LiveTutorSocket] Connect skipped: no active student session.");
+            return;
+        }
+
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         try
@@ -157,7 +207,12 @@ public class LiveTutorSocket : MonoBehaviour
 
     void SendHandshake()
     {
-        var st = SkillTracker.Instance != null ? SkillTracker.Instance.StudentId : "student_default";
+        var st = _activeStudentId;
+        if (string.IsNullOrWhiteSpace(st))
+        {
+            Debug.LogWarning("[LiveTutorSocket] Handshake skipped: no active student session.");
+            return;
+        }
         var lv = SkillTracker.Instance != null ? SkillTracker.Instance.GetCurrentLevelId() : null;
         if (string.IsNullOrEmpty(lv))
             lv = ITS.LevelID.MoveLeftRight;
@@ -206,7 +261,12 @@ public class LiveTutorSocket : MonoBehaviour
 
     void SendEnvelope(string kind, object payloadDto)
     {
-        var st = SkillTracker.Instance != null ? SkillTracker.Instance.StudentId : "student_default";
+        var st = _activeStudentId;
+        if (string.IsNullOrWhiteSpace(st))
+        {
+            Debug.LogWarning($"[LiveTutorSocket] {kind} skipped: no active student session.");
+            return;
+        }
         var lv = SkillTracker.Instance != null ? SkillTracker.Instance.GetCurrentLevelId() : null;
         if (string.IsNullOrEmpty(lv))
             lv = ITS.LevelID.MoveLeftRight;

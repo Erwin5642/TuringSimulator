@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -215,6 +216,21 @@ class StudentModel:
         state = self._get_state(student_id, skill_id)
         state.hint_level  = 1
         state.hint_streak = 0
+
+    def create_new_student(self) -> str:
+        """
+        Allocate and return a fresh student identifier with empty knowledge state.
+        """
+        student_id = f"student_{uuid.uuid4().hex}"
+        self._store[student_id] = {}
+        _LOG.info(
+            "bkt_new_student",
+            extra={
+                "student_id": student_id,
+                "source": "session_new",
+            },
+        )
+        return student_id
 
     # ------------------------------------------------------------------ #
     # Persistence                                                          #
