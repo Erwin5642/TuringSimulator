@@ -24,6 +24,10 @@ uvicorn main:app --reload --port 8000
 
 The interactive API docs are at **http://localhost:8000/docs**
 
+The server can start without `GEMINI_API_KEY`. In that case `/health` reports
+`"tutor_provider": "fallback"` and `/ask`, `/hint`, and reactive event comments
+use deterministic factory-themed responses so the Unity scene remains testable.
+
 ---
 
 ## Endpoints
@@ -170,14 +174,26 @@ public class ITSClient : MonoBehaviour
 }
 ```
 
+## Sequential players
+
+Use `POST /session/new` at the beginning of every player run. The returned
+`student_id` is the BKT isolation key. Do not clear `student_state.json` between
+players; a new player gets a fresh empty state while previous state remains
+available for a future resume flow.
+
+The Unity live channel must handshake after session allocation. The server
+rejects telemetry whose `student_id` or `session_id` does not match the active
+WebSocket handshake.
+
 ---
 
 ## File structure
 
 ```
 TuringBotAPI/
-├── main.py              ← FastAPI app (3 endpoints)
-├── orchestrator.py      ← Gemini calls + prompt assembly
+├── main.py              ← FastAPI app + REST/WebSocket contracts
+├── orchestrator.py      ← provider-backed prompt assembly
+├── tutor_provider.py    ← Gemini/fallback provider boundary
 ├── student_model.py     ← BKT state + persistence
 ├── requirements.txt
 ├── .env.example         ← copy to .env and add your key

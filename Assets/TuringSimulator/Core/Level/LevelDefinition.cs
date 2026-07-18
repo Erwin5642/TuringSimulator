@@ -21,5 +21,8 @@ namespace TuringSimulator.Core.Level
 
         public ValidationTest mainTest;
         public ValidationTest[] validationTests;
+
+        public int ValidationScenarioCount =>
+            (mainTest == null ? 0 : 1) + (validationTests?.Length ?? 0);
     }
 }
