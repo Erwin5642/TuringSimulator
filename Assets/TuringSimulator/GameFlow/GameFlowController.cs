@@ -31,6 +31,9 @@ namespace TuringSimulator.GameFlow
             if (!_stateMachine.TryTransition(GameState.Loading))
                 throw new InvalidOperationException("The game should be in a loading state.");
 
+            _model.Simulation.Clear();
+            _view.Machine.Reset();
+            _controller.StepApplier.Reset();
             _model.LevelLoader.LoadCurrent();
 
             if (!_stateMachine.TryTransition(GameState.Editing))
@@ -160,11 +163,13 @@ namespace TuringSimulator.GameFlow
                 {
                     SkillTracker.Instance?.OnProgramSuccess(runEvidence);
                     SkillTracker.Instance?.OnLevelComplete();
+                    _view.LevelUI.SetValidationSummary(_model.Validation.Results);
                     Victory();
                 }
                 else
                 {
                     SkillTracker.Instance?.OnProgramFail(runEvidence);
+                    _view.LevelUI.SetValidationSummary(_model.Validation.Results);
                     Defeat();
                 }
             }
@@ -211,6 +216,19 @@ namespace TuringSimulator.GameFlow
         public void Defeat()
         {
             _stateMachine.TryTransition(GameState.Defeat);
+        }
+
+        public void ReturnToMenu()
+        {
+            _model.Simulation.Clear();
+            _model.LevelLoader.ResetProgress();
+            _view.Machine.Reset();
+            _controller.StepApplier.Reset();
+            _controller.Playback.Disable();
+            _controller.ProgramEdit.Disable();
+
+            if (!_stateMachine.TryTransition(GameState.Menu))
+                Debug.LogWarning("[GameFlow] Could not transition to Menu.");
         }
     }
 }

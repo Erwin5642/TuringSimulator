@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,8 +28,10 @@ namespace TuringSimulator.Core.Validation
         
         // Final result
         private bool[] _results;
+        private ValidationResult[] _validationResults = Array.Empty<ValidationResult>();
 
         public bool AllPassed => _results.All(r => r);
+        public IReadOnlyList<ValidationResult> Results => _validationResults;
 
         public ValidationRunner()
         {
@@ -44,6 +47,7 @@ namespace TuringSimulator.Core.Validation
             _expectedTapes = new SimulationTape[tests.Length];
             _expectedStatuses = new HaltStatus[tests.Length];
             _results = new bool[tests.Length];
+            _validationResults = new ValidationResult[tests.Length];
 
             for (int i = 0; i < tests.Length; i++)
             {
@@ -52,6 +56,16 @@ namespace TuringSimulator.Core.Validation
                 _tapes[i] = new SimulationTape(test.headIndex, test.initialSymbols);
                 _expectedTapes[i] = new SimulationTape(test.expectedHeadIndex, test.expectedSymbols);
                 _expectedStatuses[i] = test.expectedStatus;
+                _validationResults[i] = new ValidationResult
+                {
+                    TestIndex = i,
+                    ScenarioId = string.IsNullOrWhiteSpace(test.scenarioId)
+                        ? $"test_{i + 1}"
+                        : test.scenarioId,
+                    ExpectedStatus = test.expectedStatus,
+                    ExpectedTape = _expectedTapes[i],
+                    Passed = false,
+                };
             }
         }
 
@@ -80,6 +94,12 @@ namespace TuringSimulator.Core.Validation
                     
                     _results[index] = _buffers[index].Status == _expectedStatuses[index]
                                        && _tapes[index].Snapshot().StructuralEquals(_expectedTapes[index].Snapshot());
+                    _validationResults[index].ActualStatus = _buffers[index].Status;
+                    _validationResults[index].ActualTape = _tapes[index];
+                    _validationResults[index].Passed = _results[index];
+                    _validationResults[index].Error = _results[index]
+                        ? string.Empty
+                        : "Actual status or tape differs from the expected result.";
 
                 }, _cts.Token);
             }

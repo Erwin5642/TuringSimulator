@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "unity-mcp": {
+      "command": "/home/johannes/.unity/relay/relay_linux",
+      "args": ["--mcp"]
+    }
+  }
+}

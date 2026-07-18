@@ -44,6 +44,7 @@ from orchestrator import (
     generate_ask_response,
     generate_hint_response,
     generate_event_comment,
+    tutor_provider_name,
 )
 from domain.concepts import CONCEPT_MAP
 from protocol.live_v1 import (
@@ -137,6 +138,10 @@ class KnowledgeStateResponse(BaseModel):
     student_id     : str
     knowledge_state: dict[str, float]
     mastered       : list[str]
+
+
+class SessionNewResponse(BaseModel):
+    student_id: str
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -255,7 +260,25 @@ async def get_state(student_id: str) -> KnowledgeStateResponse:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "version": app.version}
+    return {
+        "status": "ok",
+        "version": app.version,
+        "tutor_provider": tutor_provider_name(),
+    }
+
+
+@app.post("/session/new", response_model=SessionNewResponse)
+async def new_session() -> SessionNewResponse:
+    """
+    Allocate a fresh student session identity.
+    """
+    student_id = STUDENT_MODEL.create_new_student()
+    STUDENT_MODEL.save()
+    _LOG.info(
+        "rest_session_new",
+        extra={"student_id": student_id, "source": "session_new"},
+    )
+    return SessionNewResponse(student_id=student_id)
 
 
 @app.websocket("/ws/live")
@@ -263,6 +286,8 @@ async def ws_live(websocket: WebSocket) -> None:
     await websocket.accept()
     log = logging.getLogger("live_ws")
     log.info("ws_accept")
+    active_session_id: Optional[str] = None
+    active_student_id: Optional[str] = None
     try:
         while True:
             raw = await websocket.receive_text()
@@ -347,12 +372,29 @@ async def ws_live(websocket: WebSocket) -> None:
                 continue
 
             if env.kind == "live.handshake":
+                active_session_id = env.session_id
+                active_student_id = env.student_id
                 await websocket.send_json(
                     build_handshake_ack(
                         env.message_id,
                         env.session_id,
                         env.student_id,
                         env.level_id,
+                    )
+                )
+            elif (
+                active_session_id is None
+                or env.session_id != active_session_id
+                or env.student_id != active_student_id
+            ):
+                await websocket.send_json(
+                    build_error(
+                        session_id=env.session_id,
+                        student_id=env.student_id,
+                        level_id=env.level_id,
+                        code="session_mismatch",
+                        message="send a new handshake before sending live telemetry",
+                        correlation_id=env.message_id,
                     )
                 )
             elif env.kind == "live.session_ping":

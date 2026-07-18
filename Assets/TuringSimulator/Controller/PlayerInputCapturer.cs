@@ -12,6 +12,7 @@ namespace TuringSimulator.Controller
         [SerializeField] private Key pauseKey = Key.DownArrow;
         [SerializeField] private Key startKey = Key.Space;
         [SerializeField] private Key nextKey = Key.N;
+        [SerializeField] private Key menuKey = Key.M;
         
         public event Action OnStartRequest;
         public event Action OnPlayRequest;
@@ -19,6 +20,7 @@ namespace TuringSimulator.Controller
         public event Action OnBackwardRequest;
         public event Action OnPauseRequest;
         public event Action OnNextRequest;
+        public event Action OnMenuRequest;
 
         private void Update()
         {
@@ -52,6 +54,10 @@ namespace TuringSimulator.Controller
             else if (keyboard[nextKey].wasPressedThisFrame)
             {
                 OnNextRequest?.Invoke();
+            }
+            else if (keyboard[menuKey].wasPressedThisFrame)
+            {
+                OnMenuRequest?.Invoke();
             }
         }
     }

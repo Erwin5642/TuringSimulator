@@ -9,6 +9,9 @@ namespace TuringSimulator.Core.Validation
         fileName = "Level Test")]
     public class ValidationTest : ScriptableObject
     {
+        [Tooltip("Stable name shown in validation summaries and tutor diagnostics.")]
+        public string scenarioId = "";
+
         [SerializeField] public int headIndex;
         [SerializeField] public Symbol[] initialSymbols;
         [SerializeField] public int expectedHeadIndex;
