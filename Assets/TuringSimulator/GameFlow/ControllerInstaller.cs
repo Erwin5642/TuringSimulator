@@ -1,13 +1,11 @@
-﻿using System;
+using System;
 using TuringSimulator.Controller;
 using TuringSimulator.Controller.Syncronizer;
 using TuringSimulator.Core.Level;
 using TuringSimulator.Core.Program;
-using UnityEngine;
 using TuringSimulator.Core.Simulation.Step;
-using TuringSimulator.Core.Types;
 using TuringSimulator.GameFlow.Events;
-using ITS;
+using UnityEngine;
 
 namespace TuringSimulator.GameFlow
 {
@@ -38,22 +36,18 @@ namespace TuringSimulator.GameFlow
         public PlaybackStepEventChannel playbackStepChannel;
         public HaltReachedEventChannel haltReachedChannel;
     }
-    
-    public sealed class ControllerInstaller 
+
+    public sealed class ControllerInstaller
     {
         private readonly ModelInstaller _model;
         private readonly ViewInstaller _view;
-        
-        // Controller prefabs
-        
-        // Core controllers
+
         public PlaybackController Playback { get; private set; }
-        
-        public PlayerInputCatcher PlayerInputCatcher { get; set; }
+        public PlayerInputCatcher PlayerInputCatcher { get; private set; }
         public ProgramEditController ProgramEdit { get; private set; }
-        public StepViewApplier StepApplier { get; set; }
-        public GameFlowController GameFlowController { get; set; }
-        
+        public StepViewApplier StepApplier { get; private set; }
+        public GameFlowController GameFlowController { get; private set; }
+
         readonly ControllerPrefabs _prefabs;
         readonly ControllerSceneBindings _scene;
         readonly bool _useSceneBindings;
@@ -98,13 +92,14 @@ namespace TuringSimulator.GameFlow
         }
 
         public ProgramWorkbench Workbench => _workbench;
-        
+
         public void Install()
         {
             StepApplier = new StepViewApplier(_model.Buffer, _view.Machine);
             Playback = new PlaybackController(StepApplier);
             ProgramEdit = new ProgramEditController();
             GameFlowController = new GameFlowController(_model, _view, this);
+
             if (_useSceneBindings)
             {
                 PlayerInputCatcher = _scene.input;
@@ -119,7 +114,7 @@ namespace TuringSimulator.GameFlow
             ValidateEventChannelWiring();
 
             _workbench?.Initialize(ProgramEdit);
-            
+
             PlayerInputCatcher.OnStartRequest += HandleStartRequested;
             PlayerInputCatcher.OnPauseRequest += Playback.Pause;
             PlayerInputCatcher.OnPlayRequest += Playback.Play;
@@ -127,11 +122,9 @@ namespace TuringSimulator.GameFlow
             PlayerInputCatcher.OnBackwardRequest += Playback.StepBackward;
             PlayerInputCatcher.OnNextRequest += GameFlowController.Next;
             PlayerInputCatcher.OnMenuRequest += HandleMenuRequested;
-            
+
             ProgramEdit.OnProgramChanged += HandleProgramChanged;
-
             Playback.OnStep += HandlePlaybackStep;
-
             _model.Levels.OnLevelChanged += HandleLevelChanged;
         }
 
@@ -164,7 +157,6 @@ namespace TuringSimulator.GameFlow
             EventTraceLog.Record(nameof(PlaybackStepEventData), stepData.ToString(), PlayerInputCatcher);
             _playbackStepChannel?.Raise(stepData, PlayerInputCatcher);
 
-            LiveTutorSocket.Instance?.SendPlaybackStep(result);
             if (result.Kind != ResultKind.Halt)
                 return;
 
@@ -181,12 +173,12 @@ namespace TuringSimulator.GameFlow
             _playbackStepIndex = -1;
 
             var levelId = LevelLoadedActionHelpers.ResolveLevelId(level);
-
             var levelData = new LevelLoadedEventData(
                 BuildEventContext(nameof(LevelDefinition), levelId),
                 levelId,
                 level.title,
                 level.ValidationScenarioCount);
+
             EventTraceLog.Record(nameof(LevelLoadedEventData), levelData.ToString(), level);
             _levelLoadedChannel?.Raise(levelData, level);
 
@@ -240,7 +232,7 @@ namespace TuringSimulator.GameFlow
                 new LevelValidationTestsSetupActionHandler(),
                 new LevelViewResetActionHandler(),
                 new LevelUiMetadataActionHandler(),
-                new LevelTutorSnapshotActionHandler()
+                new LevelSessionContextActionHandler(),
             };
         }
 

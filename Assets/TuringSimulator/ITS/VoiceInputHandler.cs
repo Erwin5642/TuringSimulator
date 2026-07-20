@@ -72,8 +72,11 @@ public class VoiceInputHandler : MonoBehaviour
     private void Start()
     {
         if (_voiceExperience == null)
+            _voiceExperience = FindFirstObjectByType<AppVoiceExperience>();
+
+        if (_voiceExperience == null)
         {
-            Debug.LogError("[VoiceInputHandler] AppVoiceExperience not assigned.");
+            Debug.LogError("[VoiceInputHandler] AppVoiceExperience not found. Add one and assign Wit configuration.");
             return;
         }
 

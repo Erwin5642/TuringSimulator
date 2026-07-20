@@ -7,7 +7,6 @@ namespace TuringSimulator.GameFlow
 {
     /// <summary>
     /// Inspector-visible checklist for the editor-first MVP scene setup.
-    /// Attach this to the Systems root and use Validate Scene from the context menu.
     /// </summary>
     public sealed class MvpSceneWiringValidator : MonoBehaviour, IMvpSceneWiringValidator
     {
@@ -21,7 +20,8 @@ namespace TuringSimulator.GameFlow
         [SerializeField] ITSClient itsClient;
         [SerializeField] SkillTracker skillTracker;
         [SerializeField] AgentDialogue agentDialogue;
-        [SerializeField] LiveTutorSocket liveTutorSocket;
+        [SerializeField] VoiceInputHandler voiceInputHandler;
+        [SerializeField] VoiceAskControllerInput voiceAskControllerInput;
 
         [Header("Validation")]
         [SerializeField] bool logWarningsOnStart = true;
@@ -58,15 +58,14 @@ namespace TuringSimulator.GameFlow
             Require(itsClient, nameof(itsClient), issues);
             Require(skillTracker, nameof(skillTracker), issues);
             Require(agentDialogue, nameof(agentDialogue), issues);
-
-            if (liveTutorSocket == null)
-                issues.Add("LiveTutorSocket is not assigned; live advisory telemetry is disabled.");
+            Require(voiceInputHandler, nameof(voiceInputHandler), issues);
+            Require(voiceAskControllerInput, nameof(voiceAskControllerInput), issues);
 
             if (levelDatabase != null &&
                 levelDatabase.ValidationScenarioCount < requiredScenarioCount)
             {
                 issues.Add(
-                    $"LevelDatabase has {levelDatabase.ValidationScenarioCount} validation "
+                    $"LevelDatabase has {levelDatabase.ValidationScenarioCount} validation " +
                     $"scenarios; the MVP target is {requiredScenarioCount}.");
             }
 

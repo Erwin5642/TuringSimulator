@@ -6,8 +6,7 @@ using UnityEngine;
 namespace TuringSimulator.GameFlow
 {
     /// <summary>
-    /// Legacy composition root.
-    /// Prefer editor-assigned scene bindings over runtime prefab instantiation.
+    /// Composition root for the slim main demo line (voice Ask only).
     /// </summary>
     public class TuringBootstrap : MonoBehaviour
     {
@@ -16,7 +15,7 @@ namespace TuringSimulator.GameFlow
         [Header("Preferred: Editor Scene Wiring")]
         [SerializeField] private ViewSceneBindings viewSceneBindings;
         [SerializeField] private ControllerSceneBindings controllerSceneBindings;
-        
+
         [Header("Legacy Fallback: Prefab Wiring")]
         [SerializeField] private ViewPrefabs viewPrefabs;
         [SerializeField] private ControllerPrefabs controllerPrefabs;
@@ -29,7 +28,6 @@ namespace TuringSimulator.GameFlow
         [SerializeField] private SkillTracker skillTracker;
         [SerializeField] private AgentTTS agentTTS;
         [SerializeField] private AgentDialogue agentDialogue;
-        [SerializeField] private LiveTutorSocket liveTutorSocket;
 
         [Header("Behavior")]
         [SerializeField] private bool autoStartOnAwake = true;
@@ -68,31 +66,26 @@ namespace TuringSimulator.GameFlow
 
         private void BindObjects()
         {
-            // Editor-first wiring: use assigned references first, then same-root lookups.
             itsClient ??= GetComponent<ITSClient>();
             skillTracker ??= GetComponent<SkillTracker>();
             agentTTS ??= GetComponent<AgentTTS>();
             agentDialogue ??= GetComponent<AgentDialogue>();
-            liveTutorSocket ??= GetComponent<LiveTutorSocket>();
 
             itsClient ??= ITSClient.Instance;
             skillTracker ??= SkillTracker.Instance;
             agentTTS ??= AgentTTS.Instance;
             agentDialogue ??= AgentDialogue.Instance;
-            liveTutorSocket ??= LiveTutorSocket.Instance;
 
             if (itsClient == null) Debug.LogWarning("[Bootstrap] ITSClient is not assigned.");
             if (skillTracker == null) Debug.LogWarning("[Bootstrap] SkillTracker is not assigned.");
             if (agentTTS == null) Debug.LogWarning("[Bootstrap] AgentTTS is not assigned.");
             if (agentDialogue == null) Debug.LogWarning("[Bootstrap] AgentDialogue is not assigned.");
-            if (liveTutorSocket == null) Debug.LogWarning("[Bootstrap] LiveTutorSocket is not assigned.");
         }
 
         private Task InitializeObjects()
         {
             _modelInstaller = new ModelInstaller(levelDatabase);
             _modelInstaller.Install();
-            
             return Task.CompletedTask;
         }
 
@@ -114,7 +107,6 @@ namespace TuringSimulator.GameFlow
             }
 
             _viewInstaller.Install();
-
             return Task.CompletedTask;
         }
 
@@ -138,7 +130,6 @@ namespace TuringSimulator.GameFlow
             }
 
             _controllerInstaller.Install();
-
             return Task.CompletedTask;
         }
 
@@ -159,9 +150,6 @@ namespace TuringSimulator.GameFlow
             _controllerInstaller.GameFlowController.Start();
         }
 
-        /// <summary>
-        /// Hook this from a future main-menu Start button to force a fresh student session.
-        /// </summary>
         public async void StartFromMainMenu()
         {
             if (SkillTracker.Instance == null || ITSClient.Instance == null)
@@ -175,24 +163,16 @@ namespace TuringSimulator.GameFlow
             _controllerInstaller?.GameFlowController.Start();
         }
 
-        /// <summary>
-        /// Hook this from a future main-menu Return button to detach active student session.
-        /// </summary>
         public void ReturnToMainMenu()
         {
             _controllerInstaller?.GameFlowController.ReturnToMenu();
             SkillTracker.Instance?.ClearSession();
         }
 
-        /// <summary>
-        /// Stops the current simulation and tears down this scene's bootstrap before
-        /// reloading the scene. The active student remains the same.
-        /// </summary>
         public void PrepareForSceneReload()
         {
             SceneReloadSessionState.PreserveStudent(SkillTracker.Instance?.StudentId);
             _modelInstaller?.Simulation.Cancel();
-            LiveTutorSocket.Instance?.ClearActiveStudentSession();
 
             dontDestroyRoot = false;
             Destroy(gameObject);
@@ -203,6 +183,5 @@ namespace TuringSimulator.GameFlow
             if (Instance == this)
                 Instance = null;
         }
-
     }
 }
