@@ -19,7 +19,6 @@ from domain.concepts import (
 KNOWN_LEVELS = {
     "MoveLeftRight",
     "PlaceGear",
-    "AppendScrew",
     "ReplaceAllWithNuts",
     "RejectIfGearExists",
     "SwapNutsAndScrews",
@@ -108,11 +107,11 @@ class TestConceptMapQueries:
         assert "S3.1" in ids
 
     def test_get_introduced_skills(self):
-        introduced = CONCEPT_MAP.get_introduced_skills("AppendScrew")
+        introduced = CONCEPT_MAP.get_introduced_skills("ReplaceAllWithNuts")
         ids = [s.id for s in introduced]
         assert "S4.1" in ids
         assert "S4.5" in ids
-        assert "S5.2a" in ids
+        assert "S1.4" in ids
 
     def test_get_skills_by_cluster(self):
         control_skills = CONCEPT_MAP.get_skills_by_cluster(SkillCluster.CONTROL)

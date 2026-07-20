@@ -176,12 +176,51 @@ namespace TuringSimulator.GameFlow
         }
 
         /// <summary>
+        /// XR/VR-facing command: starts from menu or runs from editing.
+        /// Wire this to world-space button events instead of keyboard input.
+        /// </summary>
+        public void StartOrRunFromInteraction()
+        {
+            if (_controllerInstaller == null)
+            {
+                Debug.LogWarning("[Bootstrap] Cannot process Start/Run command: controller installer not ready.");
+                return;
+            }
+
+            _controllerInstaller.RequestStartOrRun();
+        }
+
+        public void PausePlaybackFromInteraction()
+        {
+            _controllerInstaller?.RequestPausePlayback();
+        }
+
+        public void PlayPlaybackFromInteraction()
+        {
+            _controllerInstaller?.RequestPlayPlayback();
+        }
+
+        public void StepForwardFromInteraction()
+        {
+            _controllerInstaller?.RequestStepForward();
+        }
+
+        public void StepBackwardFromInteraction()
+        {
+            _controllerInstaller?.RequestStepBackward();
+        }
+
+        public void NextLevelFromInteraction()
+        {
+            _controllerInstaller?.RequestNextLevel();
+        }
+
+        /// <summary>
         /// Hook this from a future main-menu Return button to detach active student session.
         /// </summary>
         public void ReturnToMainMenu()
         {
-            _controllerInstaller?.GameFlowController.ReturnToMenu();
-            SkillTracker.Instance?.ClearSession();
+            _controllerInstaller?.RequestReturnToMenu();
         }
 
         /// <summary>

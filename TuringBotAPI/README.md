@@ -38,7 +38,7 @@ Unity sends this every time the student does something meaningful.
 ```json
 {
   "student_id": "student_42",
-  "level_id": "AppendScrew",
+  "level_id": "ReplaceAllWithNuts",
   "event_type": "program_run",
   "correct": false,
   "skill_ids": ["S4.1", "S4.5"],
@@ -62,7 +62,7 @@ Student asks the agent a free-form question.
 ```json
 {
   "student_id": "student_42",
-  "level_id": "AppendScrew",
+  "level_id": "ReplaceAllWithNuts",
   "question": "Why do I need to wire both ports?"
 }
 ```
@@ -82,7 +82,7 @@ Student clicks the hint button. Escalates automatically.
 ```json
 {
   "student_id": "student_42",
-  "level_id": "AppendScrew",
+  "level_id": "ReplaceAllWithNuts",
   "skill_id": "S4.5"
 }
 ```

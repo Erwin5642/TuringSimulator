@@ -54,7 +54,7 @@ def test_build_advisory_nudge_shape():
     d = build_advisory_nudge(
         session_id="sess",
         student_id="stu",
-        level_id="AppendScrew",
+        level_id="ReplaceAllWithNuts",
         text="Pause each step.",
         correlation_id="corr-1",
     )

@@ -27,8 +27,7 @@ Key file: `Assets/TuringSimulator/GameFlow/TuringBootstrap.cs`
   - Falls back to prefab instantiation only if scene bindings are missing
 - `ControllerInstaller`:
   - Creates `ProgramEditController`, `PlaybackController`, `StepViewApplier`, `GameFlowController`
-  - Preferentially uses scene-bound `PlayerInputCatcher` (XR/editor wiring)
-  - Falls back to input prefab instantiation only if scene binding is missing
+  - Exposes command methods (`RequestStartOrRun`, playback/next/menu requests) for XR UI wiring
   - Wires runtime events between systems
 
 Files:
@@ -131,7 +130,8 @@ File: `Assets/TuringSimulator/ITS/LiveTutorSocket.cs`
 ## XR / Editor-Oriented Wiring Notes
 
 - The project is XR Toolkit-oriented; wiring input and scene objects in the editor is now the preferred integration path.
-- `PlayerInputCatcher` keyboard bindings remain available as development fallback; XR button/menu interactions should call the same start/menu flow methods through scene event wiring.
+- Keyboard fallback input was removed; use XR simulator or headset interactions for all run/playback/menu controls.
+- XR buttons can call `TuringBootstrap` methods (`StartOrRunFromInteraction`, `PausePlaybackFromInteraction`, `PlayPlaybackFromInteraction`, `StepForwardFromInteraction`, `StepBackwardFromInteraction`, `NextLevelFromInteraction`, `ReturnToMainMenu`).
 - `TuringBootstrap` is now a thinner composition root with editor-first references and optional auto-start.
 - `MvpSceneWiringValidator` can be attached to the scene `Systems` root and
   invoked from its Inspector context menu. It reports missing bootstrap,
@@ -148,10 +148,11 @@ File: `Assets/TuringSimulator/ITS/SkillTracker.cs`
 - Keep `levelId` in `LevelDefinition` aligned with server level metadata.
 - If adding new ITS events, update both client DTO constants and server contract handling.
 - `SkillTracker.StudentId` is session identity for REST/live payloads. Treat changes as product-sensitive.
+- Make sure to use portuguese for any text that may be displayed on UI and agent dialogue.
 
 ## Known Gaps
 
-- Main-menu UI scene flow is still not fully wired; runtime now supports menu detach/start hooks and keyboard menu return (`M`) with fresh session on next start.
+- Main-menu UI scene flow is still not fully wired; runtime supports menu detach/start hooks through XR-wired button events.
 - Runtime instantiation is used heavily; scene-only wiring is not the current architecture.
 - Unity level content coverage may lag server pedagogical map.
 - The current repository contains five validation fixtures across two levels;

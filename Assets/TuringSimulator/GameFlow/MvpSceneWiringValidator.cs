@@ -66,7 +66,7 @@ namespace TuringSimulator.GameFlow
                 levelDatabase.ValidationScenarioCount < requiredScenarioCount)
             {
                 issues.Add(
-                    $"LevelDatabase has {levelDatabase.ValidationScenarioCount} validation "
+                    $"LevelDatabase has {levelDatabase.ValidationScenarioCount} validation " +
                     $"scenarios; the MVP target is {requiredScenarioCount}.");
             }
 

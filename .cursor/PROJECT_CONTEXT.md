@@ -12,7 +12,7 @@
 * **Specialized Installers:** Dependency wiring, interface binding, and event subscriptions are strictly delegated to dedicated installer classes rather than scattered `Awake()` or `Start()` methods.
 * **Model Installer:** Responsible for wiring the TM mathematical brain (simulation, tape, validation, buffered steps) and producing immutable step packets for the pipeline. **Bayesian student modeling (BKT) is authoritative on the Python server**; there is no separate BKT replica in the Unity model for the current MVP.
 * **View Installer:** Responsible for wiring the machine/tape/halt views, level UI, and animation interpolation consumers. Full **Fabric** (textile metaphor) and **UI Toolkit** block editors are roadmap items unless already present in scene assets.
-* **Controller Installer:** Responsible for input routing (XR / `PlayerInputCatcher`) and the playback / production pipeline orchestrator. **An MCP client is not part of the shipped MVP**—treat as future tooling integration or backlog unless explicitly added.
+* **Controller Installer:** Responsible for XR command routing (start/run/playback/next/menu) and the playback / production pipeline orchestrator. **An MCP client is not part of the shipped MVP**—treat as future tooling integration or backlog unless explicitly added.
 
 ### B. Buffered Production Pipeline (Model-Sync-View)
 * **Model (The Brain):** An isolated C# logic layer computes the Turing Machine's "Next State" without any knowledge of the Unity Engine visuals.

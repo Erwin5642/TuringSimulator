@@ -132,10 +132,6 @@ LEVEL_META: dict[str, dict] = {
         "goal": "Move to a specific cell and write a gear symbol there.",
         "blocks": ["move", "write"],
     },
-    "AppendScrew": {
-        "goal": "Scan right until blank is found, write a screw there",
-        "blocks": ["move", "write", "condition"],
-    },
     "ReplaceAllWithNuts": {
         "goal": "Scan the whole tape and replace every piece with a nut.",
         "blocks": ["move", "write", "condition"],

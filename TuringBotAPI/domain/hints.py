@@ -122,46 +122,22 @@ _TREES = [
         placeholders=["target_cell"],
     ),
 
-    # ── Level 3: AppendScrew ──────────────────────────────────────────────
+    # ── Level 3: ReplaceAllWithNuts ───────────────────────────────────────
 
-    _tree("AppendScrew","S4.1",
+    _tree("ReplaceAllWithNuts","S4.1",
         "Student does not understand what the condition block does or how to configure it.",
         "The tape has different pieces and the robot must react differently depending on what it finds. How could the circuit know what is currently under the robot?",
         "The condition block is the only way to inspect the tape. You configure it with a target symbol — for example, blank. If the piece under the robot matches, the signal exits the true port; otherwise the false port.",
         "Place a condition block configured to check for blank. Wire your last move block output to this condition block input. Now wire both output ports — true and false — to something.",
-        "Place a condition block set to 'blank'. Wire: move → condition. True port → write(screw) → accept. False port → back to move (the loop).",
+        "Place a condition block set to 'blank'. Wire: move → condition. True port → accept. False port → write(nut) → move and loop.",
     ),
 
-    _tree("AppendScrew","S4.5",
-        "Student does not know how to create a loop by feeding an output back to an earlier block.",
-        "After the robot checks a cell and finds it is not blank, what should it do next? Can a wire go backward in the circuit?",
-        "A loop is just a wire from an output port back to a block that already ran. When the condition false port fires, wiring it back to the move block makes the robot move and check again — repeating until it finds the blank.",
-        "Connect the false output of the condition block back to the input of the move-right block. The circuit will repeat: move → condition → (false) → move → …",
-        "Wire condition(false) → move-right input. This creates the scan loop. The robot moves right, checks for blank, and if not found it moves again. It stops only when blank is reached.",
-    ),
-
-    _tree("AppendScrew","S4.2",
-        "Student has wired only one output port of the condition block.",
-        "Your condition block has two output ports. What happens to the signal when it reaches a port with no wire?",
-        "Both output ports of a condition block must always be wired. The true port fires on a match; the false port fires otherwise. Leaving one unwired means that branch has nowhere to go and the program gets stuck.",
-        "Check that both the true and false ports of your condition block have wires. True should lead toward write and accept; false should loop back to move.",
-        "Wire condition true → write(screw) → accept. Wire condition false → move-right → back to condition. Both ports must be connected before the program can run.",
-    ),
-
-    _tree("AppendScrew","S5.2a",
-        "Student has not placed an accept block or does not know where to connect it.",
-        "Once the robot writes the screw, is the job done? How does the program signal that everything finished successfully?",
-        "The accept block is the factory approval stamp. When the signal reaches it, the program halts and marks the result as passed. Without accept, the program has no way to declare success.",
-        "Place an accept block after the write block. Wire: write → accept.",
-        "After the write(screw) block add an accept block and wire write(screw) → accept. The program halts successfully when the robot writes the screw and reaches accept.",
-    ),
-
-    _tree("AppendScrew","S1.4",
+    _tree("ReplaceAllWithNuts","S1.4",
         "Student does not understand that a blank cell marks the end of the tape.",
         "The tape has pieces on it but eventually runs out. How do you think the robot knows it has reached the end?",
         "An empty cell — a blank — marks the end of the tape. The conveyor belt ends with an empty slot. Your condition block can detect blank just like any other piece.",
         "Set your condition block to check for 'blank'. When it finds one, the robot has passed all pieces and reached the tape end.",
-        "Configure the condition block to check for 'blank'. Wire its true port to write(screw) → accept. The robot scans right until it finds the empty slot, then writes the screw there and accepts.",
+        "Configure the condition block to check for 'blank'. Wire its true port to accept. The robot scans right until it finds the empty slot, then accepts.",
     ),
 
     # ── Level 4: ReplaceAllWithNuts ───────────────────────────────────────
@@ -206,6 +182,14 @@ _TREES = [
         "Both accept and reject are terminal states — the program stops the moment it reaches either one. Accept means the batch passed; reject means it failed. Neither continues execution.",
         "Make sure both accept and reject have no output wires. They are always endpoints in your circuit.",
         "Accept and reject blocks have only an input port, no output. Your circuit must have exactly two endpoints: accept (reached on blank) and reject (reached on gear).",
+    ),
+
+    _tree("RejectIfGearExists","S5.2a",
+        "Student has not placed an accept block or does not know where to connect it.",
+        "If no gear is found, how does the program signal that the tape passed inspection?",
+        "The accept block is the positive terminal state. In this level, it should only be reached when the scan reaches blank without finding a gear.",
+        "Place an accept block and wire condition(blank) true → accept.",
+        "Use this terminal wiring: condition(gear) true → reject. condition(gear) false → condition(blank). condition(blank) true → accept. condition(blank) false → move-right → back to condition(gear).",
     ),
 
     _tree("RejectIfGearExists","S4.5",

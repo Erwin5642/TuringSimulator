@@ -36,6 +36,19 @@ Primary files:
 - Assuming menu/session lifecycle exists in current runtime flow.
 - Adding hidden runtime discovery when an Inspector-visible scene binding would
   make the system easier to understand and debug.
+- Shipping new player-facing copy in English when the audience is pt-BR.
+
+## Language Requirement (Player-Facing Copy)
+
+Make sure to use portuguese for any text that may be displayed on UI and agent dialogue.
+
+Scope:
+
+- Unity UI strings (labels, buttons, tooltips, validation summaries, warnings shown to player).
+- Agent dialogue content (subtitle bubble, hint/ask replies, fallback messages, voice/TTS text).
+- Scene/content text fields that players see (`LevelDefinition.title`, `LevelDefinition.description`, tutorial prompts).
+
+Non-player technical text (developer logs, internal comments, test names, diagnostics) can remain in English unless explicitly requested otherwise.
 
 ## Verification Expectations
 

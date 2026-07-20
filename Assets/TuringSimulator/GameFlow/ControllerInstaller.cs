@@ -14,7 +14,6 @@ namespace TuringSimulator.GameFlow
     [Serializable]
     public class ControllerSceneBindings
     {
-        public PlayerInputCatcher input;
         public ProgramWorkbench programWorkbench;
 
         [Header("Event Channels")]
@@ -28,7 +27,6 @@ namespace TuringSimulator.GameFlow
     [Serializable]
     public class ControllerPrefabs
     {
-        public GameObject input;
         public ProgramWorkbench programWorkbench;
 
         [Header("Optional Event Channels")]
@@ -48,8 +46,6 @@ namespace TuringSimulator.GameFlow
         
         // Core controllers
         public PlaybackController Playback { get; private set; }
-        
-        public PlayerInputCatcher PlayerInputCatcher { get; set; }
         public ProgramEditController ProgramEdit { get; private set; }
         public StepViewApplier StepApplier { get; set; }
         public GameFlowController GameFlowController { get; set; }
@@ -105,29 +101,10 @@ namespace TuringSimulator.GameFlow
             Playback = new PlaybackController(StepApplier);
             ProgramEdit = new ProgramEditController();
             GameFlowController = new GameFlowController(_model, _view, this);
-            if (_useSceneBindings)
-            {
-                PlayerInputCatcher = _scene.input;
-                if (PlayerInputCatcher == null)
-                    throw new InvalidOperationException("Controller scene binding requires input reference.");
-            }
-            else
-            {
-                PlayerInputCatcher = UnityEngine.Object.Instantiate(_prefabs.input).GetComponent<PlayerInputCatcher>();
-            }
-
             ValidateEventChannelWiring();
 
             _workbench?.Initialize(ProgramEdit);
-            
-            PlayerInputCatcher.OnStartRequest += HandleStartRequested;
-            PlayerInputCatcher.OnPauseRequest += Playback.Pause;
-            PlayerInputCatcher.OnPlayRequest += Playback.Play;
-            PlayerInputCatcher.OnForwardRequest += Playback.StepForward;
-            PlayerInputCatcher.OnBackwardRequest += Playback.StepBackward;
-            PlayerInputCatcher.OnNextRequest += GameFlowController.Next;
-            PlayerInputCatcher.OnMenuRequest += HandleMenuRequested;
-            
+
             ProgramEdit.OnProgramChanged += HandleProgramChanged;
 
             Playback.OnStep += HandlePlaybackStep;
@@ -139,6 +116,41 @@ namespace TuringSimulator.GameFlow
         {
             GameFlowController.ReturnToMenu();
             SkillTracker.Instance?.ClearSession();
+        }
+
+        public void RequestStartOrRun()
+        {
+            HandleStartRequested();
+        }
+
+        public void RequestPausePlayback()
+        {
+            Playback.Pause();
+        }
+
+        public void RequestPlayPlayback()
+        {
+            Playback.Play();
+        }
+
+        public void RequestStepForward()
+        {
+            Playback.StepForward();
+        }
+
+        public void RequestStepBackward()
+        {
+            Playback.StepBackward();
+        }
+
+        public void RequestNextLevel()
+        {
+            GameFlowController.Next();
+        }
+
+        public void RequestReturnToMenu()
+        {
+            HandleMenuRequested();
         }
 
         void HandleProgramChanged(IProgram program)
@@ -161,8 +173,8 @@ namespace TuringSimulator.GameFlow
                 BuildEventContext(nameof(PlaybackController), _playbackStepIndex.ToString()),
                 _playbackStepIndex,
                 result.Kind);
-            EventTraceLog.Record(nameof(PlaybackStepEventData), stepData.ToString(), PlayerInputCatcher);
-            _playbackStepChannel?.Raise(stepData, PlayerInputCatcher);
+            EventTraceLog.Record(nameof(PlaybackStepEventData), stepData.ToString(), _workbench);
+            _playbackStepChannel?.Raise(stepData, _workbench);
 
             LiveTutorSocket.Instance?.SendPlaybackStep(result);
             if (result.Kind != ResultKind.Halt)
@@ -171,8 +183,8 @@ namespace TuringSimulator.GameFlow
             var haltData = new HaltReachedEventData(
                 BuildEventContext(nameof(PlaybackController), $"halt-{_playbackStepIndex}"),
                 result.AsHalt());
-            EventTraceLog.Record(nameof(HaltReachedEventData), haltData.ToString(), PlayerInputCatcher);
-            _haltReachedChannel?.Raise(haltData, PlayerInputCatcher);
+            EventTraceLog.Record(nameof(HaltReachedEventData), haltData.ToString(), _workbench);
+            _haltReachedChannel?.Raise(haltData, _workbench);
             GameFlowController.Halt();
         }
 
@@ -209,10 +221,10 @@ namespace TuringSimulator.GameFlow
             if (gsm.CurrentState == GameState.Menu)
             {
                 var startFromMenu = new RunRequestedEventData(
-                    BuildEventContext(nameof(PlayerInputCatcher), "start-from-menu"),
+                    BuildEventContext(nameof(ControllerInstaller), "start-from-menu"),
                     GameState.Menu.ToString());
-                EventTraceLog.Record(nameof(RunRequestedEventData), startFromMenu.ToString(), PlayerInputCatcher);
-                _runRequestedChannel?.Raise(startFromMenu, PlayerInputCatcher);
+                EventTraceLog.Record(nameof(RunRequestedEventData), startFromMenu.ToString(), _workbench);
+                _runRequestedChannel?.Raise(startFromMenu, _workbench);
 
                 if (ITSClient.Instance != null && SkillTracker.Instance != null)
                 {
@@ -225,10 +237,10 @@ namespace TuringSimulator.GameFlow
             }
 
             var runFromEditing = new RunRequestedEventData(
-                BuildEventContext(nameof(PlayerInputCatcher), "run-from-editing"),
+                BuildEventContext(nameof(ControllerInstaller), "run-from-editing"),
                 GameState.Editing.ToString());
-            EventTraceLog.Record(nameof(RunRequestedEventData), runFromEditing.ToString(), PlayerInputCatcher);
-            _runRequestedChannel?.Raise(runFromEditing, PlayerInputCatcher);
+            EventTraceLog.Record(nameof(RunRequestedEventData), runFromEditing.ToString(), _workbench);
+            _runRequestedChannel?.Raise(runFromEditing, _workbench);
             GameFlowController.Run();
         }
 

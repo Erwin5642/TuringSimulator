@@ -89,7 +89,7 @@ class EventRequest(BaseModel):
     Sent by Unity whenever the student performs a meaningful game action.
 
     student_id  : Unique identifier for the student session.
-    level_id    : Current level (e.g. "AppendScrew").
+    level_id    : Current level (e.g. "ReplaceAllWithNuts").
     event_type  : One of: block_placed, block_removed, wire_connected,
                   wire_removed, program_run, level_complete, level_failed.
     correct     : Whether the action moved the student toward the solution.

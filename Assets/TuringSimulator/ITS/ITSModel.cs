@@ -138,7 +138,6 @@ namespace ITS
     {
         public const string MoveLeftRight      = "MoveLeftRight";
         public const string PlaceGear          = "PlaceGear";
-        public const string AppendScrew        = "AppendScrew";
         public const string ReplaceAllWithNuts = "ReplaceAllWithNuts";
         public const string RejectIfGearExists = "RejectIfGearExists";
         public const string SwapNutsAndScrews  = "SwapNutsAndScrews";

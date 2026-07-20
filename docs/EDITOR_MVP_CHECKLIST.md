@@ -53,6 +53,14 @@ CardDrawer
    `Validate Scene`.
 10. Add `SceneReloadButton` to a world-space XR UI `Button`. It registers its
     click handler automatically; make sure `BasicScene` is in Build Settings.
+11. Wire world-space XR UI buttons to `TuringBootstrap` methods for flow control:
+    - `StartOrRunFromInteraction`
+    - `PausePlaybackFromInteraction`
+    - `PlayPlaybackFromInteraction`
+    - `StepForwardFromInteraction`
+    - `StepBackwardFromInteraction`
+    - `NextLevelFromInteraction`
+    - `ReturnToMainMenu`
 
 ## Play-mode smoke pass
 

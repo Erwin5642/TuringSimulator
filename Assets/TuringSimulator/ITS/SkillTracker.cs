@@ -60,7 +60,7 @@ public class SkillTracker : MonoBehaviour
     /// <summary>
     /// Call this whenever your LevelManager loads a new level.
     /// Pass the level ID string exactly as defined in LevelID constants.
-    /// Example: SkillTracker.Instance.OnLevelLoaded(LevelID.AppendScrew);
+    /// Example: SkillTracker.Instance.OnLevelLoaded(LevelID.ReplaceAllWithNuts);
     /// </summary>
     public void OnLevelLoaded(string levelId)
     {
@@ -269,7 +269,6 @@ public class SkillTracker : MonoBehaviour
     {
         LevelID.MoveLeftRight      => new[] { SkillID.MoveLeftRight, SkillID.PlaceWire, SkillID.ConnectPort, SkillID.TapePosition },
         LevelID.PlaceGear          => new[] { SkillID.UseWriteBlock, SkillID.ChainMoveWithAction },
-        LevelID.AppendScrew        => new[] { SkillID.ConditionBlock, SkillID.BranchLogic, SkillID.LoopConstruction, SkillID.BlankAsTapeEnd, SkillID.AcceptBlock },
         LevelID.ReplaceAllWithNuts => new[] { SkillID.UseWriteBlock, SkillID.LoopConstruction, SkillID.BranchLogic },
         LevelID.RejectIfGearExists => new[] { SkillID.AcceptVsReject, SkillID.Halting, SkillID.LoopConstruction },
         LevelID.SwapNutsAndScrews  => new[] { SkillID.ChainAllBlocks, SkillID.BranchLogic, SkillID.UseWriteBlock },

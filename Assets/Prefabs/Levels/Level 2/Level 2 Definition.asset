@@ -12,10 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c86604d78d14dd78e4796fadf38bbc7, type: 3}
   m_Name: Level 2 Definition
   m_EditorClassIdentifier: 
-  title: "Transforma\xE7\xE3o"
-  description: "A M\xE1quina de Turing consegue transformar entradas em sa\xEDdas
-    de acordo com as condi\xE7\xF5es"
-  levelId: ReplaceAllWithNuts
+  title: Escrever Engrenagem
+  description: "Objetivo: avance at\xE9 a primeira c\xE9lula em branco, escreva uma
+    Engrenagem nela e finalize em Aceitar."
+  levelId: PlaceGear
   mainTest: {fileID: 11400000, guid: 02e397e956475814d872570aab910898, type: 2}
-  validationTests:
-  - {fileID: 11400000, guid: b19d6a1e4004fed429b395625f800c23, type: 2}
+  validationTests: []
