@@ -2424,6 +2424,7 @@ GameObject:
   - component: {fileID: 2125000003}
   - component: {fileID: 2125000004}
   - component: {fileID: 2125000005}
+  - component: {fileID: 2125000006}
   m_Layer: 0
   m_Name: TutorSystems
   m_TagString: Untagged
@@ -2482,11 +2483,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 2125000000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8d42e19c7ab401d9e3b6543210fedaa, type: 3}
+  m_Script: {fileID: 11500000, guid: 3eb6c0185ad9482d85205a8bd76d8742, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  wsUrl: ws://localhost:8000/ws/live
-  connectOnStart: 1
+  _voiceExperience: {fileID: 0}
+  _minConfidence: 0.55
 --- !u!114 &2125000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2503,15 +2504,22 @@ MonoBehaviour:
   _bubbleText: {fileID: 0}
   _typewriterSpeed: 40
   _autoDismissAfter: 7
-  _micButton: {fileID: 0}
   _micActiveIndicator: {fileID: 0}
   _partialLabel: {fileID: 0}
-  _askPanelRoot: {fileID: 0}
-  _askInput: {fileID: 0}
-  _askSendButton: {fileID: 0}
-  _askCancelButton: {fileID: 0}
-  _hintButton: {fileID: 0}
   _loadingIndicator: {fileID: 0}
+--- !u!114 &2125000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6789012345678abcdef01, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _micToggleAction: {fileID: 0}
 --- !u!1 &2120581488
 GameObject:
   m_ObjectHideFlags: 0

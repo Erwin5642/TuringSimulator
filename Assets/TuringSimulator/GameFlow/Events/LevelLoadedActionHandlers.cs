@@ -73,19 +73,12 @@ namespace TuringSimulator.GameFlow.Events
         }
     }
 
-    public sealed class LevelTutorSnapshotActionHandler : ILevelLoadedActionHandler
+    public sealed class LevelSessionContextActionHandler : ILevelLoadedActionHandler
     {
         public void Apply(LevelLoadedActionContext context)
         {
-            var mainTest = LevelLoadedActionGuard.RequireMainTest(context.Level);
             var levelId = LevelLoadedActionHelpers.ResolveLevelId(context.Level);
-
             SkillTracker.Instance?.OnLevelLoaded(levelId);
-            LiveTutorSocket.Instance?.SendLevelSnapshot(
-                context.Level.title,
-                context.Level.description,
-                mainTest.initialSymbols,
-                mainTest.headIndex);
         }
     }
 

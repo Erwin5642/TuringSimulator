@@ -78,8 +78,6 @@ namespace TuringSimulator.GameFlow
 
                 _controller.ProgramEdit.Disable();
                 Debug.Log("[GameFlow] Starting simulation");
-                LiveTutorSocket.Instance?.SendRunLifecycle("run_start");
-                SkillTracker.Instance?.OnProgramRun(true);
                 await _model.Simulation.Start();
                 Debug.Log($"[GameFlow]: Result of simulation: {_model.Buffer.Status}");
                 var i = 0;
@@ -87,7 +85,6 @@ namespace TuringSimulator.GameFlow
                 {
                     Debug.Log(step);
                 }
-                LiveTutorSocket.Instance?.SendRunLifecycle("run_finished");
                 _controller.Playback.Enable();
             }
             catch (Exception e)
@@ -115,7 +112,6 @@ namespace TuringSimulator.GameFlow
             try
             {
                 _model.Simulation.Cancel();
-                LiveTutorSocket.Instance?.SendRunLifecycle("run_abort");
 
                 _controller.Playback.Disable();
                 _controller.ProgramEdit.Enable();
@@ -156,22 +152,11 @@ namespace TuringSimulator.GameFlow
                 
                 await _model.Validation.Start();
 
-                var program = _controller.ProgramEdit.Current;
-                var runEvidence = ProgramResultAnalyzer.Analyze(program, _model.Buffer);
-
+                _view.LevelUI.SetValidationSummary(_model.Validation.Results);
                 if (_model.Validation.AllPassed)
-                {
-                    SkillTracker.Instance?.OnProgramSuccess(runEvidence);
-                    SkillTracker.Instance?.OnLevelComplete();
-                    _view.LevelUI.SetValidationSummary(_model.Validation.Results);
                     Victory();
-                }
                 else
-                {
-                    SkillTracker.Instance?.OnProgramFail(runEvidence);
-                    _view.LevelUI.SetValidationSummary(_model.Validation.Results);
                     Defeat();
-                }
             }
             catch (Exception e)
             {
