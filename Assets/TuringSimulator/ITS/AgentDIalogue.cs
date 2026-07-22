@@ -22,6 +22,10 @@ public class AgentDialogue : MonoBehaviour
     [SerializeField] private TMP_Text _partialLabel;
     [SerializeField] private GameObject _loadingIndicator;
 
+    [Header("Mode")]
+    [Tooltip("Keep false to use event-channel wiring. True keeps direct legacy subscriptions.")]
+    [SerializeField] private bool _useLegacyDirectWiring = true;
+
     public event Action OnThinkingStarted;
     public event Action OnThinkingFinished;
 
@@ -43,6 +47,17 @@ public class AgentDialogue : MonoBehaviour
 
     private void Start()
     {
+        _bubbleRoot?.SetActive(false);
+        SetThinkingState(false);
+        SetListeningState(false);
+        SetPartialTranscription(string.Empty);
+
+        if (AgentTTS.Instance != null)
+            AgentTTS.Instance.OnSpeechFinished += OnTTSFinished;
+
+        if (!_useLegacyDirectWiring)
+            return;
+
         if (ITSClient.Instance != null)
         {
             ITSClient.Instance.OnAskReply += SayAndSpeak;
@@ -56,26 +71,17 @@ public class AgentDialogue : MonoBehaviour
             VoiceInputHandler.Instance.OnListeningStarted += OnListeningStarted;
             VoiceInputHandler.Instance.OnListeningStopped += OnListeningStopped;
         }
-
-        if (AgentTTS.Instance != null)
-            AgentTTS.Instance.OnSpeechFinished += OnTTSFinished;
-
-        _bubbleRoot?.SetActive(false);
-        _loadingIndicator?.SetActive(false);
-        _micActiveIndicator?.SetActive(false);
-        if (_partialLabel != null)
-            _partialLabel.text = string.Empty;
     }
 
     private void OnDestroy()
     {
-        if (ITSClient.Instance != null)
+        if (_useLegacyDirectWiring && ITSClient.Instance != null)
         {
             ITSClient.Instance.OnAskReply -= SayAndSpeak;
             ITSClient.Instance.OnServerError -= OnServerError;
         }
 
-        if (VoiceInputHandler.Instance != null)
+        if (_useLegacyDirectWiring && VoiceInputHandler.Instance != null)
         {
             VoiceInputHandler.Instance.OnTranscriptionReady -= OnTranscriptionReady;
             VoiceInputHandler.Instance.OnPartialTranscription -= OnPartialTranscription;
@@ -108,7 +114,7 @@ public class AgentDialogue : MonoBehaviour
 
     public void SayAndSpeak(string message)
     {
-        SetThinking(false);
+        SetThinkingState(false);
         ShowSubtitle(message);
         AgentTTS.Instance?.Speak(message);
     }
@@ -129,25 +135,20 @@ public class AgentDialogue : MonoBehaviour
 
     private void OnListeningStarted()
     {
-        _micToggle = true;
-        _micActiveIndicator?.SetActive(true);
-        if (_partialLabel != null)
-            _partialLabel.text = string.Empty;
+        SetListeningState(true);
+        SetPartialTranscription(string.Empty);
     }
 
     private void OnListeningStopped()
     {
-        _micToggle = false;
-        _micActiveIndicator?.SetActive(false);
-        SetThinking(true);
-        if (_partialLabel != null)
-            _partialLabel.text = string.Empty;
+        SetListeningState(false);
+        SetThinkingState(true);
+        SetPartialTranscription(string.Empty);
     }
 
     private void OnPartialTranscription(string partial)
     {
-        if (_partialLabel != null)
-            _partialLabel.text = partial;
+        SetPartialTranscription(partial);
     }
 
     private void OnTranscriptionReady(string text)
@@ -162,14 +163,14 @@ public class AgentDialogue : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(studentId))
         {
-            SetThinking(false);
+            SetThinkingState(false);
             SayAndSpeak("Inicie uma nova sessão no menu antes de conversar comigo.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(text))
         {
-            SetThinking(false);
+            SetThinkingState(false);
             SayAndSpeak("Nao entendi. Tente perguntar de novo.");
             return;
         }
@@ -179,18 +180,30 @@ public class AgentDialogue : MonoBehaviour
 
     private void OnServerError(string error)
     {
-        SetThinking(false);
+        SetThinkingState(false);
         SayAndSpeak("Hmm, parece que perdi o sinal. Tente novamente em um momento, treineiro.");
         Debug.LogWarning($"[AgentDialogue] Server error: {error}");
     }
 
-    private void SetThinking(bool thinking)
+    public void SetThinkingState(bool thinking)
     {
         _loadingIndicator?.SetActive(thinking);
         if (thinking)
             OnThinkingStarted?.Invoke();
         else
             OnThinkingFinished?.Invoke();
+    }
+
+    public void SetListeningState(bool isListening)
+    {
+        _micToggle = isListening;
+        _micActiveIndicator?.SetActive(isListening);
+    }
+
+    public void SetPartialTranscription(string partial)
+    {
+        if (_partialLabel != null)
+            _partialLabel.text = partial ?? string.Empty;
     }
 
     private void OnTTSFinished()
