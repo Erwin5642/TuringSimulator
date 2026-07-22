@@ -3,6 +3,7 @@
 
 using UnityEngine;
 using UnityEngine.InputSystem;
+using TuringSimulator.GameFlow.Events;
 
 [DefaultExecutionOrder(-90)]
 public class VoiceAskControllerInput : MonoBehaviour
@@ -10,6 +11,10 @@ public class VoiceAskControllerInput : MonoBehaviour
     [Header("XR Input")]
     [Tooltip("Optional. If unset, binds right-hand secondaryButton at runtime.")]
     [SerializeField] InputActionReference _micToggleAction;
+
+    [Header("Event Channel")]
+    [Tooltip("Preferred path: publish mic toggles through this channel.")]
+    [SerializeField] MicToggleRequestedEventChannel _micToggleRequestedChannel;
 
     InputAction _runtimeAction;
     InputAction _boundAction;
@@ -57,6 +62,15 @@ public class VoiceAskControllerInput : MonoBehaviour
 
     void OnMicTogglePerformed(InputAction.CallbackContext _)
     {
+        var eventData = new MicToggleRequestedEventData(
+            EventContextFactory.Create(nameof(VoiceAskControllerInput), "controller-mic-toggle"));
+        if (_micToggleRequestedChannel != null)
+        {
+            EventTraceLog.Record(nameof(MicToggleRequestedEventData), eventData.ToString(), this);
+            _micToggleRequestedChannel.Raise(eventData, this);
+            return;
+        }
+
         if (AgentDialogue.Instance == null)
         {
             Debug.LogWarning("[VoiceAskControllerInput] AgentDialogue not ready.");

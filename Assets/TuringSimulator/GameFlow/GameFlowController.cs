@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using ITS;
+using TuringSimulator.Core.Simulation;
+using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Types;
+using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
 namespace TuringSimulator.GameFlow
@@ -12,6 +16,11 @@ namespace TuringSimulator.GameFlow
         private readonly ControllerInstaller _controller;
         private readonly ViewInstaller _view;
         private readonly ModelInstaller _model;
+        private RunStartedEventChannel _runStartedChannel;
+        private RunFinishedEventChannel _runFinishedChannel;
+        private SimulationStepProducedEventChannel _simulationStepProducedChannel;
+        private ValidationCompletedEventChannel _validationCompletedChannel;
+        private LevelOutcomeEventChannel _levelOutcomeChannel;
 
         private readonly GameStateMachine _stateMachine = GameStateMachine.Instance;
 
@@ -24,6 +33,20 @@ namespace TuringSimulator.GameFlow
             _model = model;
             _view = view;
             _controller = controller;
+        }
+
+        public void ConfigureEventChannels(
+            RunStartedEventChannel runStartedChannel,
+            RunFinishedEventChannel runFinishedChannel,
+            SimulationStepProducedEventChannel simulationStepProducedChannel,
+            ValidationCompletedEventChannel validationCompletedChannel,
+            LevelOutcomeEventChannel levelOutcomeChannel)
+        {
+            _runStartedChannel = runStartedChannel;
+            _runFinishedChannel = runFinishedChannel;
+            _simulationStepProducedChannel = simulationStepProducedChannel;
+            _validationCompletedChannel = validationCompletedChannel;
+            _levelOutcomeChannel = levelOutcomeChannel;
         }
 
         public void Start()
@@ -77,14 +100,34 @@ namespace TuringSimulator.GameFlow
                     return;
 
                 _controller.ProgramEdit.Disable();
-                Debug.Log("[GameFlow] Starting simulation");
-                await _model.Simulation.Start();
-                Debug.Log($"[GameFlow]: Result of simulation: {_model.Buffer.Status}");
-                var i = 0;
-                while (_model.Buffer.TryGetStep(i++, out var step))
+                PublishRunStarted();
+                if (_model.CurrentProgram == null)
+                    throw new InvalidOperationException("Cannot run without an active program.");
+                if (_model.CurrentTape == null)
+                    throw new InvalidOperationException("Cannot run without an active tape.");
+
+                var runRequest = new SimulationRunRequest(_model.CurrentProgram, _model.CurrentTape);
+                var simulationStepIndex = 0;
+                void OnStepProduced(StepResult step)
                 {
-                    Debug.Log(step);
+                    PublishSimulationStepProduced(step, simulationStepIndex++);
                 }
+
+                _model.Simulation.OnStepProduced += OnStepProduced;
+                SimulationRunResult runResult;
+                Debug.Log("[GameFlow] Starting simulation");
+                try
+                {
+                    runResult = await _model.Simulation.Run(runRequest);
+                }
+                finally
+                {
+                    _model.Simulation.OnStepProduced -= OnStepProduced;
+                }
+
+                Debug.Log($"[GameFlow]: Result of simulation: {runResult.HaltStatus}");
+                _controller.StepApplier.LoadSteps(runResult.Steps);
+                PublishRunFinished(runResult.HaltStatus, runResult.StepCount);
                 _controller.Playback.Enable();
             }
             catch (Exception e)
@@ -153,6 +196,7 @@ namespace TuringSimulator.GameFlow
                 await _model.Validation.Start();
 
                 _view.LevelUI.SetValidationSummary(_model.Validation.Results);
+                PublishValidationCompleted();
                 if (_model.Validation.AllPassed)
                     Victory();
                 else
@@ -196,11 +240,13 @@ namespace TuringSimulator.GameFlow
         public void Victory()
         {
             _stateMachine.TryTransition(GameState.Victory);
+            PublishLevelOutcome(LevelOutcomeKind.Victory);
         }
 
         public void Defeat()
         {
             _stateMachine.TryTransition(GameState.Defeat);
+            PublishLevelOutcome(LevelOutcomeKind.Defeat);
         }
 
         public void ReturnToMenu()
@@ -214,6 +260,76 @@ namespace TuringSimulator.GameFlow
 
             if (!_stateMachine.TryTransition(GameState.Menu))
                 Debug.LogWarning("[GameFlow] Could not transition to Menu.");
+        }
+
+        private void PublishRunStarted()
+        {
+            if (_runStartedChannel == null)
+                return;
+
+            var context = EventContextFactory.Create(nameof(GameFlowController), "run-start");
+            var payload = new RunStartedEventData(context, _stateMachine.PreviousState.ToString());
+            EventTraceLog.Record(nameof(RunStartedEventData), payload.ToString());
+            _runStartedChannel.Raise(payload);
+        }
+
+        private void PublishRunFinished(HaltStatus haltStatus, int stepCount)
+        {
+            if (_runFinishedChannel == null)
+                return;
+
+            var context = EventContextFactory.Create(nameof(GameFlowController), "run-finished");
+            var payload = new RunFinishedEventData(context, haltStatus, stepCount);
+            EventTraceLog.Record(nameof(RunFinishedEventData), payload.ToString());
+            _runFinishedChannel.Raise(payload);
+        }
+
+        private void PublishSimulationStepProduced(StepResult step, int stepIndex)
+        {
+            if (_simulationStepProducedChannel == null)
+                return;
+
+            var context = EventContextFactory.Create(nameof(GameFlowController), $"sim-step-{stepIndex}");
+            var payload = new SimulationStepProducedEventData(context, stepIndex, step.Kind, step);
+            EventTraceLog.Record(nameof(SimulationStepProducedEventData), payload.ToString());
+            _simulationStepProducedChannel.Raise(payload);
+        }
+
+        private void PublishValidationCompleted()
+        {
+            if (_validationCompletedChannel == null)
+                return;
+
+            var results = _model.Validation.Results;
+            var passedCount = 0;
+            for (var i = 0; i < results.Count; i++)
+            {
+                if (results[i].Passed)
+                    passedCount++;
+            }
+
+            var levelId = SkillTracker.Instance?.GetCurrentLevelId() ?? LevelID.MoveLeftRight;
+            var context = EventContextFactory.Create(nameof(GameFlowController), $"validation-{levelId}");
+            var payload = new ValidationCompletedEventData(
+                context,
+                levelId,
+                _model.Validation.AllPassed,
+                passedCount,
+                results.Count);
+            EventTraceLog.Record(nameof(ValidationCompletedEventData), payload.ToString());
+            _validationCompletedChannel.Raise(payload);
+        }
+
+        private void PublishLevelOutcome(LevelOutcomeKind outcome)
+        {
+            if (_levelOutcomeChannel == null)
+                return;
+
+            var levelId = SkillTracker.Instance?.GetCurrentLevelId() ?? LevelID.MoveLeftRight;
+            var context = EventContextFactory.Create(nameof(GameFlowController), $"outcome-{levelId}");
+            var payload = new LevelOutcomeEventData(context, levelId, outcome);
+            EventTraceLog.Record(nameof(LevelOutcomeEventData), payload.ToString());
+            _levelOutcomeChannel.Raise(payload);
         }
     }
 }

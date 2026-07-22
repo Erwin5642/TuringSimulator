@@ -1,61 +1,35 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Simulation;
 using TuringSimulator.Core.Tape;
-using TuringSimulator.Core.Types;
-using UnityEngine;
 
 namespace TuringSimulator.Core.Validation
 {
     public class ValidationRunner : IValidationRunner
     {
-        // Simulation
-        private ISimulationEngine _engine;
-        private ISimulationBuffer[] _buffers;
+        private ValidationTest[] _tests = Array.Empty<ValidationTest>();
         private IProgram _program;
         private CancellationTokenSource _cts;
-        
-        // Output from the simulation
-        private SimulationTape[] _tapes;
-        
-        // Result expected from the tests
-        private SimulationTape[] _expectedTapes;
-        private HaltStatus[] _expectedStatuses;
-        
-        // Final result
-        private bool[] _results;
+        private bool[] _results = Array.Empty<bool>();
         private ValidationResult[] _validationResults = Array.Empty<ValidationResult>();
 
         public bool AllPassed => _results.All(r => r);
-        public IReadOnlyList<ValidationResult> Results => _validationResults;
-
-        public ValidationRunner()
-        {
-            _engine = new SimulationEngine();
-        }
+        public System.Collections.Generic.IReadOnlyList<ValidationResult> Results => _validationResults;
         
         public void SetTests(ValidationTest[] tests)
         {
             if (tests == null || tests.Length == 0) throw new ArgumentNullException(nameof(tests));
 
-            _tapes = new SimulationTape[tests.Length];
-            _buffers = new ISimulationBuffer[tests.Length];
-            _expectedTapes = new SimulationTape[tests.Length];
-            _expectedStatuses = new HaltStatus[tests.Length];
+            _tests = tests;
             _results = new bool[tests.Length];
             _validationResults = new ValidationResult[tests.Length];
 
             for (int i = 0; i < tests.Length; i++)
             {
                 var test = tests[i];
-                _buffers[i] = new SimulationBuffer();
-                _tapes[i] = new SimulationTape(test.headIndex, test.initialSymbols);
-                _expectedTapes[i] = new SimulationTape(test.expectedHeadIndex, test.expectedSymbols);
-                _expectedStatuses[i] = test.expectedStatus;
                 _validationResults[i] = new ValidationResult
                 {
                     TestIndex = i,
@@ -63,7 +37,7 @@ namespace TuringSimulator.Core.Validation
                         ? $"test_{i + 1}"
                         : test.scenarioId,
                     ExpectedStatus = test.expectedStatus,
-                    ExpectedTape = _expectedTapes[i],
+                    ExpectedTape = new SimulationTape(test.expectedHeadIndex, test.expectedSymbols),
                     Passed = false,
                 };
             }
@@ -78,76 +52,44 @@ namespace TuringSimulator.Core.Validation
         {
             if (_program == null)
                 throw new InvalidOperationException("A program must be set before calling this method.");
-            if (_tapes == null || _buffers == null)
+            if (_tests == null || _tests.Length == 0)
                 throw new InvalidOperationException("Tests must be set before calling this method.");
 
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            var tasks = new Task[_tapes.Length];
+            var tasks = new Task[_tests.Length];
 
-            for (int i = 0; i < _tapes.Length; i++)
+            for (int i = 0; i < _tests.Length; i++)
             {
                 int index = i;
-                tasks[index] = Task.Run(async () =>
-                {
-                    await _engine.Run(_program, _tapes[index], _buffers[index], _cts.Token);
-                    
-                    _results[index] = _buffers[index].Status == _expectedStatuses[index]
-                                       && _tapes[index].Snapshot().StructuralEquals(_expectedTapes[index].Snapshot());
-                    _validationResults[index].ActualStatus = _buffers[index].Status;
-                    _validationResults[index].ActualTape = _tapes[index];
-                    _validationResults[index].Passed = _results[index];
-                    _validationResults[index].Error = _results[index]
-                        ? string.Empty
-                        : "Actual status or tape differs from the expected result.";
-
-                }, _cts.Token);
+                tasks[index] = RunCase(index, _cts.Token);
             }
 
             await Task.WhenAll(tasks);
-
-            Debug.Log("[Validation] Simulation results");
-            foreach (var res in _results)
-            {
-                Debug.Log(res);    
-            }
-
-            foreach (var buffer in _buffers)
-            {
-                Debug.Log(buffer.Status);
-                var i = 0;
-                while (buffer.TryGetStep(i++, out var step))
-                {
-                    Debug.Log(step);
-                }
-            }
-
-            foreach (var output in _tapes)
-            {
-                foreach (var (index, symbol) in output.Snapshot().Cells)
-                {
-                    Debug.Log($"{index}, {symbol}");
-                }
-            }
-
-            Debug.Log("[Validation] Expected: ");
-            foreach (var status in _expectedStatuses)
-            {
-                Debug.Log(status);  
-            }
-            
-            foreach (var expected in _expectedTapes)
-            {
-                foreach (var (index, symbol) in expected.Snapshot().Cells)
-                {
-                    Debug.Log($"{index}, {symbol}");
-                }
-            }
         }
         
         public void Cancel()
         {
             _cts?.Cancel();
+        }
+
+        async Task RunCase(int index, CancellationToken token)
+        {
+            var test = _tests[index];
+            var inputTape = new SimulationTape(test.headIndex, test.initialSymbols);
+            var expectedTape = new SimulationTape(test.expectedHeadIndex, test.expectedSymbols);
+            var runner = new SimulationRunner(new SimulationBuffer());
+            var result = await runner.Run(new SimulationRunRequest(_program, inputTape), token);
+            var passed = result.HaltStatus == test.expectedStatus &&
+                         result.FinalTape.StructuralEquals(expectedTape.Snapshot());
+
+            _results[index] = passed;
+            _validationResults[index].ActualStatus = result.HaltStatus;
+            _validationResults[index].ActualTape = inputTape;
+            _validationResults[index].Passed = passed;
+            _validationResults[index].Error = passed
+                ? string.Empty
+                : "Actual status or tape differs from the expected result.";
         }
     }
 }

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace TuringSimulator.GameFlow.Events
 {
-    public abstract class EventChannelSO<TPayload> : ScriptableObject, IEventChannel<TPayload>
+    public abstract class EventChannelSO<TPayload> : ScriptableObject, IEventChannel<TPayload>, IUntypedEventChannel
     {
         [Header("Debug Trace")]
         [SerializeField] private bool _traceEvents = true;
@@ -13,6 +13,7 @@ namespace TuringSimulator.GameFlow.Events
         private int _raiseCount;
 
         public event Action<TPayload> OnRaised;
+        public event Action<object> OnRaisedUntyped;
 
         public void Raise(TPayload payload, UnityEngine.Object source = null)
         {
@@ -25,6 +26,7 @@ namespace TuringSimulator.GameFlow.Events
             }
 
             OnRaised?.Invoke(payload);
+            OnRaisedUntyped?.Invoke(payload);
         }
 
         protected virtual string FormatPayload(TPayload payload)
