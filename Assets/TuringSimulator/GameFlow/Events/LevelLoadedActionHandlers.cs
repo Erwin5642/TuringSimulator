@@ -42,7 +42,7 @@ namespace TuringSimulator.GameFlow.Events
             var mainTest = LevelLoadedActionGuard.RequireMainTest(context.Level);
             var tape = new SimulationTape(mainTest.headIndex, mainTest.initialSymbols);
             context.Model.Buffer.Clear();
-            context.Model.Simulation.SetTape(tape);
+            context.Model.CurrentTape = tape;
         }
     }
 

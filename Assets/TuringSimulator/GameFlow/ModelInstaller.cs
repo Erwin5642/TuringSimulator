@@ -2,6 +2,7 @@
 using TuringSimulator.Core.Level;
 using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Simulation;
+using TuringSimulator.Core.Tape;
 using TuringSimulator.Core.Validation;
 
 namespace TuringSimulator.GameFlow
@@ -14,6 +15,8 @@ namespace TuringSimulator.GameFlow
         public SimulationRunner Simulation { get; }
         public SimulationBuffer Buffer { get; }
         public IValidationRunner Validation { get; }
+        public IProgram CurrentProgram { get; set; }
+        public SimulationTape CurrentTape { get; set; }
 
         public ModelInstaller(LevelDatabase database)
         {
