@@ -1,5 +1,5 @@
-﻿using System.Threading.Tasks;
-using TuringSimulator.Core.Simulation;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.View.Machine;
 using UnityEngine;
@@ -9,13 +9,13 @@ namespace TuringSimulator.Controller.Syncronizer
     public class StepViewApplier : IStepApplier
     {
         public int CurrentStepIndex { get; private set; }
+        public int TotalSteps => _steps.Count;
         private bool _isBusy;
 
-        private readonly ISimulationBuffer _buffer;
+        private readonly List<StepResult> _steps = new();
         private readonly IMachineView _view;
-        public StepViewApplier(ISimulationBuffer buffer, IMachineView view)
+        public StepViewApplier(IMachineView view)
         {
-            _buffer = buffer;
             _view = view;
             CurrentStepIndex = 0;
         }
@@ -26,11 +26,13 @@ namespace TuringSimulator.Controller.Syncronizer
             Debug.Log("[StepApplier] Trying to step");
             try
             {
-                if (!_buffer.TryGetStep(CurrentStepIndex, out var step))
+                if (CurrentStepIndex < 0 || CurrentStepIndex >= _steps.Count)
                 {
                     Debug.Log("[StepApplier] No step avaiable");
                     return null;
                 }
+
+                var step = _steps[CurrentStepIndex];
                 
                 Debug.Log("[StepApplier] Waiting for view");
                 
@@ -57,14 +59,15 @@ namespace TuringSimulator.Controller.Syncronizer
 
             try
             {
-                CurrentStepIndex--;
-
-                if (!_buffer.TryGetStep(CurrentStepIndex, out var step))
+                var targetStepIndex = CurrentStepIndex - 1;
+                if (targetStepIndex < 0 || targetStepIndex >= _steps.Count)
                 {
                     Debug.Log("[StepApplier] No step avaiable");
-                    CurrentStepIndex++;
                     return null;
                 }
+
+                CurrentStepIndex = targetStepIndex;
+                var step = _steps[targetStepIndex];
                 
                 Debug.Log("[StepApplier] Waiting for view");
                 await _view.UpdateStepBackward(step.Inverse());
@@ -80,6 +83,19 @@ namespace TuringSimulator.Controller.Syncronizer
 
         public void Reset()
         {
+            CurrentStepIndex = 0;
+            _steps.Clear();
+        }
+
+        public void LoadSteps(IReadOnlyList<StepResult> steps)
+        {
+            _steps.Clear();
+            if (steps != null)
+            {
+                for (var i = 0; i < steps.Count; i++)
+                    _steps.Add(steps[i]);
+            }
+
             CurrentStepIndex = 0;
         }
     }

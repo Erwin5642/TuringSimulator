@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using TuringSimulator.Core.Program;
-using TuringSimulator.Core.Tape;
+using TuringSimulator.Core.Simulation.Step;
 
 namespace TuringSimulator.Core.Simulation
 {
@@ -10,35 +9,46 @@ namespace TuringSimulator.Core.Simulation
     {
         private readonly SimulationEngine _engine;
         private readonly SimulationBuffer _buffer;
-        private SimulationTape _tape;
-        private IProgram _program;
         private CancellationTokenSource _cts;
+
+        public event Action<StepResult> OnStepProduced;
+        public event Action<SimulationRunResult> OnRunCompleted;
+
         public SimulationRunner(SimulationBuffer buffer)
         {
             _buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
             _engine = new SimulationEngine();
         }
 
-        public void SetTape(SimulationTape tape)
+        public async Task<SimulationRunResult> Run(
+            SimulationRunRequest request,
+            CancellationToken cancellationToken = default)
         {
-            _tape = tape ?? throw new ArgumentNullException(nameof(tape));
-        }
+            var program = request.Program ?? throw new InvalidOperationException("Run request program cannot be null.");
+            var tape = request.Tape ?? throw new InvalidOperationException("Run request tape cannot be null.");
 
-        public void SetProgram(IProgram program)
-        {
-            _program = program ?? throw new ArgumentNullException(nameof(program));
-        }
-
-        public async Task Start(CancellationToken cancellationToken = default)
-        {
-            if (_program == null)
-                throw new InvalidOperationException("A program must be set before calling this method.");
-            if (_tape == null)
-                throw new InvalidOperationException("A tape must be set before calling this method.");
-            
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _buffer.Clear();
+            _buffer.OnStepRecorded += HandleStepRecorded;
 
-            await Task.Run(() => _engine.Run(_program, _tape, _buffer, _cts.Token), _cts.Token);
+            SimulationRunResult result;
+            try
+            {
+                await Task.Run(() => _engine.Run(program, tape, _buffer, _cts.Token), _cts.Token);
+                result = new SimulationRunResult(
+                    _buffer.Status,
+                    _buffer.Snapshot(),
+                    tape.Snapshot());
+            }
+            finally
+            {
+                _buffer.OnStepRecorded -= HandleStepRecorded;
+                _cts.Dispose();
+                _cts = null;
+            }
+
+            OnRunCompleted?.Invoke(result);
+            return result;
         }
 
         public void Cancel()
@@ -48,8 +58,12 @@ namespace TuringSimulator.Core.Simulation
 
         public void Clear()
         {
-            _tape.Clear();
             _buffer.Clear();
+        }
+
+        void HandleStepRecorded(StepResult step)
+        {
+            OnStepProduced?.Invoke(step);
         }
     }
 }

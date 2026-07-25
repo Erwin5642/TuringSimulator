@@ -20,6 +20,7 @@
 
 using System;
 using Oculus.Voice;
+using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
 public class VoiceInputHandler : MonoBehaviour
@@ -33,6 +34,12 @@ public class VoiceInputHandler : MonoBehaviour
     [Header("Meta Voice SDK")]
     [Tooltip("Drag the AppVoiceExperience GameObject here.")]
     [SerializeField] private AppVoiceExperience _voiceExperience;
+
+    [Header("Event Channels (event-driven wiring)")]
+    [SerializeField] private MicToggleRequestedEventChannel _micToggleRequestedChannel;
+    [SerializeField] private ListeningStateChangedEventChannel _listeningStateChannel;
+    [SerializeField] private PartialTranscriptionEventChannel _partialTranscriptionChannel;
+    [SerializeField] private TranscriptionReadyEventChannel _transcriptionReadyChannel;
 
 #pragma warning disable CS0414
     [Tooltip("Reserved when switching to low-level Wit APIs that expose utterance confidence.")]
@@ -59,6 +66,8 @@ public class VoiceInputHandler : MonoBehaviour
     // ── State ─────────────────────────────────────────────────────────────────
 
     public bool IsListening { get; private set; }
+    private int _utteranceSequence;
+    private string _activeCorrelationId = "";
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -71,6 +80,9 @@ public class VoiceInputHandler : MonoBehaviour
 
     private void Start()
     {
+        if (_micToggleRequestedChannel != null)
+            _micToggleRequestedChannel.OnRaised += HandleMicToggleRequested;
+
         if (_voiceExperience == null)
             _voiceExperience = FindFirstObjectByType<AppVoiceExperience>();
 
@@ -90,6 +102,9 @@ public class VoiceInputHandler : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (_micToggleRequestedChannel != null)
+            _micToggleRequestedChannel.OnRaised -= HandleMicToggleRequested;
+
         if (_voiceExperience == null) return;
         _voiceExperience.VoiceEvents.OnStartListening.RemoveListener(HandleListeningStarted);
         _voiceExperience.VoiceEvents.OnStoppedListening.RemoveListener(HandleListeningStopped);
@@ -124,8 +139,12 @@ public class VoiceInputHandler : MonoBehaviour
 
     private void HandleListeningStarted()
     {
+        if (string.IsNullOrWhiteSpace(_activeCorrelationId))
+            _activeCorrelationId = BuildCorrelationId("voice");
+
         IsListening = true;
         OnListeningStarted?.Invoke();
+        PublishListeningState(true);
         Debug.Log("[VoiceInputHandler] Listening started.");
     }
 
@@ -133,13 +152,17 @@ public class VoiceInputHandler : MonoBehaviour
     {
         IsListening = false;
         OnListeningStopped?.Invoke();
+        PublishListeningState(false);
         Debug.Log("[VoiceInputHandler] Listening stopped.");
     }
 
     private void HandlePartial(string partial)
     {
         if (!string.IsNullOrWhiteSpace(partial))
+        {
             OnPartialTranscription?.Invoke(partial);
+            PublishPartialTranscription(partial);
+        }
     }
 
     private void HandleFull(string transcription)
@@ -154,13 +177,79 @@ public class VoiceInputHandler : MonoBehaviour
         // high-level events, so we accept all full transcriptions here.
         // If you need confidence filtering, use the low-level WitRequest API.
         Debug.Log($"[VoiceInputHandler] Transcription: \"{transcription}\"");
-        OnTranscriptionReady?.Invoke(transcription.Trim());
+        var text = transcription.Trim();
+        OnTranscriptionReady?.Invoke(text);
+        PublishTranscription(text);
     }
 
     private void HandleError(string code, string message)
     {
         IsListening = false;
         OnListeningStopped?.Invoke();
+        PublishListeningState(false);
         Debug.LogWarning($"[VoiceInputHandler] Wit.ai error {code}: {message}");
     }
+
+    private void HandleMicToggleRequested(MicToggleRequestedEventData eventData)
+    {
+        _activeCorrelationId = string.IsNullOrWhiteSpace(eventData.Context.CorrelationId)
+            ? BuildCorrelationId("voice")
+            : eventData.Context.CorrelationId;
+
+        AgentTTS.Instance?.Stop();
+        if (IsListening)
+            StopListening();
+        else
+            StartListening();
+    }
+
+    private void PublishListeningState(bool isListening)
+    {
+        if (_listeningStateChannel == null)
+            return;
+
+        var payload = new ListeningStateChangedEventData(
+            BuildContext("listening-state"),
+            isListening);
+        EventTraceLog.Record(nameof(ListeningStateChangedEventData), payload.ToString(), this);
+        _listeningStateChannel.Raise(payload, this);
+
+        if (!isListening)
+            _activeCorrelationId = string.Empty;
+    }
+
+    private void PublishPartialTranscription(string partial)
+    {
+        if (_partialTranscriptionChannel == null)
+            return;
+
+        var payload = new PartialTranscriptionEventData(
+            BuildContext("partial"),
+            partial);
+        EventTraceLog.Record(nameof(PartialTranscriptionEventData), payload.ToString(), this);
+        _partialTranscriptionChannel.Raise(payload, this);
+    }
+
+    private void PublishTranscription(string text)
+    {
+        if (_transcriptionReadyChannel == null)
+            return;
+
+        var payload = new TranscriptionReadyEventData(
+            BuildContext("transcription"),
+            text);
+        EventTraceLog.Record(nameof(TranscriptionReadyEventData), payload.ToString(), this);
+        _transcriptionReadyChannel.Raise(payload, this);
+    }
+
+    private EventContextData BuildContext(string stage)
+    {
+        var correlationId = string.IsNullOrWhiteSpace(_activeCorrelationId)
+            ? BuildCorrelationId(stage)
+            : _activeCorrelationId;
+        return EventContextFactory.Create(nameof(VoiceInputHandler), correlationId);
+    }
+
+    private string BuildCorrelationId(string prefix) =>
+        $"{prefix}-{++_utteranceSequence}";
 }

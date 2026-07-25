@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
-using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.Core.Types;
 
@@ -12,35 +11,45 @@ namespace TuringSimulator.Core.Simulation
         private readonly ReaderWriterLockSlim _lock = new();
 
         private HaltStatus _haltStatus;
+
+        public event System.Action<StepResult> OnStepRecorded;
+        public event System.Action<HaltStatus> OnCompleted;
         
         public bool IsRunning => Status == HaltStatus.None;
         public bool IsHalted => Status != HaltStatus.None;
         
         public void AddStepDiff(StepDiff stepDiff)
         {
+            var stepResult = new StepResult(stepDiff);
             _lock.EnterWriteLock();
             try
             {
-                _history.Add(new StepResult(stepDiff));
+                _history.Add(stepResult);
             }
             finally
             {
                 _lock.ExitWriteLock();
             }
+
+            OnStepRecorded?.Invoke(stepResult);
         }
 
         public void Complete(HaltStatus status)
         {
+            var stepResult = new StepResult(status);
             _lock.EnterWriteLock();
             try
             {
                 _haltStatus = status;
-                _history.Add(new StepResult(status));
+                _history.Add(stepResult);
             }
             finally
             {
                 _lock.ExitWriteLock();
             }
+
+            OnStepRecorded?.Invoke(stepResult);
+            OnCompleted?.Invoke(status);
         }
 
         public bool TryGetStep(int index, out StepResult stepResult)
@@ -73,6 +82,19 @@ namespace TuringSimulator.Core.Simulation
             finally
             {
                 _lock.ExitWriteLock();
+            }
+        }
+
+        public IReadOnlyList<StepResult> Snapshot()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _history.ToArray();
+            }
+            finally
+            {
+                _lock.ExitReadLock();
             }
         }
         

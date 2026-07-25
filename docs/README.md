@@ -7,6 +7,8 @@ This folder documents how the repository works **today** (as-is), with emphasis 
 - `client/`: Unity client architecture, runtime flow, key data paths
 - `server/`: FastAPI ITS server architecture, BKT model, API behavior
 - `EDITOR_MVP_CHECKLIST.md`: serialized Unity hierarchy and Inspector wiring
+- `client/SCENE_OBJECT_WIRING_MAP.md`: per-object scene wiring map for full demo
+- `client/EVENT_DRIVEN_DEMO_EVENT_MAP.md`: event-channel trigger map
 
 ## System Overview
 
@@ -19,15 +21,14 @@ High-level flow:
 
 1. Unity boots `BasicScene` and initializes game systems from `TuringBootstrap`.
 2. Player edits/runs a visual Turing program in the Unity scene.
-3. Unity sends event and question/hint traffic to the ITS server (`/event`, `/ask`, `/hint`) and live telemetry to `/ws/live`.
-4. Server updates per-student BKT state and returns tutoring responses.
+3. Unity sends session + question traffic to ITS REST endpoints (`/session/new`, `/ask`, `/health`) and receives tutoring responses.
+4. Server returns ask responses scoped to the active student session and level context.
 
 ## Canonical Entry Points
 
 - Client bootstrap: `Assets/TuringSimulator/GameFlow/TuringBootstrap.cs`
 - Gameplay orchestration: `Assets/TuringSimulator/GameFlow/GameFlowController.cs`
 - Client ITS REST: `Assets/TuringSimulator/ITS/ITSClient.cs`
-- Client ITS live socket: `Assets/TuringSimulator/ITS/LiveTutorSocket.cs`
 - Server app: `TuringBotAPI/main.py`
 - Server pedagogy/orchestration: `TuringBotAPI/orchestrator.py`
 - Server student model persistence: `TuringBotAPI/student_model.py`
@@ -37,9 +38,8 @@ High-level flow:
 - Gameplay is still bootstrapped through `TuringBootstrap`, now simplified to prefer editor scene bindings and only use prefab/runtime fallback when needed.
 - Client and server share level/skill identifiers conceptually, but Unity content coverage is currently narrower than server pedagogical metadata.
 - Per-run personalization is server-issued via `student_id` allocation; returning to menu clears local active session before the next run.
-- The live tutor socket is now explicitly rebound after session allocation and
-  cleared on menu return. The server rejects live telemetry that does not match
-  the active handshake identity.
+- The current main-line client is voice Ask/Answer scoped, with event-driven
+  channel wiring for gameplay and tutor reactions.
 - MVP scene wiring is editor-first: the visible workbench, drawer, tutor UI,
   and bootstrap references should be assigned in `BasicScene`, with
   `MvpSceneWiringValidator` available as an Inspector checklist.

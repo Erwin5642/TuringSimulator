@@ -1,7 +1,7 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
-using TuringSimulator.Core.Program;
-using TuringSimulator.Core.Tape;
+using TuringSimulator.Core.Simulation.Step;
 
 namespace TuringSimulator.Core.Simulation
 {
@@ -10,10 +10,10 @@ namespace TuringSimulator.Core.Simulation
     /// </summary>
     public interface ISimulationRunner
     {
-        void SetTape(SimulationTape tape);
-        void SetProgram(IProgram program);
+        event Action<StepResult> OnStepProduced;
+        event Action<SimulationRunResult> OnRunCompleted;
 
-        Task Start(CancellationToken cancellationToken = default);
+        Task<SimulationRunResult> Run(SimulationRunRequest request, CancellationToken cancellationToken = default);
         void Cancel();
 
         void Clear();
