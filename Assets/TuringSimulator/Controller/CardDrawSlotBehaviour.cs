@@ -28,11 +28,17 @@ namespace TuringSimulator.Controller
 
         UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable _slotGrab;
 
+        CardDrawerBehaviour _drawer;
+
         bool _busy;
 
         void Awake()
         {
             _slotGrab = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            // Cache before grab: XRGrabInteractable unparents on select, so GetComponentInParent fails in OnSelectEntered.
+            _drawer = GetComponentInParent<CardDrawerBehaviour>();
+            if (_drawer == null)
+                Debug.LogError($"[CardDrawSlot] No {nameof(CardDrawerBehaviour)} on parents of '{name}'.");
         }
 
         void OnEnable()
@@ -47,19 +53,12 @@ namespace TuringSimulator.Controller
 
         void OnSelectEntered(SelectEnterEventArgs args)
         {
-            if (_busy)
+            if (_busy || _drawer == null)
                 return;
-
-            var drawer = GetComponentInParent<CardDrawerBehaviour>();
-            if (drawer == null)
-            {
-                Debug.LogWarning($"[CardDrawSlot] No {nameof(CardDrawerBehaviour)} on parents of '{name}'.");
-                return;
-            }
 
             GameObject prefab = type == CardDrawSlotKind.Symbol
-                ? drawer.SymbolCardPrefab
-                : drawer.DirectionCardPrefab;
+                ? _drawer.SymbolCardPrefab
+                : _drawer.DirectionCardPrefab;
 
             if (prefab == null)
             {
@@ -82,24 +81,45 @@ namespace TuringSimulator.Controller
                      cardGo.TryGetComponent<DirectionCardBehaviour>(out var dir))
                 dir.Configure(direction);
 
-            ProgramWorkbench.Instance?.RegisterSpawnedCard(cardGo);
-
             var cardGrab = cardGo.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
             var manager = _slotGrab.interactionManager;
             var interactorObj = args.interactorObject;
             var slotInteractable = args.interactableObject;
 
+            if (cardGrab != null && manager != null)
+                cardGrab.interactionManager = manager;
+
+            // Let the spawned interactable register with the manager.
             yield return null;
+
+            // Prevent the infinite drawer slot from being re-selected while grip is still held.
+            _slotGrab.enabled = false;
 
             if (manager != null &&
                 interactorObj is IXRSelectInteractor interactor &&
                 slotInteractable is IXRSelectInteractable slotIx &&
                 cardGrab != null)
             {
-                manager.SelectExit(interactor, slotIx);
-                manager.SelectEnter(interactor, cardGrab);
+                if (slotIx.isSelected)
+                    manager.SelectExit(interactor, slotIx);
+
+                manager.SelectEnterUnconditionally(interactor, cardGrab);
+
+                ProgramWorkbench.Instance?.RegisterSpawnedCard(cardGo);
+
+                if (!cardGrab.isSelected)
+                    Debug.LogError($"[CardDrawSlot] Grab transfer failed for slot '{name}'.");
+
+                while (interactor.isSelectActive)
+                    yield return null;
+            }
+            else
+            {
+                ProgramWorkbench.Instance?.RegisterSpawnedCard(cardGo);
+                Debug.LogError($"[CardDrawSlot] Cannot transfer grab for slot '{name}' (missing manager/interactor/card grab).");
             }
 
+            _slotGrab.enabled = true;
             _busy = false;
         }
     }

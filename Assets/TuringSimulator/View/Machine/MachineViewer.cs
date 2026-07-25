@@ -35,6 +35,12 @@ namespace TuringSimulator.View.Machine
 
         private IEnumerator UpdateStepForwardCoroutine(StepResult step)
         {
+            if (_tape == null || _halt == null)
+            {
+                Debug.LogWarning("[MachineViewer] UpdateStepForward called before Initialize(tape, halt).", this);
+                yield break;
+            }
+
             switch (step.Kind)
             {
                 case ResultKind.Halt:
@@ -56,6 +62,12 @@ namespace TuringSimulator.View.Machine
 
         private IEnumerator UpdateStepBackwardCoroutine(StepResult step)
         {
+            if (_tape == null || _halt == null)
+            {
+                Debug.LogWarning("[MachineViewer] UpdateStepBackward called before Initialize(tape, halt).", this);
+                yield break;
+            }
+
             switch (step.Kind)
             {
                 case ResultKind.Halt:
@@ -90,8 +102,14 @@ namespace TuringSimulator.View.Machine
 
         public void Reset()
         {
-            Tape.Reset();
-            Halt.Reset();
+            if (_tape == null || _halt == null)
+            {
+                Debug.LogWarning("[MachineViewer] Reset called before Initialize(tape, halt). Check ViewSceneBindings wiring in TuringBootstrap.", this);
+                return;
+            }
+
+            _tape.Reset();
+            _halt.Reset();
         }
     }
 }

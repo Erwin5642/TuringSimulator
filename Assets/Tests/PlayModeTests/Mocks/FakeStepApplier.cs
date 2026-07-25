@@ -16,6 +16,7 @@ namespace Tests.PlayModeTests.Mocks
         }
 
         public int CurrentStepIndex => _currentIndex;
+        public int TotalSteps => _steps.Count;
 
         public Task<StepResult?> TryStepForward()
         {
@@ -38,7 +39,15 @@ namespace Tests.PlayModeTests.Mocks
 
         public void Reset()
         {
-            throw new System.NotImplementedException();
+            _currentIndex = -1;
+        }
+
+        public void LoadSteps(IReadOnlyList<StepResult> steps)
+        {
+            _steps.Clear();
+            if (steps != null)
+                _steps.AddRange(steps);
+            _currentIndex = -1;
         }
     }
 }

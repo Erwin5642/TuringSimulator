@@ -126,7 +126,8 @@ Purpose: compiles scene block topology into the active TM program.
 
 Assign in Inspector:
 
-- `entryBlockId`
+- `startOutputPort` (workbench "electricity start" output socket)
+- `entryBlockId` (legacy fallback only; used if start output port is not wired)
 - `blocks` (`ProgramBlockBehaviour[]`)
 - `symbolCards` (`SymbolCardBehaviour[]`)
 - `directionCards` (`DirectionCardBehaviour[]`)
@@ -134,6 +135,7 @@ Assign in Inspector:
 Wiring:
 
 - Receives `IProgramEditController` from `ControllerInstaller.Initialize(...)`
+- Program entry is resolved from `startOutputPort.ConnectedPeer.Owner.BlockId`
 - Calls `_edit.ReplaceProgramBuilder(...)` after `GraphToProgramCompiler`
 - Drives `ProgramChanged` flow through `ControllerInstaller`
 

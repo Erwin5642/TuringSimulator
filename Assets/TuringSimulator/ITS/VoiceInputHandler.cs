@@ -84,7 +84,7 @@ public class VoiceInputHandler : MonoBehaviour
             _micToggleRequestedChannel.OnRaised += HandleMicToggleRequested;
 
         if (_voiceExperience == null)
-            _voiceExperience = FindFirstObjectByType<AppVoiceExperience>();
+            _voiceExperience = FindAnyObjectByType<AppVoiceExperience>();
 
         if (_voiceExperience == null)
         {
