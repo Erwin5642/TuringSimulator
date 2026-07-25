@@ -161,6 +161,7 @@ namespace TuringSimulator.GameFlow
             PlayerInputCatcher.OnBackwardRequest += Playback.StepBackward;
             PlayerInputCatcher.OnNextRequest += GameFlowController.Next;
             PlayerInputCatcher.OnMenuRequest += HandleMenuRequested;
+            PlayerInputCatcher.OnAbortRequest += GameFlowController.Abort;
 
             ProgramEdit.OnProgramChanged += PublishProgramChanged;
             Playback.OnStep += PublishPlaybackStep;

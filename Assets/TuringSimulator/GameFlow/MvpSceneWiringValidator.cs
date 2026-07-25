@@ -16,6 +16,7 @@ namespace TuringSimulator.GameFlow
         [SerializeField] LevelDatabase levelDatabase;
         [SerializeField] ProgramWorkbench programWorkbench;
         [SerializeField] CardDrawerBehaviour cardDrawer;
+        [SerializeField] BlockDrawerBehaviour blockDrawer;
 
         [Header("Tutor wiring")]
         [SerializeField] ITSClient itsClient;
@@ -61,6 +62,7 @@ namespace TuringSimulator.GameFlow
             Require(levelDatabase, nameof(levelDatabase), issues);
             Require(programWorkbench, nameof(programWorkbench), issues);
             Require(cardDrawer, nameof(cardDrawer), issues);
+            Require(blockDrawer, nameof(blockDrawer), issues);
             Require(itsClient, nameof(itsClient), issues);
             Require(skillTracker, nameof(skillTracker), issues);
             Require(agentDialogue, nameof(agentDialogue), issues);
@@ -86,6 +88,25 @@ namespace TuringSimulator.GameFlow
                     issues.Add("CardDrawer symbolCardPrefab is not assigned.");
                 if (cardDrawer.DirectionCardPrefab == null)
                     issues.Add("CardDrawer directionCardPrefab is not assigned.");
+            }
+
+            if (blockDrawer != null)
+            {
+                if (blockDrawer.MoveBlockPrefab == null)
+                    issues.Add("BlockDrawer moveBlockPrefab is not assigned.");
+                if (blockDrawer.WriteBlockPrefab == null)
+                    issues.Add("BlockDrawer writeBlockPrefab is not assigned.");
+                if (blockDrawer.ConditionBlockPrefab == null)
+                    issues.Add("BlockDrawer conditionBlockPrefab is not assigned.");
+                if (blockDrawer.AcceptBlockPrefab == null)
+                    issues.Add("BlockDrawer acceptBlockPrefab is not assigned.");
+                if (blockDrawer.RejectBlockPrefab == null)
+                    issues.Add("BlockDrawer rejectBlockPrefab is not assigned.");
+            }
+
+            if (programWorkbench != null && !programWorkbench.HasStartOutputPortAssigned)
+            {
+                issues.Add("ProgramWorkbench startOutputPort is not assigned. Connect a start/power output port.");
             }
 
             return issues;

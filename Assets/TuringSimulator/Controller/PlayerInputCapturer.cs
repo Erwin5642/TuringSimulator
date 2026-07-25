@@ -21,6 +21,55 @@ namespace TuringSimulator.Controller
         public event Action OnPauseRequest;
         public event Action OnNextRequest;
         public event Action OnMenuRequest;
+        public event Action OnAbortRequest;
+
+        public void RequestStart()
+        {
+            Debug.Log("[Input]: Start requested");
+            OnStartRequest?.Invoke();
+        }
+
+        public void RequestPlay()
+        {
+            Debug.Log("[Input]: Play requested");
+            OnPlayRequest?.Invoke();
+        }
+
+        public void RequestPause()
+        {
+            Debug.Log("[Input]: Pause requested");
+            OnPauseRequest?.Invoke();
+        }
+
+        public void RequestStepForward()
+        {
+            Debug.Log("[Input]: Forward requested");
+            OnForwardRequest?.Invoke();
+        }
+
+        public void RequestStepBackward()
+        {
+            Debug.Log("[Input]: Backward requested");
+            OnBackwardRequest?.Invoke();
+        }
+
+        public void RequestNext()
+        {
+            Debug.Log("[Input]: Next requested");
+            OnNextRequest?.Invoke();
+        }
+
+        public void RequestMenu()
+        {
+            Debug.Log("[Input]: Menu requested");
+            OnMenuRequest?.Invoke();
+        }
+
+        public void RequestAbort()
+        {
+            Debug.Log("[Input]: Abort requested");
+            OnAbortRequest?.Invoke();
+        }
 
         private void Update()
         {
@@ -29,35 +78,31 @@ namespace TuringSimulator.Controller
 
             if (keyboard[forwardKey].wasPressedThisFrame)
             {
-                Debug.Log("[Input]: Forward requested");
-                OnForwardRequest?.Invoke();
+                RequestStepForward();
             }
             else if (keyboard[backwardKey].wasPressedThisFrame)
             {
-                Debug.Log("[Input]: Backward requested");
-                OnBackwardRequest?.Invoke();
+                RequestStepBackward();
             }
             else if (keyboard[playKey].wasPressedThisFrame)
             {
-                Debug.Log("[Input]: Play requested");
-                OnPlayRequest?.Invoke();
+                RequestPlay();
             }
             else if (keyboard[pauseKey].wasPressedThisFrame)
             {
-                Debug.Log("[Input]: Pause requested");
-                OnPauseRequest?.Invoke();
+                RequestPause();
             }
             else if (keyboard[startKey].wasPressedThisFrame)
             {
-                OnStartRequest?.Invoke();
+                RequestStart();
             }
             else if (keyboard[nextKey].wasPressedThisFrame)
             {
-                OnNextRequest?.Invoke();
+                RequestNext();
             }
             else if (keyboard[menuKey].wasPressedThisFrame)
             {
-                OnMenuRequest?.Invoke();
+                RequestMenu();
             }
         }
     }

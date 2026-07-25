@@ -12,7 +12,10 @@ namespace TuringSimulator.Controller
     {
         public static ProgramWorkbench Instance { get; private set; }
 
-        [Tooltip("Block id with zero incoming edges (must match ProgramBlockBehaviour.blockId).")]
+        [Header("Program Start")]
+        [Tooltip("Workbench start/power output port. Its connected peer defines the program entry block.")]
+        [SerializeField] WireSocketBehaviour startOutputPort;
+        [Tooltip("Legacy fallback when no start output port is wired. Must match ProgramBlockBehaviour.blockId.")]
         [SerializeField] string entryBlockId;
 
         [SerializeField] ProgramBlockBehaviour[] blocks;
@@ -22,12 +25,15 @@ namespace TuringSimulator.Controller
         [SerializeField] DirectionCardBehaviour[] directionCards;
 
         readonly List<GameObject> _spawnedCardRoots = new();
+        readonly List<GameObject> _spawnedBlockRoots = new();
 
         IProgramEditController _edit;
 
         float _debounceUntil = -1f;
 
         const float DebounceSeconds = 0.12f;
+
+        public bool HasStartOutputPortAssigned => startOutputPort != null;
 
         void Awake()
         {
@@ -118,6 +124,15 @@ namespace TuringSimulator.Controller
                 foreach (var d in root.GetComponentsInChildren<DirectionCardBehaviour>(true))
                     d.SetInteractionEnabled(allowEditing);
             }
+
+            foreach (var root in _spawnedBlockRoots)
+            {
+                if (root == null)
+                    continue;
+
+                foreach (var b in root.GetComponentsInChildren<ProgramBlockBehaviour>(true))
+                    b.SetInteractionEnabled(allowEditing);
+            }
         }
 
         /// <summary>Register a card instantiated at runtime (e.g. from a card drawer) for edit/run lock.</summary>
@@ -144,9 +159,39 @@ namespace TuringSimulator.Controller
             }
         }
 
+        /// <summary>Register a block instantiated at runtime (e.g. from a block drawer) for edit/run lock and compilation.</summary>
+        public void RegisterSpawnedBlock(GameObject root)
+        {
+            if (root == null)
+                return;
+
+            if (!_spawnedBlockRoots.Contains(root))
+                _spawnedBlockRoots.Add(root);
+
+            var reg = root.GetComponent<SpawnedBlockRegistry>();
+            if (reg == null)
+                reg = root.AddComponent<SpawnedBlockRegistry>();
+            reg.Initialize(this, root);
+
+            if (_edit != null)
+            {
+                var allow = _edit.CanEdit;
+                foreach (var b in root.GetComponentsInChildren<ProgramBlockBehaviour>(true))
+                    b.SetInteractionEnabled(allow);
+            }
+
+            MarkTopologyDirty();
+        }
+
         void UntrackSpawnedCard(GameObject root)
         {
             _spawnedCardRoots.Remove(root);
+        }
+
+        void UntrackSpawnedBlock(GameObject root)
+        {
+            _spawnedBlockRoots.Remove(root);
+            MarkTopologyDirty();
         }
 
         public void RebuildProgramFromScene()
@@ -154,21 +199,32 @@ namespace TuringSimulator.Controller
             if (_edit == null || !_edit.CanEdit)
                 return;
 
-            if (blocks == null || blocks.Length == 0 || string.IsNullOrEmpty(entryBlockId))
+            var resolvedEntryBlockId = ResolveEntryBlockId();
+            if (string.IsNullOrWhiteSpace(resolvedEntryBlockId))
             {
-                Debug.LogWarning("[ProgramWorkbench] Missing blocks or entryBlockId — skipping compile.");
+                Debug.LogWarning(
+                    "[ProgramWorkbench] Missing start wiring. Connect the workbench start output port to a block input.");
+                return;
+            }
+
+            var compileBlocks = CollectReachableBlocksFromEntry(resolvedEntryBlockId);
+            if (compileBlocks.Count == 0)
+            {
+                Debug.LogWarning(
+                    "[ProgramWorkbench] No reachable blocks found from the current start connection.");
                 return;
             }
 
             var nodes = new List<ProgramGraphNodeData>();
-            foreach (var b in blocks)
+            foreach (var b in compileBlocks)
             {
                 if (b != null)
                     nodes.Add(b.BuildNodeData());
             }
 
+            var compileBlockSet = new HashSet<ProgramBlockBehaviour>(compileBlocks);
             var edges = new List<ProgramGraphEdgeData>();
-            foreach (var b in blocks)
+            foreach (var b in compileBlocks)
             {
                 if (b == null)
                     continue;
@@ -179,14 +235,14 @@ namespace TuringSimulator.Controller
                         continue;
 
                     var peer = o.ConnectedPeer;
-                    if (peer.Owner == null)
+                    if (peer.Owner == null || !compileBlockSet.Contains(peer.Owner))
                         continue;
 
                     edges.Add(new ProgramGraphEdgeData(b.BlockId, o.PortIndex, peer.Owner.BlockId));
                 }
             }
 
-            var snap = new ProgramGraphSnapshot(nodes, edges, entryBlockId);
+            var snap = new ProgramGraphSnapshot(nodes, edges, resolvedEntryBlockId);
             if (!GraphToProgramCompiler.TryCompile(snap, out var builder, out var err))
             {
                 Debug.LogWarning($"[ProgramWorkbench] Compile failed: {err}");
@@ -194,6 +250,101 @@ namespace TuringSimulator.Controller
             }
 
             _edit.ReplaceProgramBuilder(builder);
+        }
+
+        List<ProgramBlockBehaviour> CollectReachableBlocksFromEntry(string entryBlockId)
+        {
+            var allBlocks = CollectAllBlocks();
+            if (allBlocks.Count == 0)
+                return allBlocks;
+
+            ProgramBlockBehaviour entry = null;
+            for (var i = 0; i < allBlocks.Count; i++)
+            {
+                if (string.Equals(allBlocks[i].BlockId, entryBlockId, StringComparison.Ordinal))
+                {
+                    entry = allBlocks[i];
+                    break;
+                }
+            }
+
+            if (entry == null)
+                return new List<ProgramBlockBehaviour>();
+
+            var allSet = new HashSet<ProgramBlockBehaviour>(allBlocks);
+            var reachable = new List<ProgramBlockBehaviour>();
+            var reachableSet = new HashSet<ProgramBlockBehaviour>();
+            var queue = new Queue<ProgramBlockBehaviour>();
+            queue.Enqueue(entry);
+            reachableSet.Add(entry);
+
+            while (queue.Count > 0)
+            {
+                var block = queue.Dequeue();
+                reachable.Add(block);
+
+                foreach (var socket in block.EnumerateOutputSockets())
+                {
+                    var next = socket?.ConnectedPeer?.Owner;
+                    if (next == null || !allSet.Contains(next))
+                        continue;
+                    if (!reachableSet.Add(next))
+                        continue;
+
+                    queue.Enqueue(next);
+                }
+            }
+
+            return reachable;
+        }
+
+        List<ProgramBlockBehaviour> CollectAllBlocks()
+        {
+            var result = new List<ProgramBlockBehaviour>();
+
+            if (blocks != null)
+            {
+                for (var i = 0; i < blocks.Length; i++)
+                {
+                    var block = blocks[i];
+                    if (block != null && !result.Contains(block))
+                        result.Add(block);
+                }
+            }
+
+            for (var i = 0; i < _spawnedBlockRoots.Count; i++)
+            {
+                var root = _spawnedBlockRoots[i];
+                if (root == null)
+                    continue;
+
+                var spawnedBlocks = root.GetComponentsInChildren<ProgramBlockBehaviour>(true);
+                for (var j = 0; j < spawnedBlocks.Length; j++)
+                {
+                    var block = spawnedBlocks[j];
+                    if (block != null && !result.Contains(block))
+                        result.Add(block);
+                }
+            }
+
+            return result;
+        }
+
+        string ResolveEntryBlockId()
+        {
+            if (startOutputPort != null &&
+                startOutputPort.ConnectedPeer != null &&
+                startOutputPort.ConnectedPeer.Owner != null)
+            {
+                if (startOutputPort.ConnectedPeer.PortIndex != -1)
+                {
+                    Debug.LogWarning(
+                        "[ProgramWorkbench] Start output port should connect to a block input port.");
+                }
+                return startOutputPort.ConnectedPeer.Owner.BlockId;
+            }
+
+            return entryBlockId ?? string.Empty;
         }
 
         sealed class SpawnedCardRegistry : MonoBehaviour
@@ -210,6 +361,23 @@ namespace TuringSimulator.Controller
             void OnDestroy()
             {
                 _owner?.UntrackSpawnedCard(_root);
+            }
+        }
+
+        sealed class SpawnedBlockRegistry : MonoBehaviour
+        {
+            ProgramWorkbench _owner;
+            GameObject _root;
+
+            public void Initialize(ProgramWorkbench owner, GameObject root)
+            {
+                _owner = owner;
+                _root = root;
+            }
+
+            void OnDestroy()
+            {
+                _owner?.UntrackSpawnedBlock(_root);
             }
         }
     }

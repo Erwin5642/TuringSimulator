@@ -11,6 +11,7 @@ namespace TuringSimulator.Controller
     {
         [SerializeField] string blockId;
         [SerializeField] ProgramBlockKind kind;
+        string _runtimeBlockId;
 
         [Header("Ports")]
         [SerializeField] WireSocketBehaviour inputPort;
@@ -24,9 +25,18 @@ namespace TuringSimulator.Controller
 
         UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable _grab;
 
-        public string BlockId => string.IsNullOrEmpty(blockId) ? name : blockId;
+        public string BlockId =>
+            !string.IsNullOrWhiteSpace(_runtimeBlockId)
+                ? _runtimeBlockId
+                : (string.IsNullOrEmpty(blockId) ? name : blockId);
 
         public ProgramBlockKind Kind => kind;
+
+        public void AssignRuntimeBlockId(string runtimeBlockId)
+        {
+            _runtimeBlockId = runtimeBlockId ?? string.Empty;
+            NotifyWorkbench();
+        }
 
         void Awake()
         {
@@ -112,6 +122,11 @@ namespace TuringSimulator.Controller
                 _grab.enabled = enabled;
             foreach (var c in GetComponents<Collider>())
                 c.enabled = enabled;
+
+            inputPort?.SetInteractionEnabled(enabled);
+            outputPort?.SetInteractionEnabled(enabled);
+            outputTruePort?.SetInteractionEnabled(enabled);
+            outputFalsePort?.SetInteractionEnabled(enabled);
 
             symbolSlot?.SetInteractionEnabled(enabled);
             directionSlot?.SetInteractionEnabled(enabled);

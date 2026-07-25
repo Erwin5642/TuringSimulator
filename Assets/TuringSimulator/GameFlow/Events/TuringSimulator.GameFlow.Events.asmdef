@@ -1,0 +1,16 @@
+{
+    "name": "TuringSimulator.GameFlow.Events",
+    "rootNamespace": "",
+    "references": [
+        "GUID:bcffb3c7c4ebf1f4c9bcd1e489cb78df"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
