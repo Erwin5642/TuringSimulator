@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TuringSimulator.Controller;
 using TuringSimulator.Core.Level;
+using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
 namespace TuringSimulator.GameFlow
@@ -20,8 +21,13 @@ namespace TuringSimulator.GameFlow
         [SerializeField] ITSClient itsClient;
         [SerializeField] SkillTracker skillTracker;
         [SerializeField] AgentDialogue agentDialogue;
+        [SerializeField] AgentActionMapper agentActionMapper;
+        [SerializeField] AgentActionExecutor agentActionExecutor;
+        [SerializeField] AgentVoiceFeedbackListener agentVoiceFeedbackListener;
+        [SerializeField] AgentAnimator agentAnimator;
         [SerializeField] VoiceInputHandler voiceInputHandler;
         [SerializeField] VoiceAskControllerInput voiceAskControllerInput;
+        [SerializeField] EventChannelWiringValidator eventChannelWiringValidator;
 
         [Header("Validation")]
         [SerializeField] bool logWarningsOnStart = true;
@@ -58,8 +64,13 @@ namespace TuringSimulator.GameFlow
             Require(itsClient, nameof(itsClient), issues);
             Require(skillTracker, nameof(skillTracker), issues);
             Require(agentDialogue, nameof(agentDialogue), issues);
+            Require(agentActionMapper, nameof(agentActionMapper), issues);
+            Require(agentActionExecutor, nameof(agentActionExecutor), issues);
+            Require(agentVoiceFeedbackListener, nameof(agentVoiceFeedbackListener), issues);
+            Require(agentAnimator, nameof(agentAnimator), issues);
             Require(voiceInputHandler, nameof(voiceInputHandler), issues);
             Require(voiceAskControllerInput, nameof(voiceAskControllerInput), issues);
+            Require(eventChannelWiringValidator, nameof(eventChannelWiringValidator), issues);
 
             if (levelDatabase != null &&
                 levelDatabase.ValidationScenarioCount < requiredScenarioCount)

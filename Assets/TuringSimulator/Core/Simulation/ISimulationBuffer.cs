@@ -1,10 +1,15 @@
-﻿using TuringSimulator.Core.Simulation.Step;
+﻿using System;
+using System.Collections.Generic;
+using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.Core.Types;
 
 namespace TuringSimulator.Core.Simulation
 {
     public interface ISimulationBuffer
     {
+        event Action<StepResult> OnStepRecorded;
+        event Action<HaltStatus> OnCompleted;
+
         /// <summary>
         /// Gets the halt status if the simulation has completed; or HaltStatus.None
         /// </summary>
@@ -25,6 +30,8 @@ namespace TuringSimulator.Core.Simulation
         void Complete(HaltStatus status);
 
         bool TryGetStep(int index, out StepResult stepResult);
+
+        IReadOnlyList<StepResult> Snapshot();
 
         void Clear();
     }

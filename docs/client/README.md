@@ -2,6 +2,11 @@
 
 This document describes the Unity client as implemented right now.
 
+Companion setup docs:
+
+- `docs/client/SCENE_OBJECT_WIRING_MAP.md` (scene objects + inspector wiring)
+- `docs/client/EVENT_DRIVEN_DEMO_EVENT_MAP.md` (event channels + trigger chain)
+
 ## Runtime Boot and Wiring
 
 Primary boot path:
@@ -20,7 +25,9 @@ Key file: `Assets/TuringSimulator/GameFlow/TuringBootstrap.cs`
 
 - `ModelInstaller`:
   - `LevelContext`, `LevelLoader`
-  - `SimulationRunner` + `SimulationBuffer`
+  - `SimulationRunner` (`SimulationRunRequest` -> `SimulationRunResult`)
+  - `SimulationBuffer` (engine step capture + trace source)
+  - active run state (`CurrentProgram`, `CurrentTape`)
   - `ValidationRunner`
 - `ViewInstaller`:
   - Preferentially uses scene-bound references for `machine`, `tape`, `halt`, `levelUI`
@@ -49,13 +56,14 @@ Key execution path in `GameFlowController`:
   - enables program editing
 - `Run()`:
   - transitions to `Running`
-  - sends live lifecycle events
+  - emits run lifecycle channels (`RunStarted`, `SimulationStepProduced`, `RunFinished`)
   - runs simulation asynchronously
+  - loads playback timeline from `SimulationRunResult.Steps`
   - enables playback when finished
 - `Halt()`:
   - transitions `Running -> Halted -> Validating`
   - runs validation tests
-  - emits success/fail evidence to `SkillTracker`
+  - emits `ValidationCompleted` and `LevelOutcome` channels
   - transitions to `Victory` or `Defeat`
 - `Next()`:
   - resets simulation/view state
@@ -98,35 +106,38 @@ Main files:
 ### REST (`ITSClient`)
 
 - `/session/new`: allocates a fresh student session id for each new run
-- `/event`: skill evidence updates
-- `/ask`: free-form question
-- `/hint`: graduated hints
+- `/ask`: free-form question (from voice transcription pipeline)
 - health check via `/health`
 
 File: `Assets/TuringSimulator/ITS/ITSClient.cs`
 
-### Live socket (`LiveTutorSocket`)
-
-- Connects to `/ws/live`
-- Sends:
-  - handshake
-  - run lifecycle
-  - level snapshot
-  - sim step / sim halt
-- Receives advisory messages via inbound handler
-- `SkillTracker.BeginSession()` binds the socket to the newly allocated
-  student ID and rotates the WebSocket session ID before connecting.
-- `SkillTracker.ClearSession()` closes the live channel and clears the active
-  player binding, preventing the next player from inheriting telemetry.
-
-File: `Assets/TuringSimulator/ITS/LiveTutorSocket.cs`
-
 ### Skill tracking (`SkillTracker`)
 
-- Maps gameplay outcomes into ITS skill IDs
-- Emits events with `StudentId` + `levelId`
-- Maintains current level context
-- Holds active session identity and blocks telemetry if no session is active
+- Holds active `student_id`
+- Holds current `level_id` for `/ask` payload context
+- No BKT/event telemetry logic on this slim main line
+
+Files:
+
+- `Assets/TuringSimulator/ITS/SkillTracker.cs`
+- `Assets/TuringSimulator/ITS/ITSModel.cs`
+
+### Event-driven Ask pipeline
+
+Voice and tutoring path is channel-based:
+
+- Controller mic button -> `MicToggleRequestedEventChannel`
+- STT lifecycle -> `ListeningStateChanged`, `PartialTranscription`, `TranscriptionReady`
+- Ask lifecycle -> `AskRequested`, `AskResult`, `ThinkingStateChanged`
+- Agent reaction tuple -> `AgentActionRequestedEventData` (`text`, `animation`)
+
+Main files:
+
+- `Assets/TuringSimulator/ITS/VoiceAskControllerInput.cs`
+- `Assets/TuringSimulator/ITS/VoiceInputHandler.cs`
+- `Assets/TuringSimulator/ITS/AgentActionMapper.cs`
+- `Assets/TuringSimulator/ITS/AgentActionExecutor.cs`
+- `Assets/TuringSimulator/ITS/AgentAnimator.cs`
 
 ## XR / Editor-Oriented Wiring Notes
 
@@ -139,15 +150,15 @@ File: `Assets/TuringSimulator/ITS/LiveTutorSocket.cs`
 - `ProgramWorkbench` and the tutor components are intentionally expected to be
   assigned in the scene; runtime fallback does not create a visible editing
   layout.
-
-File: `Assets/TuringSimulator/ITS/SkillTracker.cs`
+- Event channel wiring for the full demo path is documented in:
+  - `docs/client/EVENT_DRIVEN_DEMO_EVENT_MAP.md`
 
 ## AI-Agent Safe Invariants (Client)
 
 - Do not bypass `TuringBootstrap` for core system creation unless migrating architecture intentionally.
 - Keep `levelId` in `LevelDefinition` aligned with server level metadata.
 - If adding new ITS events, update both client DTO constants and server contract handling.
-- `SkillTracker.StudentId` is session identity for REST/live payloads. Treat changes as product-sensitive.
+- `SkillTracker.StudentId` is session identity for `/ask` payloads. Treat changes as product-sensitive.
 
 ## Known Gaps
 
