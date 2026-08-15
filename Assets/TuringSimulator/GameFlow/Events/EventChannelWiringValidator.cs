@@ -29,6 +29,9 @@ namespace TuringSimulator.GameFlow.Events
         [SerializeField] private ThinkingStateChangedEventChannel _thinkingStateChannel;
         [SerializeField] private AgentActionRequestedEventChannel _agentActionRequestedChannel;
 
+        [Header("Optional channels")]
+        [SerializeField] private HandGesturePerformedEventChannel _handGesturePerformedChannel;
+
         [Header("Validation")]
         [SerializeField] private bool _logWarningsOnStart = true;
 

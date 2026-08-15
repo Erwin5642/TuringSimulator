@@ -87,6 +87,8 @@ namespace TuringSimulator.Controller
 
         public void SetEditingEnabled(bool allowEditing)
         {
+            startOutputPort?.SetInteractionEnabled(allowEditing);
+
             if (blocks != null)
             {
                 foreach (var b in blocks)

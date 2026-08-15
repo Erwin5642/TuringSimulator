@@ -153,7 +153,10 @@ namespace UnityEngine.XR.Hands.Samples.GestureSample
 
         void Awake()
         {
-            m_BackgroundDefaultColor = m_Background.color;
+            // Background/highlight are optional UI affordances (sample demo).
+            // BasicScene wires gestures without them — null-guard so detection still runs.
+            if (m_Background != null)
+                m_BackgroundDefaultColor = m_Background.color;
 
             if (m_Highlight)
             {
@@ -164,6 +167,9 @@ namespace UnityEngine.XR.Hands.Samples.GestureSample
 
         void OnEnable()
         {
+            if (m_HandTrackingEvents == null)
+                return;
+
             m_HandTrackingEvents.jointsUpdated.AddListener(OnJointsUpdated);
 
             m_HandShape = m_HandShapeOrPose as XRHandShape;
@@ -172,7 +178,11 @@ namespace UnityEngine.XR.Hands.Samples.GestureSample
                 m_HandPose.relativeOrientation.targetTransform = m_TargetTransform;
         }
 
-        void OnDisable() => m_HandTrackingEvents.jointsUpdated.RemoveListener(OnJointsUpdated);
+        void OnDisable()
+        {
+            if (m_HandTrackingEvents != null)
+                m_HandTrackingEvents.jointsUpdated.RemoveListener(OnJointsUpdated);
+        }
 
         void OnJointsUpdated(XRHandJointsUpdatedEventArgs eventArgs)
         {
@@ -192,7 +202,8 @@ namespace UnityEngine.XR.Hands.Samples.GestureSample
             {
                 m_PerformedTriggered = false;
                 m_GestureEnded?.Invoke();
-                m_Background.color = m_BackgroundDefaultColor;
+                if (m_Background != null)
+                    m_Background.color = m_BackgroundDefaultColor;
             }
 
             m_WasDetected = detected;
@@ -204,15 +215,19 @@ namespace UnityEngine.XR.Hands.Samples.GestureSample
                 {
                     m_GesturePerformed?.Invoke();
                     m_PerformedTriggered = true;
-                    m_Background.color = m_BackgroundHighlightColor;
+                    if (m_Background != null)
+                        m_Background.color = m_BackgroundHighlightColor;
 
                     if (m_Highlight)
                         m_Highlight.enabled = true;
 
-                    foreach (var gesture in m_StaticGestures)
+                    if (m_StaticGestures != null)
                     {
-                        if (gesture != this)
-                            gesture.highlightVisible = false;
+                        foreach (var gesture in m_StaticGestures)
+                        {
+                            if (gesture != this)
+                                gesture.highlightVisible = false;
+                        }
                     }
                 }
             }

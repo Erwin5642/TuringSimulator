@@ -338,6 +338,34 @@ Wiring:
 - Subscribes to each rule's source channel
 - Publishes `AgentActionRequested`
 
+### Hand gestures → agent (`StaticHandGesture` + `HandGestureChannelPublisher`)
+
+Purpose: raise a shared gesture channel from XR Hands sample detectors so `AgentActionMapper` can filter by gesture id/phase.
+
+Assign / create:
+
+- Channel asset: `HandGesturePerformedEventChannel` (**Create → TuringSimulator → Events → Hand Gesture Performed**)
+- Sample detector: `StaticHandGesture` (or prefab `Assets/Samples/XR Hands/1.8.0/Gestures/Examples/Prefabs/One Hand Static Gesture.prefab`)
+  - `Hand Tracking Events` → left/right `XRHandTrackingEvents` on XR Origin
+  - `Hand Shape Or Pose` → e.g. `Thumb Signal Hand Shape` / `Shaka Hand Shape`
+- `HandGestureChannelPublisher` (`Assets/TuringSimulator/Controller/Hands/HandGestureChannelPublisher.cs`)
+  - `_gestureId` → stable string (e.g. `ThumbsUp`)
+  - `_handGestureChannel` → the channel asset
+  - UnityEvents from detector:
+    - `gesturePerformed` → `PublishPerformed()`
+    - `gestureEnded` → `PublishEnded()`
+
+`AgentActionMapper` rule example:
+
+- `SourceChannel` = `HandGesturePerformedChannel`
+- `MatchProperty` = `GestureKey`
+- `MatchValue` = `ThumbsUp:Performed`
+- `StaticText` / `Animation` as desired
+
+Payload fields available for matching: `GestureId`, `Phase` (`Performed`/`Ended`), `GestureKey` (`GestureId:Phase`).
+
+Voice hold-to-talk can still use detector UnityEvents → `VoiceInputHandler.StartListening` / `StopListening` directly (no mapper required).
+
 ### `AgentActionExecutor` (`AgentActionExecutor`)
 
 Purpose: executes action text.

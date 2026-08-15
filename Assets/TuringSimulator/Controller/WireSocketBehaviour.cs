@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Attachment;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace TuringSimulator.Controller
 {
@@ -36,7 +38,8 @@ namespace TuringSimulator.Controller
         int _portIndex;
         UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable _grab;
         bool _isDragging;
-        Transform _dragTarget;
+        IXRSelectInteractor _dragInteractor;
+        WireSocketBehaviour _peerBeforeDrag;
         bool _interactionEnabled = true;
         readonly Collider[] _targetBuffer = new Collider[16];
 
@@ -82,6 +85,7 @@ namespace TuringSimulator.Controller
         void Awake()
         {
             _grab = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            ConfigureGrabForWireTip();
             EnsureCollider();
             EnsureWireRenderer();
         }
@@ -104,13 +108,12 @@ namespace TuringSimulator.Controller
                 _grab.selectEntered.RemoveListener(OnSelectEntered);
                 _grab.selectExited.RemoveListener(OnSelectExited);
             }
-            _isDragging = false;
-            _dragTarget = null;
+            ClearDragState();
             if (wireRenderer != null)
                 wireRenderer.enabled = false;
         }
 
-        void Update()
+        void LateUpdate()
         {
             if (!IsOutputPort)
                 return;
@@ -129,10 +132,8 @@ namespace TuringSimulator.Controller
         public void SetInteractionEnabled(bool enabled)
         {
             _interactionEnabled = enabled;
+            // Disabling grab while dragging ends the select; OnSelectExited restores prior wiring.
             RefreshInteractionState();
-            var colliders = GetComponents<Collider>();
-            for (var i = 0; i < colliders.Length; i++)
-                colliders[i].enabled = enabled;
         }
 
         void OnValidate()
@@ -149,6 +150,21 @@ namespace TuringSimulator.Controller
                 wireRenderer.startWidth = lineWidth;
                 wireRenderer.endWidth = lineWidth;
             }
+        }
+
+        void ConfigureGrabForWireTip()
+        {
+            if (_grab == null)
+                return;
+
+            // Far select uses a near-style attach tip (at the hand), not a tip left at the ray hit.
+            _grab.farAttachMode = InteractableFarAttachMode.Near;
+            // Keep the port fixed on the block; only the LineRenderer tip follows the attach point.
+            _grab.trackPosition = false;
+            _grab.trackRotation = false;
+            _grab.trackScale = false;
+            _grab.throwOnDetach = false;
+            _grab.addDefaultGrabTransformers = false;
         }
 
         static void NotifyWorkbenchTopologyDirty()
@@ -171,11 +187,14 @@ namespace TuringSimulator.Controller
                 return;
 
             // Dragging a connected wire detaches it first, so the player can re-route it.
+            _peerBeforeDrag = connectedPeer;
             if (connectedPeer != null)
                 ConnectedPeer = null;
 
             _isDragging = true;
-            _dragTarget = (args.interactorObject as Component)?.transform;
+            _dragInteractor = args.interactorObject;
+            SnapAttachTipToHand();
+            RefreshVisualImmediate();
         }
 
         void OnSelectExited(SelectExitEventArgs _)
@@ -183,18 +202,81 @@ namespace TuringSimulator.Controller
             if (!_isDragging)
                 return;
 
-            var target = FindClosestCompatibleTarget();
-            if (target != null)
-                ConnectedPeer = target;
+            if (_interactionEnabled)
+            {
+                var target = FindClosestCompatibleTarget();
+                if (target != null)
+                    ConnectedPeer = target;
+            }
+            else
+            {
+                // Program edit locked mid-drag: restore the wire that was detached on grab.
+                ConnectedPeer = _peerBeforeDrag;
+            }
 
-            _isDragging = false;
-            _dragTarget = null;
+            _peerBeforeDrag = null;
+            ClearDragState();
             RefreshVisualImmediate();
+        }
+
+        void ClearDragState()
+        {
+            _isDragging = false;
+            _dragInteractor = null;
+        }
+
+        /// <summary>
+        /// Clears far-select attach offset so the tip sits at the interactor origin (hand),
+        /// matching the approach in VRTemplate <c>RayAttachModifier</c>.
+        /// </summary>
+        void SnapAttachTipToHand()
+        {
+            if (_dragInteractor == null || _grab == null)
+                return;
+
+            var attachTransform = _dragInteractor.GetAttachTransform(_grab);
+            if (attachTransform == null)
+                return;
+
+            var localPose = _dragInteractor.GetLocalAttachPoseOnSelect(_grab);
+            attachTransform.localPosition = localPose.position;
+            attachTransform.localRotation = localPose.rotation;
+        }
+
+        /// <summary>
+        /// Live wire tip: XRI attach transform (updated by NearFar InteractionAttachController).
+        /// </summary>
+        Vector3 ResolveDragEndpoint()
+        {
+            if (_dragInteractor == null)
+                return transform.position;
+
+            if (_grab != null)
+            {
+                var attachTransform = _dragInteractor.GetAttachTransform(_grab);
+                if (attachTransform != null)
+                    return attachTransform.position;
+            }
+
+            if (_dragInteractor is Component interactorComponent)
+            {
+                var nearFar = interactorComponent as NearFarInteractor
+                              ?? interactorComponent.GetComponent<NearFarInteractor>();
+                if (nearFar != null &&
+                    nearFar.interactionAttachController is Component attachController)
+                {
+                    return attachController.transform.position;
+                }
+
+                return interactorComponent.transform.position;
+            }
+
+            return transform.position;
         }
 
         WireSocketBehaviour FindClosestCompatibleTarget()
         {
-            var center = _dragTarget != null ? _dragTarget.position : transform.position;
+            var center = _isDragging ? ResolveDragEndpoint() : transform.position;
             var count = Physics.OverlapSphereNonAlloc(
                 center,
                 connectRadius,
@@ -271,9 +353,9 @@ namespace TuringSimulator.Controller
             }
 
             var start = transform.position;
-            if (_isDragging && _dragTarget != null)
+            if (_isDragging)
             {
-                RenderWire(start, _dragTarget.position, previewColor);
+                RenderWire(start, ResolveDragEndpoint(), previewColor);
                 return;
             }
 

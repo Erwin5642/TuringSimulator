@@ -82,6 +82,10 @@ Builds model prompt context from:
 - per-student knowledge state (`STUDENT_MODEL`)
 - hint forest (`domain/hints.py`) for graduated hints
 
+Unity ships eight playable levels and does not include `AppendScrew`. Prefer
+keeping server metadata for active Unity `levelId`s in sync; leftover server
+entries are harmless but unused by the client progression.
+
 Outputs:
 
 - ask response

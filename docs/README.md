@@ -36,16 +36,18 @@ High-level flow:
 ## Important Current-State Notes
 
 - Gameplay is still bootstrapped through `TuringBootstrap`, now simplified to prefer editor scene bindings and only use prefab/runtime fallback when needed.
-- Client and server share level/skill identifiers conceptually, but Unity content coverage is currently narrower than server pedagogical metadata.
+- Unity progression has eight levels (`LevelDatabase`), each with five validation
+  scenarios. Server `LEVEL_META` may still include extra IDs (e.g. `AppendScrew`)
+  that are not in the game.
 - Per-run personalization is server-issued via `student_id` allocation; returning to menu clears local active session before the next run.
 - The current main-line client is voice Ask/Answer scoped, with event-driven
   channel wiring for gameplay and tutor reactions.
 - MVP scene wiring is editor-first: the visible workbench, drawer, tutor UI,
   and bootstrap references should be assigned in `BasicScene`, with
   `MvpSceneWiringValidator` available as an Inspector checklist.
-- Validation content is data-driven. The current baseline has two level
-  definitions and five fixtures; the MVP target is ten named validation
-  scenarios rather than ten separate Unity scenes.
+- Validation content is data-driven. Eight level definitions are registered in
+  `LevelDatabase` with five named scenarios each (tape + head + Accept/Reject
+  halt), rather than separate Unity scenes per scenario.
 
 ## How To Use These Docs
 
