@@ -2,7 +2,9 @@
     "name": "TuringSimulator.GameFlow.Events",
     "rootNamespace": "",
     "references": [
-        "GUID:bcffb3c7c4ebf1f4c9bcd1e489cb78df"
+        "GUID:bcffb3c7c4ebf1f4c9bcd1e489cb78df",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

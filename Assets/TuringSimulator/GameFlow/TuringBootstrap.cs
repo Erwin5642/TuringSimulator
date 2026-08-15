@@ -94,7 +94,6 @@ namespace TuringSimulator.GameFlow
             if (viewSceneBindings != null &&
                 viewSceneBindings.machine != null &&
                 viewSceneBindings.tape != null &&
-                viewSceneBindings.halt != null &&
                 viewSceneBindings.levelUI != null)
             {
                 _viewInstaller = new ViewInstaller(viewSceneBindings);

@@ -1,20 +1,23 @@
 using TuringSimulator.Core.Types;
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 
 namespace TuringSimulator.Controller
 {
-    [RequireComponent(typeof(UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable))]
+    [RequireComponent(typeof(XRGrabInteractable))]
     public sealed class DirectionCardBehaviour : MonoBehaviour
     {
         [SerializeField]
         public MoveDirection Direction = MoveDirection.Right;
 
-        UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable _grab;
+        XRGrabInteractable _grab;
+
+        public XRGrabInteractable Grab => _grab;
 
         void Awake()
         {
-            _grab = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            _grab = GetComponent<XRGrabInteractable>();
         }
 
         public void Configure(MoveDirection value)
@@ -22,11 +25,12 @@ namespace TuringSimulator.Controller
             Direction = value;
         }
 
-        public void SetInteractionEnabled(bool enabled)
+        /// <summary>
+        /// Free cards stay grabbable while program edit is locked.
+        /// Occupied-slot lock is handled by <see cref="CardSlotBehaviour"/>.
+        /// </summary>
+        public void SetInteractionEnabled(bool _)
         {
-            _grab.enabled = enabled;
-            foreach (var c in GetComponents<Collider>())
-                c.enabled = enabled;
         }
     }
 }

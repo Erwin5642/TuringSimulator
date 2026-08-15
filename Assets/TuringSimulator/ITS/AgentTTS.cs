@@ -1,15 +1,14 @@
 // AgentTTS.cs
 // Text-to-Speech for the ITS agent using Android's built-in TTS engine.
-// Targets Brazilian Portuguese (pt-BR) which has robust support on Android
-// (and therefore on Meta Quest 3, which runs Android).
+// Targets Brazilian Portuguese (pt-BR) with fallbacks when Quest lacks that voice.
 //
 // No external SDK or API key required — Android TTS is entirely on-device.
 //
 // SETUP:
-//   No Unity-side setup needed. Android TTS initialises automatically.
-//   On the Quest headset, go to Settings → Accessibility → Text-to-Speech
-//   and confirm a Portuguese TTS engine is installed. The Google TTS engine
-//   (pre-installed on most Quest devices) includes pt-BR.
+//   1. Assets/Plugins/Android/TtsPackageVisibility.androidlib must declare
+//      android.intent.action.TTS_SERVICE under <queries> (Android 11+ / Quest).
+//   2. On the Quest headset: Settings → Accessibility → Text-to-Speech —
+//      confirm a Portuguese TTS voice is installed when possible.
 //
 // USAGE:
 //   AgentTTS.Instance.Speak("Olá, treineiro! Precisa de ajuda?");
@@ -18,17 +17,14 @@
 
 using System;
 using System.Collections;
+using System.Threading;
 using UnityEngine;
 
 #pragma warning disable CS0414, CS0067
 
 public class AgentTTS : MonoBehaviour
 {
-    // ── Singleton ────────────────────────────────────────────────────────────
-
     public static AgentTTS Instance { get; private set; }
-
-    // ── Inspector ────────────────────────────────────────────────────────────
 
     [Header("Voice settings")]
     [Tooltip("BCP-47 language tag for Brazilian Portuguese.")]
@@ -40,31 +36,37 @@ public class AgentTTS : MonoBehaviour
     [Tooltip("Pitch. 1.0 = normal. Slightly higher = friendlier robot voice.")]
     [SerializeField] [Range(0.5f, 2.0f)] private float _pitch = 1.1f;
 
-    // ── Events ───────────────────────────────────────────────────────────────
-
     public event Action<string> OnSpeechStarted;
-    public event Action         OnSpeechFinished;
+    public event Action OnSpeechFinished;
     public event Action<string> OnTTSError;
-
-    // ── State ─────────────────────────────────────────────────────────────────
 
     public bool IsSpeaking { get; private set; }
 
-    // ── Android JNI references ────────────────────────────────────────────────
-
     private AndroidJavaObject _tts;
     private AndroidJavaObject _unityActivity;
-    private bool              _ttsReady;
+    private bool _ttsReady;
+    private string _activeLanguage = string.Empty;
 
-    // Unique utterance ID used to track completion callbacks
-    private const string UTT_ID = "ITS_AGENT";
+    private int _pendingInitStatus = InitStatusNone;
+    private int _pendingSpeechFinished;
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    private const string UttId = "ITS_AGENT";
+    private const int InitStatusNone = int.MinValue;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
+
+        // DontDestroyOnLoad only works on root objects.
+        if (transform.parent != null)
+            transform.SetParent(null, true);
+
         DontDestroyOnLoad(gameObject);
     }
 
@@ -73,9 +75,24 @@ public class AgentTTS : MonoBehaviour
 #if UNITY_ANDROID && !UNITY_EDITOR
         InitAndroidTTS();
 #else
-        // In the Editor, log the text instead of speaking it
         Debug.Log("[AgentTTS] Running in Editor — TTS output will be logged only.");
         _ttsReady = true;
+        _activeLanguage = _languageTag;
+#endif
+    }
+
+    private void Update()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        var status = Interlocked.Exchange(ref _pendingInitStatus, InitStatusNone);
+        if (status != InitStatusNone)
+            FinishAndroidInit(status);
+
+        if (Interlocked.Exchange(ref _pendingSpeechFinished, 0) == 1)
+        {
+            IsSpeaking = false;
+            OnSpeechFinished?.Invoke();
+        }
 #endif
     }
 
@@ -84,17 +101,17 @@ public class AgentTTS : MonoBehaviour
 #if UNITY_ANDROID && !UNITY_EDITOR
         ShutdownTTS();
 #endif
+        if (Instance == this)
+            Instance = null;
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
-
     /// <summary>
-    /// Speak a string in Brazilian Portuguese.
-    /// Interrupts any currently playing speech.
+    /// Speak a string. Interrupts any currently playing speech.
     /// </summary>
     public void Speak(string text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return;
+        if (string.IsNullOrWhiteSpace(text))
+            return;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (!_ttsReady)
@@ -103,9 +120,9 @@ public class AgentTTS : MonoBehaviour
             StartCoroutine(SpeakWhenReady(text));
             return;
         }
+
         SpeakNative(text);
 #else
-        // Editor fallback
         Debug.Log($"[AgentTTS] SPEAK: {text}");
         OnSpeechStarted?.Invoke(text);
         OnSpeechFinished?.Invoke();
@@ -116,13 +133,18 @@ public class AgentTTS : MonoBehaviour
     public void Stop()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
-        _tts?.Call("stop");
+        try
+        {
+            _tts?.Call("stop");
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[AgentTTS] stop() failed: {e.Message}");
+        }
 #endif
         IsSpeaking = false;
         OnSpeechFinished?.Invoke();
     }
-
-    // ── Android TTS internals ─────────────────────────────────────────────────
 
 #if UNITY_ANDROID && !UNITY_EDITOR
 
@@ -133,13 +155,14 @@ public class AgentTTS : MonoBehaviour
             using var playerClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
             _unityActivity = playerClass.GetStatic<AndroidJavaObject>("currentActivity");
 
-            // OnInitListener implemented via proxy
-            var initListener = new TTSInitListener(OnTTSInit);
+            // Only enqueue status here — never touch AndroidJavaObject from the binder thread.
+            var initListener = new TTSInitListener(status =>
+                Interlocked.Exchange(ref _pendingInitStatus, status));
+
             _tts = new AndroidJavaObject(
                 "android.speech.tts.TextToSpeech",
                 _unityActivity,
-                initListener
-            );
+                initListener);
         }
         catch (Exception e)
         {
@@ -148,9 +171,8 @@ public class AgentTTS : MonoBehaviour
         }
     }
 
-    private void OnTTSInit(int status)
+    private void FinishAndroidInit(int status)
     {
-        // status 0 = SUCCESS
         if (status != 0)
         {
             Debug.LogError($"[AgentTTS] TTS init failed with status {status}.");
@@ -158,74 +180,195 @@ public class AgentTTS : MonoBehaviour
             return;
         }
 
-        // Set language to pt-BR
-        using var locale = new AndroidJavaObject("java.util.Locale", _languageTag);
-        int langResult = _tts.Call<int>("setLanguage", locale);
-
-        if (langResult == -2 || langResult == -1)
+        if (_tts == null)
         {
-            Debug.LogWarning($"[AgentTTS] pt-BR not supported (result={langResult}). " +
-                             "Falling back to device default language.");
+            Debug.LogError("[AgentTTS] TTS object is null after init.");
+            return;
         }
 
-        // Set speech rate and pitch
-        _tts.Call<int>("setSpeechRate", _speechRate);
-        _tts.Call<int>("setPitch", _pitch);
+        try
+        {
+            _activeLanguage = ApplyLanguageWithFallback();
+            _tts.Call<int>("setSpeechRate", _speechRate);
+            _tts.Call<int>("setPitch", _pitch);
+            TryAttachProgressListener();
 
-        // Register utterance progress listener for completion callbacks
-        var progressListener = new TTSProgressListener(
-            onStart   : id => { IsSpeaking = true;  OnSpeechStarted?.Invoke(id); },
-            onDone    : id => { IsSpeaking = false; OnSpeechFinished?.Invoke();  },
-            onError   : id => { IsSpeaking = false; OnTTSError?.Invoke(id);      }
-        );
-        _tts.Call<int>("setOnUtteranceProgressListener", progressListener);
+            string engine = null;
+            try
+            {
+                engine = _tts.Call<string>("getDefaultEngine");
+            }
+            catch
+            {
+                // Optional diagnostic.
+            }
 
-        _ttsReady = true;
-        Debug.Log("[AgentTTS] Android TTS ready — pt-BR.");
+            _ttsReady = true;
+            Debug.Log(
+                $"[AgentTTS] Android TTS ready — requested={_languageTag} active={_activeLanguage} engine={engine ?? "unknown"}.");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[AgentTTS] FinishAndroidInit failed: {e}");
+            OnTTSError?.Invoke(e.Message);
+        }
+    }
+
+    private string ApplyLanguageWithFallback()
+    {
+        using var localeClass = new AndroidJavaClass("java.util.Locale");
+
+        // Preferred BCP-47 tag (e.g. pt-BR).
+        if (TrySetLanguageTag(localeClass, _languageTag, out var chosen))
+            return chosen;
+
+        // Language only (pt).
+        var dash = _languageTag != null ? _languageTag.IndexOf('-') : -1;
+        if (dash > 0)
+        {
+            var languageOnly = _languageTag.Substring(0, dash);
+            if (TrySetLanguageTag(localeClass, languageOnly, out chosen))
+            {
+                Debug.LogWarning(
+                    $"[AgentTTS] '{_languageTag}' unavailable; fell back to '{languageOnly}'.");
+                return chosen;
+            }
+        }
+
+        // Device default — better than staying silent on Quest without pt-BR voice data.
+        using var defaults = localeClass.CallStatic<AndroidJavaObject>("getDefault");
+        var result = _tts.Call<int>("setLanguage", defaults);
+        var defaultTag = SafeLocaleTag(defaults);
+        Debug.LogWarning(
+            $"[AgentTTS] Preferred languages unavailable (lastResult={result}). Using device default '{defaultTag}'.");
+        return defaultTag;
+    }
+
+    private bool TrySetLanguageTag(AndroidJavaClass localeClass, string tag, out string appliedTag)
+    {
+        appliedTag = tag;
+        if (string.IsNullOrWhiteSpace(tag))
+            return false;
+
+        using var locale = localeClass.CallStatic<AndroidJavaObject>("forLanguageTag", tag);
+        var result = _tts.Call<int>("setLanguage", locale);
+
+        // 0+ = available / country or language available. -1 missing data, -2 not supported.
+        if (result >= 0)
+            return true;
+
+        Debug.LogWarning($"[AgentTTS] Language '{tag}' not available (result={result}).");
+        return false;
+    }
+
+    private static string SafeLocaleTag(AndroidJavaObject locale)
+    {
+        try
+        {
+            return locale.Call<string>("toLanguageTag");
+        }
+        catch
+        {
+            try
+            {
+                return locale.Call<string>("toString");
+            }
+            catch
+            {
+                return "unknown";
+            }
+        }
+    }
+
+    private void TryAttachProgressListener()
+    {
+        try
+        {
+            var progressListener = new TTSProgressListener(
+                onStart: _ => { /* IsSpeaking already set in SpeakNative */ },
+                onDone: _ => Interlocked.Exchange(ref _pendingSpeechFinished, 1),
+                onError: id =>
+                {
+                    Debug.LogError($"[AgentTTS] Utterance error for '{id}'.");
+                    Interlocked.Exchange(ref _pendingSpeechFinished, 1);
+                });
+
+            // void method — do not use Call<int>.
+            _tts.Call("setOnUtteranceProgressListener", progressListener);
+        }
+        catch (Exception e)
+        {
+            // Speech can still work without progress callbacks.
+            Debug.LogWarning($"[AgentTTS] Progress listener unavailable: {e.Message}");
+        }
     }
 
     private void SpeakNative(string text)
     {
-        // Stop any current speech first (FLUSH mode = 0)
-        _tts.Call<int>("speak", text, 0, null, UTT_ID);
-        IsSpeaking = true;
-        OnSpeechStarted?.Invoke(text);
+        try
+        {
+            using var paramsBundle = new AndroidJavaObject("android.os.Bundle");
+            var result = _tts.Call<int>("speak", text, 0, paramsBundle, UttId);
+            if (result != 0)
+            {
+                Debug.LogError($"[AgentTTS] speak() failed with result={result} for text length {text.Length}.");
+                OnTTSError?.Invoke($"speak failed: {result}");
+                return;
+            }
+
+            IsSpeaking = true;
+            OnSpeechStarted?.Invoke(text);
+            Debug.Log($"[AgentTTS] Speaking ({_activeLanguage}, {text.Length} chars): {text}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[AgentTTS] speak() threw: {e}");
+            OnTTSError?.Invoke(e.Message);
+        }
     }
 
     private void ShutdownTTS()
     {
-        if (_tts == null) return;
-        _tts.Call("stop");
-        _tts.Call("shutdown");
+        if (_tts == null)
+            return;
+
+        try
+        {
+            _tts.Call("stop");
+            _tts.Call("shutdown");
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[AgentTTS] ShutdownTTS: {e.Message}");
+        }
+
         _tts.Dispose();
         _tts = null;
+        _ttsReady = false;
     }
 
 #endif
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     private IEnumerator SpeakWhenReady(string text)
     {
         float waited = 0f;
-        while (!_ttsReady && waited < 5f)
+        while (!_ttsReady && waited < 8f)
         {
             yield return new WaitForSeconds(0.1f);
             waited += 0.1f;
         }
-        if (_ttsReady) Speak(text);
-        else Debug.LogWarning("[AgentTTS] TTS did not become ready in time.");
+
+        if (_ttsReady)
+            Speak(text);
+        else
+            Debug.LogWarning("[AgentTTS] TTS did not become ready in time.");
     }
 }
-
-// ── Android JNI proxy classes ─────────────────────────────────────────────────
-// These bridge Android Java interfaces to C# delegates using Unity's
-// AndroidJavaProxy, which handles the JNI marshalling automatically.
 
 #if UNITY_ANDROID && !UNITY_EDITOR
 
 /// <summary>Proxies android.speech.tts.TextToSpeech.OnInitListener</summary>
-internal class TTSInitListener : AndroidJavaProxy
+internal sealed class TTSInitListener : AndroidJavaProxy
 {
     private readonly Action<int> _callback;
 
@@ -235,12 +378,12 @@ internal class TTSInitListener : AndroidJavaProxy
         _callback = callback;
     }
 
-    // Called by Android on the main thread when TTS engine is ready
+    // Called by Android on a binder thread — keep this allocation-free and JNI-free.
     public void onInit(int status) => _callback(status);
 }
 
 /// <summary>Proxies android.speech.tts.UtteranceProgressListener</summary>
-internal class TTSProgressListener : AndroidJavaProxy
+internal sealed class TTSProgressListener : AndroidJavaProxy
 {
     private readonly Action<string> _onStart;
     private readonly Action<string> _onDone;
@@ -253,15 +396,13 @@ internal class TTSProgressListener : AndroidJavaProxy
         : base("android.speech.tts.UtteranceProgressListener")
     {
         _onStart = onStart;
-        _onDone  = onDone;
+        _onDone = onDone;
         _onError = onError;
     }
 
-    public void onStart(string utteranceId)   => _onStart(utteranceId);
-    public void onDone(string utteranceId)    => _onDone(utteranceId);
-    public void onError(string utteranceId)   => _onError(utteranceId);
-
-    // Android API 21+ variant — required override
+    public void onStart(string utteranceId) => _onStart(utteranceId);
+    public void onDone(string utteranceId) => _onDone(utteranceId);
+    public void onError(string utteranceId) => _onError(utteranceId);
     public void onError(string utteranceId, int errorCode) => _onError(utteranceId);
 }
 

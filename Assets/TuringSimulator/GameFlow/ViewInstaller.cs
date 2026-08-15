@@ -2,7 +2,6 @@
 using TuringSimulator.View;
 using UnityEngine;
 using TuringSimulator.View.Machine;
-using TuringSimulator.View.Machine.Halt;
 using TuringSimulator.View.Machine.Tape;
 
 namespace TuringSimulator.GameFlow
@@ -14,8 +13,6 @@ namespace TuringSimulator.GameFlow
         public MonoBehaviour machine;
         [Tooltip("Scene object implementing ITapeVisual.")]
         public MonoBehaviour tape;
-        [Tooltip("Scene object implementing IHaltStatusIndicator.")]
-        public MonoBehaviour halt;
         public LevelUI levelUI;
     }
 
@@ -24,7 +21,6 @@ namespace TuringSimulator.GameFlow
     {
         public GameObject machine;
         public GameObject tape;
-        public GameObject halt;
         public GameObject levelUI;
     }
 
@@ -32,10 +28,9 @@ namespace TuringSimulator.GameFlow
     {
         public IMachineView Machine { get; private set;  }
         public ITapeVisual Tape { get; private set;  }
-        public IHaltStatusIndicator Halt { get;  private set; }
-        
+
         public LevelUI LevelUI { get; private set;  }
-        
+
         readonly ViewPrefabs _prefabs;
         readonly ViewSceneBindings _scene;
         readonly bool _useSceneBindings;
@@ -45,7 +40,6 @@ namespace TuringSimulator.GameFlow
             if (prefabs == null) throw new ArgumentNullException(nameof(prefabs));
             if (prefabs.machine == null) throw new ArgumentNullException(nameof(prefabs.machine));
             if (prefabs.tape == null) throw new ArgumentNullException(nameof(prefabs.tape));
-            if (prefabs.halt == null) throw new ArgumentNullException(nameof(prefabs.halt));
             if (prefabs.levelUI == null) throw new ArgumentNullException(nameof(prefabs.levelUI));
             _prefabs = prefabs;
             _useSceneBindings = false;
@@ -56,7 +50,6 @@ namespace TuringSimulator.GameFlow
             if (sceneBindings == null) throw new ArgumentNullException(nameof(sceneBindings));
             if (sceneBindings.machine == null) throw new ArgumentNullException(nameof(sceneBindings.machine));
             if (sceneBindings.tape == null) throw new ArgumentNullException(nameof(sceneBindings.tape));
-            if (sceneBindings.halt == null) throw new ArgumentNullException(nameof(sceneBindings.halt));
             if (sceneBindings.levelUI == null) throw new ArgumentNullException(nameof(sceneBindings.levelUI));
             _scene = sceneBindings;
             _useSceneBindings = true;
@@ -66,7 +59,6 @@ namespace TuringSimulator.GameFlow
             _scene != null &&
             _scene.machine != null &&
             _scene.tape != null &&
-            _scene.halt != null &&
             _scene.levelUI != null;
 
         public void Install() {
@@ -74,7 +66,6 @@ namespace TuringSimulator.GameFlow
             {
                 Machine = ResolveInterface<IMachineView>(_scene.machine, nameof(_scene.machine));
                 Tape = ResolveInterface<ITapeVisual>(_scene.tape, nameof(_scene.tape));
-                Halt = ResolveInterface<IHaltStatusIndicator>(_scene.halt, nameof(_scene.halt));
                 LevelUI = _scene.levelUI;
             }
             else
@@ -83,15 +74,12 @@ namespace TuringSimulator.GameFlow
                     .GetComponent<IMachineView>();
                 Tape = UnityEngine.Object.Instantiate(_prefabs.tape)
                     .GetComponent<ITapeVisual>();
-                Halt = UnityEngine.Object.Instantiate(_prefabs.halt)
-                    .GetComponent<IHaltStatusIndicator>();
                 LevelUI = UnityEngine.Object.Instantiate(_prefabs.levelUI)
                     .GetComponent<LevelUI>();
             }
 
             Tape.Initialize();
-            Halt.Initialize();
-            Machine.Initialize(Tape, Halt);
+            Machine.Initialize(Tape);
         }
 
         static TInterface ResolveInterface<TInterface>(MonoBehaviour source, string fieldName)

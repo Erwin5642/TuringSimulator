@@ -81,6 +81,7 @@ namespace TuringSimulator.Core.Validation
             var runner = new SimulationRunner(new SimulationBuffer());
             var result = await runner.Run(new SimulationRunRequest(_program, inputTape), token);
             var passed = result.HaltStatus == test.expectedStatus &&
+                         result.FinalTape.HeadIndex == test.expectedHeadIndex &&
                          result.FinalTape.StructuralEquals(expectedTape.Snapshot());
 
             _results[index] = passed;

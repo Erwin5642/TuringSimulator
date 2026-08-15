@@ -91,7 +91,26 @@ namespace TuringSimulator.Controller
             for (var i = 0; i < ordered.Count; i++)
                 stateOf[ordered[i]] = i;
 
-            builder = new TableProgramBuilder(0);
+            var programBuilder = new TableProgramBuilder(0);
+            builder = programBuilder;
+            var nextStateId = ordered.Count;
+            int? rejectSinkState = null;
+
+            // Unwired Move/Write ends in a non-final sink so the engine rejects
+            // (Accept is only via an Accept block / final state).
+            int ResolveSuccessorOrRejectSink(string nextId)
+            {
+                if (nextId != null)
+                    return stateOf[nextId];
+
+                if (rejectSinkState == null)
+                {
+                    rejectSinkState = nextStateId++;
+                    programBuilder.AddState(rejectSinkState.Value);
+                }
+
+                return rejectSinkState.Value;
+            }
 
             foreach (var id in ordered)
             {
@@ -114,16 +133,10 @@ namespace TuringSimulator.Controller
                             return false;
                         }
 
-                        if (wNext == null)
-                        {
-                            error = $"Write block '{id}' needs exactly one outgoing wire.";
-                            return false;
-                        }
-
                         var γ = node.SymbolCard.Value;
-                        var sw = stateOf[wNext];
+                        var sw = ResolveSuccessorOrRejectSink(wNext);
                         foreach (var σ in TapeAlphabet.All)
-                            builder.AddTransition(s, σ, new Transition(sw, γ, MoveDirection.Stay));
+                            programBuilder.AddTransition(s, σ, new Transition(sw, γ, MoveDirection.Stay));
                         break;
                     }
 
@@ -141,16 +154,10 @@ namespace TuringSimulator.Controller
                             return false;
                         }
 
-                        if (mNext == null)
-                        {
-                            error = $"Move block '{id}' needs exactly one outgoing wire.";
-                            return false;
-                        }
-
                         var dir = node.DirectionCard.Value;
-                        var sm = stateOf[mNext];
+                        var sm = ResolveSuccessorOrRejectSink(mNext);
                         foreach (var σ in TapeAlphabet.All)
-                            builder.AddTransition(s, σ, new Transition(sm, σ, dir));
+                            programBuilder.AddTransition(s, σ, new Transition(sm, σ, dir));
                         break;
                     }
 
@@ -186,14 +193,14 @@ namespace TuringSimulator.Controller
                         foreach (var σ in TapeAlphabet.All)
                         {
                             var tgt = σ == cmp ? st : sf;
-                            builder.AddTransition(s, σ, new Transition(tgt, σ, MoveDirection.Stay));
+                            programBuilder.AddTransition(s, σ, new Transition(tgt, σ, MoveDirection.Stay));
                         }
 
                         break;
                     }
 
                     case ProgramBlockKind.Accept:
-                        builder.AddFinalState(s);
+                        programBuilder.AddFinalState(s);
                         break;
 
                     case ProgramBlockKind.Reject:

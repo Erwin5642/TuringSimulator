@@ -26,6 +26,7 @@ Create one ScriptableObject asset for each channel class:
 16. `AskResultEventChannel`
 17. `ThinkingStateChangedEventChannel`
 18. `AgentActionRequestedEventChannel`
+19. `HandGesturePerformedEventChannel` (optional; hands-only gesture → agent rules)
 
 ## 2) Event Chain for Full Demo
 
@@ -125,6 +126,11 @@ Create one ScriptableObject asset for each channel class:
     - `AgentActionExecutor` (subtitle + TTS)
     - `AgentAnimator` (animation parameters/triggers)
 
+- `HandGesturePerformed` (optional)
+  - Raised by: `HandGestureChannelPublisher` (wired from sample `StaticHandGesture` UnityEvents)
+  - Trigger in play mode: hold/release a configured hand shape
+  - Consumed by: `AgentActionMapper` rules filtered on `GestureId`, `Phase`, or `GestureKey`
+
 ## 3) Inspector Wiring Matrix (Minimum)
 
 - `ControllerSceneBindings` (inside `TuringBootstrap`)
@@ -197,6 +203,34 @@ In `AgentActionMapper`, add rule:
 In `AgentAnimator`:
 
 - set `_celebrateTrigger` to your animator trigger name (example: `Commemoration`)
+
+## 4b) Example Rule (Hand gesture -> agent action)
+
+Scene wiring:
+
+1. Create asset: **Create → TuringSimulator → Events → Hand Gesture Performed**
+2. Add sample `StaticHandGesture` (or `One Hand Static Gesture` prefab) and assign `XRHandTrackingEvents` + hand shape
+3. Add `HandGestureChannelPublisher` with `_gestureId = ThumbsUp` and the channel asset
+4. Wire `StaticHandGesture.gesturePerformed` → `HandGestureChannelPublisher.PublishPerformed`
+5. Wire `StaticHandGesture.gestureEnded` → `HandGestureChannelPublisher.PublishEnded`
+
+In `AgentActionMapper`, add rule:
+
+- `SourceChannel`: `HandGesturePerformedEventChannel`
+- `MatchProperty`: `GestureKey`
+- `MatchValue`: `ThumbsUp:Performed`
+- `TextMode`: `Static`
+- `StaticText`: `Parabéns`
+- `Animation`: `Celebrate`
+
+Optional release rule:
+
+- `MatchProperty`: `GestureKey`
+- `MatchValue`: `ThumbsUp:Ended`
+- `TextMode`: `Empty`
+- `Animation`: `Idle`
+
+For voice hold-to-talk without the agent mapper, keep wiring `StaticHandGesture` UnityEvents directly to `VoiceInputHandler.StartListening` / `StopListening`.
 
 ## 5) Smoke Test Sequence
 

@@ -162,6 +162,8 @@ namespace TuringSimulator.GameFlow
             PlayerInputCatcher.OnNextRequest += GameFlowController.Next;
             PlayerInputCatcher.OnMenuRequest += HandleMenuRequested;
             PlayerInputCatcher.OnAbortRequest += GameFlowController.Abort;
+            PlayerInputCatcher.OnStartOrAbortRequest += HandleStartOrAbortRequested;
+            PlayerInputCatcher.OnPlayOrPauseRequest += HandlePlayOrPauseRequested;
 
             ProgramEdit.OnProgramChanged += PublishProgramChanged;
             Playback.OnStep += PublishPlaybackStep;
@@ -183,6 +185,22 @@ namespace TuringSimulator.GameFlow
         {
             GameFlowController.ReturnToMenu();
             SkillTracker.Instance?.ClearSession();
+        }
+
+        void HandleStartOrAbortRequested()
+        {
+            if (GameStateMachine.Instance.CurrentState == GameState.Running)
+                GameFlowController.Abort();
+            else
+                PublishRunRequested();
+        }
+
+        void HandlePlayOrPauseRequested()
+        {
+            if (Playback.IsPlaying)
+                Playback.Pause();
+            else
+                Playback.Play();
         }
 
         void PublishProgramChanged(IProgram program)
