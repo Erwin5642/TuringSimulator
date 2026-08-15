@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android library plug-in (merged, does NOT replace Unity's library manifest).
+  Required for Android 11+ / Quest so TextToSpeech can discover TTS engines.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.turingsimulator.ttspackagevisibility">
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.TTS_SERVICE" />
+    </intent>
+  </queries>
+</manifest>
