@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c86604d78d14dd78e4796fadf38bbc7, type: 3}
+  m_Name: Level 8 Definition
+  m_EditorClassIdentifier: 
+  title: "Padrão em Qualquer Posição"
+  description: "Objetivo: vá ao módulo Aceitar se existir pelo menos uma ocorrência consecutiva de Engrenagem → Porca → Parafuso em qualquer ponto da fita antes do branco. Se não existir, vá ao módulo Rejeitar."
+  levelId: PatternSomewhere
+  mainTest: {fileID: 11400000, guid: 7e6caca16d3344d89079564ab74a9619, type: 2}
+  validationTests:
+  - {fileID: 11400000, guid: 5c68514f78ef4aa0884c788c24adf7ff, type: 2}
+  - {fileID: 11400000, guid: c86a63c009ad4a32945c6bda8c2b78b1, type: 2}
+  - {fileID: 11400000, guid: 52b35678358e45659d4e30fd04fddc0f, type: 2}
+  - {fileID: 11400000, guid: 5c958727620b45e589dbeb88d273e9d5, type: 2}
