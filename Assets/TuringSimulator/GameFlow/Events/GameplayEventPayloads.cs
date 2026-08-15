@@ -225,6 +225,41 @@ namespace TuringSimulator.GameFlow.Events
         public override string ToString() => $"ctx={Context}";
     }
 
+    public enum HandGesturePhase
+    {
+        Performed = 0,
+        Ended = 1,
+    }
+
+    /// <summary>
+    /// Raised when a configured hand gesture is performed or released.
+    /// Use <see cref="GestureKey"/> (<c>GestureId:Phase</c>) with AgentActionMapper MatchProperty
+    /// when a single property must distinguish both id and phase.
+    /// </summary>
+    public readonly struct HandGesturePerformedEventData
+    {
+        public HandGesturePerformedEventData(
+            EventContextData context,
+            string gestureId,
+            HandGesturePhase phase)
+        {
+            Context = context;
+            GestureId = gestureId ?? string.Empty;
+            Phase = phase;
+        }
+
+        public EventContextData Context { get; }
+        public string GestureId { get; }
+        public HandGesturePhase Phase { get; }
+
+        /// <summary>
+        /// Combined key for AgentActionMapper single-property matching, e.g. "ThumbsUp:Performed".
+        /// </summary>
+        public string GestureKey => $"{GestureId}:{Phase}";
+
+        public override string ToString() => $"gesture={GestureKey} ctx={Context}";
+    }
+
     public readonly struct ListeningStateChangedEventData
     {
         public ListeningStateChangedEventData(EventContextData context, bool isListening)

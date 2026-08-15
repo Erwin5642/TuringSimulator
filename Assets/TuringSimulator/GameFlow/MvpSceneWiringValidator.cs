@@ -32,7 +32,7 @@ namespace TuringSimulator.GameFlow
 
         [Header("Validation")]
         [SerializeField] bool logWarningsOnStart = true;
-        [SerializeField] int requiredScenarioCount = 10;
+        [SerializeField] int requiredScenarioCount = 40;
 
         void Start()
         {

@@ -50,7 +50,13 @@ namespace TuringSimulator.GameFlow.Events
     {
         public void Apply(LevelLoadedActionContext context)
         {
-            context.Model.Validation.SetTests(context.Level.validationTests);
+            var main = LevelLoadedActionGuard.RequireMainTest(context.Level);
+            var extras = context.Level.validationTests ?? Array.Empty<ValidationTest>();
+            var tests = new ValidationTest[1 + extras.Length];
+            tests[0] = main;
+            for (var i = 0; i < extras.Length; i++)
+                tests[i + 1] = extras[i];
+            context.Model.Validation.SetTests(tests);
         }
     }
 
@@ -60,7 +66,6 @@ namespace TuringSimulator.GameFlow.Events
         {
             var mainTest = LevelLoadedActionGuard.RequireMainTest(context.Level);
             context.View.Tape.SetTape(mainTest.initialSymbols, mainTest.headIndex);
-            context.View.Halt.Reset();
         }
     }
 

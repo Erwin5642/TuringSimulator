@@ -81,25 +81,48 @@ Primary editing path:
 - Compiles via `GraphToProgramCompiler`.
 - Replaces active program in `IProgramEditController`.
 
+Halt rules (`SimulationEngine`):
+
+- Entering / being in an Accept (final) state → `HaltStatus.Accept`
+- No matching transition for the current state/symbol → implicit `HaltStatus.Reject`
+- Unwired Move/Write compiles to a non-final sink (so the run rejects unless wired into Accept)
+
 Main files:
 
 - `Assets/TuringSimulator/Controller/ProgramWorkbench.cs`
 - `Assets/TuringSimulator/Controller/GraphToProgramCompiler.cs`
 - `Assets/TuringSimulator/Controller/ProgramEditController.cs`
+- `Assets/TuringSimulator/Core/Simulation/SimulationEngine.cs`
 
 ## Level Data
 
 Level definitions are Unity assets containing:
 
-- UI presentation (`title`, `description`)
-- ITS-compatible `levelId`
+- UI presentation (`title`, `description`) in pt-BR
+- ITS-compatible `levelId` matching `LEVEL_META` / `LevelID`
 - validation tests (`mainTest`, `validationTests`)
+
+Progression in `LevelDatabase.asset` (order = play order; eight levels):
+
+1. `MoveLeftRight` — move only; ends in Reject (no Accept module yet)
+2. `PlaceGear` — move + write; ends in Reject (no Accept module yet)
+3. `ReplaceAllWithNuts` — finish via Accept module
+4. `RejectIfGearExists` — Accept or Reject modules
+5. `SwapNutsAndScrews` — finish via Accept module
+6. `PatternRepeated` — Accept or Reject modules
+7. `BalancedPairs` — Accept or Reject modules
+8. `PatternSomewhere` — Accept or Reject modules
+
+Each level has **5** validation scenarios (`mainTest` + 4 `validationTests`).
+`AppendScrew` is not in the Unity progression (removed from the game).
 
 Main files:
 
 - `Assets/TuringSimulator/Core/Level/LevelDefinition.cs`
 - `Assets/TuringSimulator/Core/Level/LevelDatabase.cs`
 - `Assets/Prefabs/Levels/LevelDatabase.asset`
+- `Assets/Prefabs/Levels/Level */Level * Definition.asset`
+- `Assets/Prefabs/Levels/Level */Level * Test*.asset` / `* Main Test.asset`
 
 ## ITS Integration from Client
 
@@ -164,8 +187,9 @@ Main files:
 
 - Main-menu UI scene flow is still not fully wired; runtime now supports menu detach/start hooks and keyboard menu return (`M`) with fresh session on next start.
 - Runtime instantiation is used heavily; scene-only wiring is not the current architecture.
-- Unity level content coverage may lag server pedagogical map.
-- The current repository contains five validation fixtures across two levels;
-  the MVP target is ten named scenarios. `ValidationTest.scenarioId` and
-  `ValidationRunner.Results` provide stable names and per-scenario summaries
-  for the editor/UI.
+- Unity ships eight levels with five named validation scenarios each (40 total).
+- Server `LEVEL_META` may still list `AppendScrew`; that ID is not used by the
+  Unity `LevelDatabase`.
+- `ValidationTest.scenarioId` and `ValidationRunner.Results` provide stable names
+  and per-scenario summaries for the editor/UI. Validation matches halt status,
+  final head index, and tape contents.

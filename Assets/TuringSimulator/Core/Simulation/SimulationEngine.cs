@@ -23,16 +23,20 @@ namespace TuringSimulator.Core.Simulation
 
             while (!ct.IsCancellationRequested && stepCount < maxSteps)
             {
+                // Accept only by being in / entering an Accept (final) state.
+                if (program.IsFinalState(currentState))
+                {
+                    buffer.Complete(HaltStatus.Accept);
+                    return;
+                }
+
                 var currentSymbol = tape.Read();
                 var currentHeadIndex = tape.HeadIndex;
 
+                // No matching transition: implicit halt as Reject.
                 if (!program.TryGetTransition(currentState, currentSymbol, out var transition))
                 {
-                    buffer.Complete(
-                        program.IsFinalState(currentState)
-                            ? HaltStatus.Accept
-                            : HaltStatus.Reject);
-
+                    buffer.Complete(HaltStatus.Reject);
                     return;
                 }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -22,6 +22,8 @@ namespace TuringSimulator.Controller
         public event Action OnNextRequest;
         public event Action OnMenuRequest;
         public event Action OnAbortRequest;
+        public event Action OnStartOrAbortRequest;
+        public event Action OnPlayOrPauseRequest;
 
         public void RequestStart()
         {
@@ -69,6 +71,18 @@ namespace TuringSimulator.Controller
         {
             Debug.Log("[Input]: Abort requested");
             OnAbortRequest?.Invoke();
+        }
+
+        public void RequestStartOrAbort()
+        {
+            Debug.Log("[Input]: Start/Abort toggle requested");
+            OnStartOrAbortRequest?.Invoke();
+        }
+
+        public void RequestPlayOrPause()
+        {
+            Debug.Log("[Input]: Play/Pause toggle requested");
+            OnPlayOrPauseRequest?.Invoke();
         }
 
         private void Update()

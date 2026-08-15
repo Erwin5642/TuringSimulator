@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using TuringSimulator.Core.Simulation.Step;
 
@@ -7,6 +7,8 @@ namespace TuringSimulator.Controller.Syncronizer
     public interface IPlaybackController
     {
         event Action<StepResult> OnStep;
+
+        bool IsPlaying { get; }
         
         void Play();
         void Pause();

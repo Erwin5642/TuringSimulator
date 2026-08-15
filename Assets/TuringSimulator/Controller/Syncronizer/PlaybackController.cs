@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using TuringSimulator.Core.Simulation.Step;
@@ -20,6 +20,8 @@ namespace TuringSimulator.Controller.Syncronizer
         }
 
         public event Action<StepResult> OnStep;
+
+        public bool IsPlaying => _playCts != null && !_playCts.IsCancellationRequested;
 
         public void Play()
         {

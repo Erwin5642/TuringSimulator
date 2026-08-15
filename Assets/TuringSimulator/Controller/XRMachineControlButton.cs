@@ -5,36 +5,33 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 namespace TuringSimulator.Controller
 {
     /// <summary>
-    /// XR button adapter that triggers existing machine control requests.
-    /// Wire one component per button and select the command in Inspector.
+    /// XR button adapter for machine playback controls.
+    /// Wire one component per button: Start/Abort, Pause/Resume, Step Forward, Step Backward.
+    /// Menu and Next remain UI-only controls.
     /// </summary>
-    [RequireComponent(typeof(UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable))]
+    [RequireComponent(typeof(XRSimpleInteractable))]
     public sealed class XRMachineControlButton : MonoBehaviour
     {
         public enum MachineControlCommand
         {
-            Start = 0,
-            PlayResume = 1,
-            Pause = 2,
-            StepForward = 3,
-            StepBackward = 4,
-            Next = 5,
-            Menu = 6,
-            Abort = 7,
+            StartOrAbort = 0,
+            PauseOrResume = 1,
+            StepForward = 2,
+            StepBackward = 3,
         }
 
         [Header("Command")]
-        [SerializeField] private MachineControlCommand _command = MachineControlCommand.PlayResume;
+        [SerializeField] private MachineControlCommand _command = MachineControlCommand.PauseOrResume;
 
         [Header("Target")]
         [Tooltip("Optional. If empty, resolves the first PlayerInputCatcher in scene.")]
         [SerializeField] private PlayerInputCatcher _playerInput;
 
-        private UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable _interactable;
+        XRSimpleInteractable _interactable;
 
         void Awake()
         {
-            _interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable>();
+            _interactable = GetComponent<XRSimpleInteractable>();
             if (_playerInput == null)
                 _playerInput = FindAnyObjectByType<PlayerInputCatcher>();
         }
@@ -62,29 +59,17 @@ namespace TuringSimulator.Controller
 
             switch (_command)
             {
-                case MachineControlCommand.Start:
-                    input.RequestStart();
+                case MachineControlCommand.StartOrAbort:
+                    input.RequestStartOrAbort();
                     break;
-                case MachineControlCommand.PlayResume:
-                    input.RequestPlay();
-                    break;
-                case MachineControlCommand.Pause:
-                    input.RequestPause();
+                case MachineControlCommand.PauseOrResume:
+                    input.RequestPlayOrPause();
                     break;
                 case MachineControlCommand.StepForward:
                     input.RequestStepForward();
                     break;
                 case MachineControlCommand.StepBackward:
                     input.RequestStepBackward();
-                    break;
-                case MachineControlCommand.Next:
-                    input.RequestNext();
-                    break;
-                case MachineControlCommand.Menu:
-                    input.RequestMenu();
-                    break;
-                case MachineControlCommand.Abort:
-                    input.RequestAbort();
                     break;
                 default:
                     Debug.LogWarning($"[XRMachineControlButton] Unsupported command '{_command}'.", this);

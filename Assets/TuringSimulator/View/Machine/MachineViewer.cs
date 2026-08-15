@@ -1,26 +1,20 @@
 ﻿using System.Collections;
 using System.Threading.Tasks;
-using TuringSimulator.Core.Simulation;
 using TuringSimulator.Core.Simulation.Step;
-using TuringSimulator.View.Machine.Halt;
 using TuringSimulator.View.Machine.Tape;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace TuringSimulator.View.Machine
 {
     public class MachineViewer : MonoBehaviour, IMachineView
     {
         private ITapeVisual _tape;
-        private IHaltStatusIndicator _halt;
 
         public ITapeVisual Tape => _tape;
-        public IHaltStatusIndicator Halt => _halt;
 
-        public void Initialize(ITapeVisual tape, IHaltStatusIndicator statusIndicator)
+        public void Initialize(ITapeVisual tape)
         {
             _tape = tape;
-            _halt = statusIndicator;
         }
 
         public Task UpdateStepForward(StepResult step)
@@ -35,25 +29,24 @@ namespace TuringSimulator.View.Machine
 
         private IEnumerator UpdateStepForwardCoroutine(StepResult step)
         {
-            if (_tape == null || _halt == null)
+            if (_tape == null)
             {
-                Debug.LogWarning("[MachineViewer] UpdateStepForward called before Initialize(tape, halt).", this);
+                Debug.LogWarning("[MachineViewer] UpdateStepForward called before Initialize(tape).", this);
                 yield break;
             }
 
             switch (step.Kind)
             {
                 case ResultKind.Halt:
-                    yield return _halt.Show(step.AsHalt());
-                    break;
+                    yield break;
 
                 case ResultKind.Diff:
                     var diff = step.AsDiff();
-                    
+
                     yield return _tape.ShowRead();
-                    
+
                     yield return _tape.ShowWrite(diff.SymbolAfter);
-                    
+
                     yield return _tape.MoveHead(diff.DirectionMoved);
 
                     break;
@@ -62,25 +55,24 @@ namespace TuringSimulator.View.Machine
 
         private IEnumerator UpdateStepBackwardCoroutine(StepResult step)
         {
-            if (_tape == null || _halt == null)
+            if (_tape == null)
             {
-                Debug.LogWarning("[MachineViewer] UpdateStepBackward called before Initialize(tape, halt).", this);
+                Debug.LogWarning("[MachineViewer] UpdateStepBackward called before Initialize(tape).", this);
                 yield break;
             }
 
             switch (step.Kind)
             {
                 case ResultKind.Halt:
-                    yield return _halt.Show(step.AsHalt());
-                    break;
+                    yield break;
 
                 case ResultKind.Diff:
                     var diff = step.AsDiff();
-                    
+
                     yield return _tape.MoveHead(diff.DirectionMoved);
-                    
+
                     yield return _tape.ShowWrite(diff.SymbolAfter);
-                    
+
                     yield return _tape.ShowRead();
 
                     break;
@@ -102,14 +94,13 @@ namespace TuringSimulator.View.Machine
 
         public void Reset()
         {
-            if (_tape == null || _halt == null)
+            if (_tape == null)
             {
-                Debug.LogWarning("[MachineViewer] Reset called before Initialize(tape, halt). Check ViewSceneBindings wiring in TuringBootstrap.", this);
+                Debug.LogWarning("[MachineViewer] Reset called before Initialize(tape). Check ViewSceneBindings wiring in TuringBootstrap.", this);
                 return;
             }
 
             _tape.Reset();
-            _halt.Reset();
         }
     }
 }

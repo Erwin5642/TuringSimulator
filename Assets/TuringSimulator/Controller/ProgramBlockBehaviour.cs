@@ -120,8 +120,6 @@ namespace TuringSimulator.Controller
         {
             if (_grab != null)
                 _grab.enabled = enabled;
-            foreach (var c in GetComponents<Collider>())
-                c.enabled = enabled;
 
             inputPort?.SetInteractionEnabled(enabled);
             outputPort?.SetInteractionEnabled(enabled);

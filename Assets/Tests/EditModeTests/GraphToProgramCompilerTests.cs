@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using TuringSimulator.Controller;
@@ -102,6 +103,24 @@ namespace EditModeTests
 
             Assert.That(GraphToProgramCompiler.TryCompile(snap, out _, out var err), Is.False);
             Assert.That(err, Does.Contain("Terminal block"));
+        }
+
+        [Test]
+        public void Terminal_Move_WithoutAccept_CompilesToNonFinalSink()
+        {
+            var nodes = new[]
+            {
+                new ProgramGraphNodeData("m", ProgramBlockKind.Move, null, MoveDirection.Right),
+            };
+            var edges = Array.Empty<ProgramGraphEdgeData>();
+            var snap = new ProgramGraphSnapshot(nodes, edges, "m");
+
+            Assert.That(GraphToProgramCompiler.TryCompile(snap, out var builder, out var err), Is.True, err);
+            var program = builder.Build();
+
+            Assert.That(program.TryGetTransition(0, Symbol.Blank, out var t), Is.True);
+            Assert.That(t.DirectionToMove, Is.EqualTo(MoveDirection.Right));
+            Assert.That(program.IsFinalState(t.ToState), Is.False);
         }
     }
 }
