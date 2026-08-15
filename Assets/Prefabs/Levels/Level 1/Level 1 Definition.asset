@@ -12,11 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c86604d78d14dd78e4796fadf38bbc7, type: 3}
   m_Name: Level 1 Definition
   m_EditorClassIdentifier: 
-  title: "Condi\xE7\xE3o, Escrita e Movimento"
-  description: "A Maquina de Turing executa fundamentalmente apenas a seguinte instru\xE7\xE3o:
-    Se <condi\xE7\xE3o> Escreva <numero> Mova <dire\xE7\xE3o>"
-  levelId: AppendScrew
+  title: Mover Esquerda/Direita
+  description: "Objetivo: use os blocos de movimento. Mova o cabe\xE7ote duas vezes
+    para a esquerda e uma vez para a direita."
+  levelId: MoveLeftRight
   mainTest: {fileID: 11400000, guid: 166e22489fdc2054db806839c5689672, type: 2}
   validationTests:
-  - {fileID: 11400000, guid: 516f1dfde9d9436448e4032fc5dfa713, type: 2}
-  - {fileID: 11400000, guid: b4efa3cbbded2924a9bc83873a82eada, type: 2}
+  - {fileID: 11400000, guid: eeda4b45cfc3477f822af763de5cf5a9, type: 2}
+  - {fileID: 11400000, guid: 903a074b266442b684b618abba12efe2, type: 2}
+  - {fileID: 11400000, guid: 450676c1c89f451d8a8951cbeeb612a4, type: 2}
+  - {fileID: 11400000, guid: 73687dd0b80f42d2adc071ce0181b9a9, type: 2}

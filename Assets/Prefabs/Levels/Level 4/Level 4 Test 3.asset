@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b5b1a08f42e745f5b85c62724f954963, type: 3}
-  m_Name: Level 2 Background Test 1
+  m_Name: Level 4 Test 3
   m_EditorClassIdentifier: 
-  scenarioId: replace_all_blank_guard
+  scenarioId: reject_gear_t3_accept
   headIndex: 0
-  initialSymbols: 01000000
-  expectedHeadIndex: 1
-  expectedStatus: 0
-  expectedSymbols: 01000000
+  initialSymbols: 
+  expectedHeadIndex: 0
+  expectedStatus: 1
+  expectedSymbols: 
