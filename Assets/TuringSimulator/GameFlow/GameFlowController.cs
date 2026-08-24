@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using ITS;
@@ -27,6 +28,10 @@ namespace TuringSimulator.GameFlow
 		private readonly SemaphoreSlim _flowLock = new SemaphoreSlim(1, 1);
         
         private bool _busy;
+        private bool _abortRequested;
+        private int _simulationStepIndex;
+        private Coroutine _runCoroutine;
+        private Action<StepResult> _onSimulationStepProduced;
 
         public GameFlowController(ModelInstaller model, ViewInstaller view, ControllerInstaller controller)
         {
@@ -85,91 +90,166 @@ namespace TuringSimulator.GameFlow
 
         public void Run()
         {
-            if (_busy) { Debug.Log("[GameFlow]: Busy"); return;}
-            _ = RunAsync();
+            if (_busy)
+            {
+                Debug.Log("[GameFlow]: Busy");
+                return;
+            }
+
+            _runCoroutine = SimulationCoroutineHost.Instance.StartCoroutine(RunRoutine());
         }
 
-        private async Task RunAsync()
+        IEnumerator RunRoutine()
         {
-            await _flowLock.WaitAsync();
             _busy = true;
+            _abortRequested = false;
+            _simulationStepIndex = 0;
 
             try
             {
                 if (!_stateMachine.TryTransition(GameState.Running))
-                    return;
+                    yield break;
 
                 _controller.ProgramEdit.Disable();
                 PublishRunStarted();
-                if (_model.CurrentProgram == null)
-                    throw new InvalidOperationException("Cannot run without an active program.");
-                if (_model.CurrentTape == null)
-                    throw new InvalidOperationException("Cannot run without an active tape.");
+
+                if (_model.CurrentProgram == null || _model.CurrentTape == null)
+                {
+                    Debug.Log("[GameFlow]: Running Exception: missing program or tape.");
+                    ResetSimulationToEditing();
+                    yield break;
+                }
+
+                _controller.StepApplier.Reset();
+                _controller.Playback.Enable();
+                _controller.Playback.Play();
+
+                _onSimulationStepProduced = HandleSimulationStepProduced;
+                _model.Simulation.OnStepProduced += _onSimulationStepProduced;
 
                 var runRequest = new SimulationRunRequest(_model.CurrentProgram, _model.CurrentTape);
-                var simulationStepIndex = 0;
-                void OnStepProduced(StepResult step)
-                {
-                    PublishSimulationStepProduced(step, simulationStepIndex++);
-                }
-
-                _model.Simulation.OnStepProduced += OnStepProduced;
-                SimulationRunResult runResult;
+                SimulationRunResult runResult = default;
+                var completed = false;
+                Exception error = null;
                 Debug.Log("[GameFlow] Starting simulation");
-                try
+
+                // C# forbids yield inside try/catch; keep MoveNext in try and yield outside.
+                var run = _model.Simulation.Run(
+                    runRequest,
+                    result =>
+                    {
+                        runResult = result;
+                        completed = true;
+                    });
+
+                while (true)
                 {
-                    runResult = await _model.Simulation.Run(runRequest);
-                }
-                finally
-                {
-                    _model.Simulation.OnStepProduced -= OnStepProduced;
+                    if (_abortRequested)
+                        yield break;
+
+                    object current;
+                    try
+                    {
+                        if (!run.MoveNext())
+                            break;
+                        current = run.Current;
+                    }
+                    catch (Exception e)
+                    {
+                        error = e;
+                        break;
+                    }
+
+                    yield return current;
                 }
 
-                Debug.Log($"[GameFlow]: Result of simulation: {runResult.HaltStatus}");
-                _controller.StepApplier.LoadSteps(runResult.Steps);
-                PublishRunFinished(runResult.HaltStatus, runResult.StepCount);
-                _controller.Playback.Enable();
-            }
-            catch (Exception e)
-            {
-                Debug.Log($"[GameFlow]: Running Async Exception: {e}");
+                if (_abortRequested)
+                    yield break;
+
+                if (error != null)
+                {
+                    Debug.Log($"[GameFlow]: Running Exception: {error}");
+                    ResetSimulationToEditing();
+                }
+                else if (!completed)
+                {
+                    Debug.LogWarning("[GameFlow]: Simulation ended without a result.");
+                    ResetSimulationToEditing();
+                }
+                else if (runResult.HaltStatus == HaltStatus.Aborted)
+                {
+                    Debug.Log("[GameFlow]: Simulation aborted");
+                    ResetSimulationToEditing();
+                }
+                else
+                {
+                    Debug.Log($"[GameFlow]: Result of simulation: {runResult.HaltStatus}");
+                    PublishRunFinished(runResult.HaltStatus, runResult.StepCount);
+                }
             }
             finally
             {
+                UnsubscribeSimulationSteps();
+                _runCoroutine = null;
                 _busy = false;
-                _flowLock.Release();
             }
+        }
+
+        void HandleSimulationStepProduced(StepResult step)
+        {
+            if (_abortRequested)
+                return;
+            if (step.IsHalt && step.AsHalt() == HaltStatus.Aborted)
+                return;
+
+            PublishSimulationStepProduced(step, _simulationStepIndex++);
+            _controller.StepApplier.AppendStep(step);
+            _controller.Playback.NotifyStepsAvailable();
         }
 
         public void Abort()
         {
-            if (_busy) { Debug.Log("[GameFlow]: Busy"); return;}
-            _ = AbortAsync();
+            _abortRequested = true;
+            _controller.Playback.Disable();
+            _model.Simulation.Cancel();
+            StopRunCoroutine();
+            UnsubscribeSimulationSteps();
+            ResetSimulationToEditing();
+            _busy = false;
         }
 
-        private async Task AbortAsync()
+        void StopRunCoroutine()
         {
-            await _flowLock.WaitAsync();
-            _busy = true;
+            if (_runCoroutine == null)
+                return;
 
-            try
-            {
-                _model.Simulation.Cancel();
+            var host = SimulationCoroutineHost.InstanceOrNull;
+            if (host != null)
+                host.StopCoroutine(_runCoroutine);
 
-                _controller.Playback.Disable();
-                _controller.ProgramEdit.Enable();
+            _runCoroutine = null;
+        }
 
-                _stateMachine.TryTransition(GameState.Editing);
-            }
-            catch (Exception e)
-            {
-                Debug.Log($"[GameFlow]: Abort Async Exception: {e}");
-            }
-            finally
-            {
-                _busy = false;
-                _flowLock.Release();
-            }
+        void UnsubscribeSimulationSteps()
+        {
+            if (_onSimulationStepProduced == null)
+                return;
+
+            _model.Simulation.OnStepProduced -= _onSimulationStepProduced;
+            _onSimulationStepProduced = null;
+        }
+
+        void ResetSimulationToEditing()
+        {
+            _controller.Playback.Disable();
+            _model.Simulation.Clear();
+            _view.Machine.Reset();
+            _controller.StepApplier.Reset();
+            _model.LevelLoader.LoadCurrent();
+            _controller.ProgramEdit.Enable();
+            ApplyInitialProgram();
+            if (!_stateMachine.TryTransition(GameState.Editing))
+                Debug.LogWarning("[GameFlow] Could not return to Editing after reset.");
         }
 
         // This will be called by the simulation engine event
@@ -247,16 +327,34 @@ namespace TuringSimulator.GameFlow
         {
             _stateMachine.TryTransition(GameState.Defeat);
             PublishLevelOutcome(LevelOutcomeKind.Defeat);
+            ReturnToEditingAfterDefeat();
+        }
+
+        void ReturnToEditingAfterDefeat()
+        {
+            _model.Simulation.Clear();
+            _view.Machine.Reset();
+            _controller.StepApplier.Reset();
+            _model.LevelLoader.LoadCurrent();
+            _controller.Playback.Disable();
+            _controller.ProgramEdit.Enable();
+            ApplyInitialProgram();
+            if (!_stateMachine.TryTransition(GameState.Editing))
+                Debug.LogWarning("[GameFlow] Could not return to Editing after Defeat.");
         }
 
         public void ReturnToMenu()
         {
+            _abortRequested = true;
+            StopRunCoroutine();
+            UnsubscribeSimulationSteps();
             _model.Simulation.Clear();
             _model.LevelLoader.ResetProgress();
             _view.Machine.Reset();
             _controller.StepApplier.Reset();
             _controller.Playback.Disable();
             _controller.ProgramEdit.Disable();
+            _busy = false;
 
             if (!_stateMachine.TryTransition(GameState.Menu))
                 Debug.LogWarning("[GameFlow] Could not transition to Menu.");

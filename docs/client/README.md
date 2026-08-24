@@ -32,6 +32,7 @@ Key file: `Assets/TuringSimulator/GameFlow/TuringBootstrap.cs`
 - `ViewInstaller`:
   - Preferentially uses scene-bound references for `machine`, `tape`, `halt`, `levelUI`
   - Falls back to prefab instantiation only if scene bindings are missing
+  - `ITapeVisual.Initialize()` uses the existing `TapeCellView` pool under `cellsRoot`, then `MachineViewer` drives `SetTape` / `MoveHead` / `ShowWrite`
 - `ControllerInstaller`:
   - Creates `ProgramEditController`, `PlaybackController`, `StepViewApplier`, `GameFlowController`
   - Preferentially uses scene-bound `PlayerInputCatcher` (XR/editor wiring)
@@ -43,6 +44,25 @@ Files:
 - `Assets/TuringSimulator/GameFlow/ModelInstaller.cs`
 - `Assets/TuringSimulator/GameFlow/ViewInstaller.cs`
 - `Assets/TuringSimulator/GameFlow/ControllerInstaller.cs`
+
+## Tape Visual
+
+`ConveyorTapeVisual` (`Assets/Prefabs/View/Tape.prefab`):
+
+- `cellsRoot` slides left/right with the head and keeps that offset. It is not reset to the tape origin after a move.
+- `Initialize()` keeps the prefab `TapeCellView` pool (about 10 cells). A new cell is cloned only when the head leaves that range.
+- Blank cells stay inactive. `ShowWrite` activates the head cell for a physical symbol and deactivates it for blank.
+- Symbol prefabs spawn as children of each `TapeCellView`. `SetTape` / `Reset` restore the original `cellsRoot` position and the initial pool.
+
+Editor debug (`TapeDebugHotkeys` on the Tape prefab, Play Mode):
+
+- **Left / Right arrows** — slide the tape
+- **W** then **0 / 1 / 2 / 3** — write blank / gear / nut / screw (W or Esc cancels)
+
+Files:
+
+- `Assets/TuringSimulator/View/Machine/Tape/ConveyorTapeVisual.cs`
+- `Assets/TuringSimulator/View/Machine/Tape/TapeDebugHotkeys.cs`
 
 ## Game State and Flow
 
@@ -57,9 +77,14 @@ Key execution path in `GameFlowController`:
 - `Run()`:
   - transitions to `Running`
   - emits run lifecycle channels (`RunStarted`, `SimulationStepProduced`, `RunFinished`)
-  - runs simulation asynchronously
-  - loads playback timeline from `SimulationRunResult.Steps`
-  - enables playback when finished
+  - enables playback immediately and starts play-requested mode
+  - appends each produced step into `StepViewApplier` and wakes playback as soon as any step exists
+  - does not wait for the full simulation to finish before the machine starts moving
+- `Abort()`:
+  - cancels the in-flight simulation coroutine
+  - pauses/disables playback
+  - clears simulation state, resets the machine/tape, reloads the current level
+  - returns to `Editing` so the program can be changed again
 - `Halt()`:
   - transitions `Running -> Halted -> Validating`
   - runs validation tests
@@ -76,10 +101,13 @@ File: `Assets/TuringSimulator/GameFlow/GameFlowController.cs`
 
 Primary editing path:
 
-- `ProgramWorkbench` reads scene block/card/wire topology.
-- Builds `ProgramGraphSnapshot`.
-- Compiles via `GraphToProgramCompiler`.
-- Replaces active program in `IProgramEditController`.
+- `ProgramWorkbench` owns the start/power port and block/card/wire topology.
+- **Start port unwired** → active program is cleared to halt (no transitions; engine rejects immediately).
+- **Start port wired to a block input** → that block is the directed-graph entry; only blocks reachable from it are compiled.
+- Builds `ProgramGraphSnapshot`, fingerprints it (`ProgramGraphFingerprint`), and skips recompile when unchanged.
+- Off-start wire changes are filtered via `IProgramBlockConnectivity` (union-find); disconnects rebuild the forest from current edges.
+- Compiles via `GraphToProgramCompiler` into `IProgramEditController`. Compile failure keeps the previous program.
+- `ProgramChangedEventData.TransitionCount` is the real transition-table size (`IProgram.TransitionCount`).
 
 Halt rules (`SimulationEngine`):
 
@@ -92,6 +120,8 @@ Main files:
 - `Assets/TuringSimulator/Controller/ProgramWorkbench.cs`
 - `Assets/TuringSimulator/Controller/GraphToProgramCompiler.cs`
 - `Assets/TuringSimulator/Controller/ProgramEditController.cs`
+- `Assets/TuringSimulator/Core/ProgramGraph/ProgramGraphFingerprint.cs`
+- `Assets/TuringSimulator/Core/ProgramGraph/IProgramBlockConnectivity.cs`
 - `Assets/TuringSimulator/Core/Simulation/SimulationEngine.cs`
 
 ## Level Data
@@ -99,7 +129,7 @@ Main files:
 Level definitions are Unity assets containing:
 
 - UI presentation (`title`, `description`) in pt-BR
-- ITS-compatible `levelId` matching `LEVEL_META` / `LevelID`
+- ITS-compatible `levelId` matching `LevelID` and `TuringBotAPI/knowledge/goals/`
 - validation tests (`mainTest`, `validationTests`)
 
 Progression in `LevelDatabase.asset` (order = play order; eight levels):
@@ -129,7 +159,7 @@ Main files:
 ### REST (`ITSClient`)
 
 - `/session/new`: allocates a fresh student session id for each new run
-- `/ask`: free-form question (from voice transcription pipeline)
+- `/ask`: free-form question (from voice transcription pipeline). Reply JSON includes optional `audio_url` (MVP: always omitted/null; Unity synthesizes speech with Wit TTS and ignores the URL).
 - health check via `/health`
 
 File: `Assets/TuringSimulator/ITS/ITSClient.cs`
@@ -149,18 +179,58 @@ Files:
 
 Voice and tutoring path is channel-based:
 
-- Controller mic button -> `MicToggleRequestedEventChannel`
+- Controller mic button -> `MicToggleRequestedEventChannel` (`MicListenMode.Toggle`)
+- Hold Shaka (right hand) -> `HandGesturePerformed` -> `HandGestureMicListener` -> `MicToggleRequested` (`Start` / `Stop`)
 - STT lifecycle -> `ListeningStateChanged`, `PartialTranscription`, `TranscriptionReady`
+- `TranscriptionReady` is raised only after `_silenceCommitSeconds` (default 15) of no new STT, or when Shaka / T stops. The text is the latest Meta Voice string (not concatenated).
+- When Wit stops capturing before that commit, `VoiceCaptureStopped` plays a short cue (`Button Pop.wav`) and shows `O microfone parou de ouvir.`
 - Ask lifecycle -> `AskRequested`, `AskResult`, `ThinkingStateChanged`
-- Agent reaction tuple -> `AgentActionRequestedEventData` (`text`, `animation`)
+- If `/ask` cannot be posted (`ITSClient` missing or server down), `TranscriptionAskFallbackListener` raises a successful `AskResult` whose `Reply` is the STT text, so the tutor repeats exactly what was heard via `AgentTTS` / `tts_witconfig`
+- Agent reaction tuple -> `AgentActionRequestedEventData` (`text`, `animation`, optional `audioUrl`)
 
 Main files:
 
+- `Assets/TuringSimulator/Controller/Hands/HandGestureMicListener.cs`
 - `Assets/TuringSimulator/ITS/VoiceAskControllerInput.cs`
 - `Assets/TuringSimulator/ITS/VoiceInputHandler.cs`
+- `Assets/TuringSimulator/ITS/TranscriptionAskFallbackListener.cs`
 - `Assets/TuringSimulator/ITS/AgentActionMapper.cs`
 - `Assets/TuringSimulator/ITS/AgentActionExecutor.cs`
 - `Assets/TuringSimulator/ITS/AgentAnimator.cs`
+- `Assets/TuringSimulator/ITS/AgentTTS.cs`
+- `Assets/TuringSimulator/ITS/VoiceDebugHotkeys.cs`
+
+STT and TTS must use different Wit apps:
+
+- **STT (Portuguese):** `stt_witconfig` / app `turing_stt` on `AppVoiceExperience` only
+- **TTS (English):** `tts_witconfig` / app `turing_tts` on `TTS/TTSWitService` only
+
+Do not assign `stt_witconfig` to `TTSWit`, or `tts_witconfig` to `AppVoiceExperience`. Ignore `Assets/WitAI/witconfig.asset` (`turing`) for production wiring.
+
+Tutor subtitles stay pt-BR. Spoken audio uses the English `turing_tts` voice until Meta adds Portuguese TTS.
+
+### Agent speech (`AgentTTS` implements `IAgentSpeech`)
+
+Tutor lines are synthesized on-device by Wit.ai TTS (Voice SDK). `AgentTTS.Speak(text, audioUrl)`:
+
+- Sends `text` to the scene `TTSSpeaker` (`Speak`, interrupting any current line).
+- Ignores `audioUrl` (ITS still may send `audio_url: null`).
+- Raises `OnSpeechStarted` immediately so subtitles stay up during download, then `OnSpeechFinished` when Wit playback (including split phrases) is idle.
+- On load failure or timeout, raises `OnSpeechError` and still finishes so animation does not hang.
+
+Scene objects: `TTS/TTSWitService` (config = `Assets/WitAI/tts_witconfig.asset`, app `turing_tts` / English) and `TTS/TTSSpeaker` (preset `WIT$REBECCA`). `AgentTTS.Speak` also records `AgentSpeechStarted` on the event trace with the spoken line.
+
+Editor debug (`VoiceDebugHotkeys` on `AgentTTS`, Play Mode):
+
+- **L** — speak a predefined Portuguese sample and show it in the subtitle bubble (audio still uses English `turing_tts`).
+- **T** — toggle STT and show partial/final text on an overlay (`VoiceInputHandler` + `AppVoiceExperience` with `stt_witconfig`).
+
+Files:
+
+- `Assets/TuringSimulator/ITS/IAgentSpeech.cs`
+- `Assets/TuringSimulator/ITS/AgentTTS.cs`
+- `Assets/TuringSimulator/ITS/VoiceDebugHotkeys.cs`
+- `Assets/TuringSimulator/ITS/AgentSpeechDuration.cs`
 
 ## XR / Editor-Oriented Wiring Notes
 
@@ -179,7 +249,7 @@ Main files:
 ## AI-Agent Safe Invariants (Client)
 
 - Do not bypass `TuringBootstrap` for core system creation unless migrating architecture intentionally.
-- Keep `levelId` in `LevelDefinition` aligned with server level metadata.
+- Keep `levelId` in `LevelDefinition` aligned with `TuringBotAPI/knowledge/goals/`.
 - If adding new ITS events, update both client DTO constants and server contract handling.
 - `SkillTracker.StudentId` is session identity for `/ask` payloads. Treat changes as product-sensitive.
 
@@ -188,8 +258,7 @@ Main files:
 - Main-menu UI scene flow is still not fully wired; runtime now supports menu detach/start hooks and keyboard menu return (`M`) with fresh session on next start.
 - Runtime instantiation is used heavily; scene-only wiring is not the current architecture.
 - Unity ships eight levels with five named validation scenarios each (40 total).
-- Server `LEVEL_META` may still list `AppendScrew`; that ID is not used by the
-  Unity `LevelDatabase`.
+- Server goal docs cover the eight Unity `LevelDatabase` ids; `AppendScrew` is not a playable level.
 - `ValidationTest.scenarioId` and `ValidationRunner.Results` provide stable names
   and per-scenario summaries for the editor/UI. Validation matches halt status,
   final head index, and tape contents.

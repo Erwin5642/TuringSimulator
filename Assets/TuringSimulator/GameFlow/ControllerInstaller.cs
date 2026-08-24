@@ -208,7 +208,7 @@ namespace TuringSimulator.GameFlow
             var eventData = new ProgramChangedEventData(
                 BuildEventContext(nameof(ProgramEditController), "program-changed"),
                 program,
-                program?.States?.Count ?? 0,
+                program?.TransitionCount ?? 0,
                 program?.FinalStates?.Count ?? 0);
             EventTraceLog.Record(nameof(ProgramChangedEventData), eventData.ToString(), _workbench);
             if (_programChangedChannel != null)

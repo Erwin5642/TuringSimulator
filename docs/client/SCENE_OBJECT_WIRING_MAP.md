@@ -15,15 +15,20 @@ Systems
   EventChannelWiringValidator
   EventTraceLogInstaller (optional)
 Tutor
-  ITSClient
   SkillTracker
   AgentDialogue
   AgentTTS
-  VoiceInputHandler
-  VoiceAskControllerInput
   AgentActionMapper
   AgentActionExecutor
-  AgentVoiceFeedbackListener
+  Voice
+    HandGestureMicListener
+    VoiceInputHandler
+    AppVoiceExperience
+    ITSClient
+    TranscriptionAskFallbackListener
+    AgentVoiceFeedbackListener
+    VoiceAskControllerInput
+    VoiceHearingStoppedCue
 Agent
   AgentAvatar (Animator + AgentAnimator)
 Gameplay
@@ -38,8 +43,9 @@ View
 UI
   LevelUI
   ReloadButton (optional)
-Voice
-  AppVoiceExperience
+TTS
+  TTSWitService
+  TTSSpeaker
 ```
 
 ## 2) Core Composition Objects
@@ -127,7 +133,7 @@ Purpose: compiles scene block topology into the active TM program.
 Assign in Inspector:
 
 - `startOutputPort` (workbench "electricity start" output socket)
-- `entryBlockId` (legacy fallback only; used if start output port is not wired)
+- `entryBlockId` (legacy only when `startOutputPort` is **unassigned**; ignored when the port exists but is unwired → halt)
 - `blocks` (`ProgramBlockBehaviour[]`)
 - `symbolCards` (`SymbolCardBehaviour[]`)
 - `directionCards` (`DirectionCardBehaviour[]`)
@@ -135,8 +141,10 @@ Assign in Inspector:
 Wiring:
 
 - Receives `IProgramEditController` from `ControllerInstaller.Initialize(...)`
-- Program entry is resolved from `startOutputPort.ConnectedPeer.Owner.BlockId`
-- Calls `_edit.ReplaceProgramBuilder(...)` after `GraphToProgramCompiler`
+- Unwired start port → `_edit.Clear()` (halt program)
+- Wired start → entry from `startOutputPort.ConnectedPeer.Owner.BlockId`; compile reachable directed subgraph
+- Skips recompile when `ProgramGraphFingerprint` is unchanged; off-start wires gated by `IProgramBlockConnectivity`
+- Calls `_edit.ReplaceProgramBuilder(...)` after `GraphToProgramCompiler` (keeps previous program on compile failure)
 - Drives `ProgramChanged` flow through `ControllerInstaller`
 
 ### `PlayerInput` (`PlayerInputCatcher`)
@@ -152,6 +160,16 @@ Emits requests consumed by `ControllerInstaller`:
 - `OnBackwardRequest`
 - `OnNextRequest`
 - `OnMenuRequest`
+- `OnAbortRequest`
+- `OnStartOrAbortRequest` (XR `PlayAbortButton`: start while editing, abort/reset while running)
+- `OnPlayOrPauseRequest` (XR `PauseResumeButton`)
+
+World-space button labels live on the TMP child of each control (`MachineControlButtonLabel`):
+
+- `PlayAbortButton`: **Começar** in edit/idle, **Recomeçar** while `Running` (abort + full reset back to edit)
+- `PauseResumeButton`: **Pausar** while playback is requested, **Rodar** while paused/idle
+
+Assign `_kind` and `_label` on those TMP objects. Runtime text follows game/playback state; it does not stay frozen at the scene default.
 
 ### `CardDrawer` (`CardDrawerBehaviour`)
 
@@ -180,16 +198,24 @@ Wiring:
 
 ### `TapeView` (`ConveyorTapeVisual`)
 
-Purpose: visual tape state and head movement.
+Purpose: visual tape state and head movement. The conveyor mesh stays still; `cellsRoot` slides left/right and **keeps that offset** (it is not snapped back to the tape origin after a move). Cells keep their local positions. The prefab pool (~10 `TapeCellView` children) grows by one cloned cell only when the head leaves that range.
 
 Assign in Inspector:
 
-- `cellsRoot` containing `TapeCellView` children
+- `cellsRoot` containing the initial `TapeCellView` pool
+- each `TapeCellView.symbolPrefabs`
+
+Behavior:
+
+- Symbol prefabs spawn as children of the owning `TapeCellView` (not of `cellsRoot`)
+- Blank cells stay inactive; `ShowWrite` activates the head cell for a physical symbol and deactivates it for blank
+- `SetTape` / `Reset` restore `cellsRoot` to its original local position, discard grown cells, and relayout the pool around the initial head
 
 Wiring:
 
 - Assigned as `viewSceneBindings.tape`
 - Receives state updates from `MachineViewer`
+- `TapeDebugHotkeys` on the same object: **Left/Right** move the tape, **W** then **0/1/2/3** writes blank/gear/nut/screw
 
 ### `HaltIndicator` (`HaltStatusColorIndicator`)
 
@@ -236,8 +262,25 @@ Assign in Inspector:
 Wiring:
 
 - Subscribes to `TranscriptionReady`
-- Publishes `AskRequested`, `AskResult`, `ThinkingStateChanged`
+- Publishes `AskRequested`, `AskResult`, `ThinkingStateChanged` when `/ask` can be posted
+- If the ITS server is unreachable, skips `/ask` so `TranscriptionAskFallbackListener` can echo the STT text
 - Provides session allocation to bootstrap/controller flow
+
+### `TranscriptionAskFallbackListener` (`TranscriptionAskFallbackListener`)
+
+Purpose: when `/ask` cannot be posted, speak and subtitle the finalized STT text as the tutor reply.
+
+Assign in Inspector:
+
+- `_transcriptionReadyChannel`
+- `_askResultChannel`
+- `_askClient` (optional; uses `ITSClient.Instance` if unset)
+
+Wiring:
+
+- Subscribes to `TranscriptionReady`
+- If `IAskClient.CanPostAsk` is false and the transcription is non-empty, publishes `AskResult` `Success=true` / `Reply=<STT text>`
+- `AgentActionMapper` AskResult rule then drives `AgentActionExecutor` → `AgentTTS`
 
 ### `SkillTracker` (`SkillTracker`)
 
@@ -260,11 +303,46 @@ Assign in Inspector:
 - `_listeningStateChannel`
 - `_partialTranscriptionChannel`
 - `_transcriptionReadyChannel`
+- `_voiceCaptureStoppedChannel`
+- `_silenceCommitSeconds` (default 15; `0` commits only on Shaka/T stop)
 
 Wiring:
 
 - Subscribes to `MicToggleRequested`
-- Publishes listening/partial/final transcription channels
+- `MicListenMode.Start` begins a listen session (no-op if already listening); `Stop` ends it and commits buffered STT; `Toggle` keeps the controller button behavior
+- Stops `AgentTTS` when listening starts
+- Publishes listening/partial channels immediately; `TranscriptionReady` only after silence or an explicit stop (not on Wit endpointing)
+- Uses the latest Meta Voice transcription as-is (no concatenation across utterances)
+- Raises `VoiceCaptureStopped` when Wit stops capturing while the session is still waiting for Shaka/T
+
+### `VoiceHearingStoppedCue` (`VoiceHearingStoppedCue`)
+
+Purpose: audio + subtitle hint when Meta Voice stops hearing.
+
+Assign in Inspector:
+
+- `_voiceCaptureStoppedChannel` → `VoiceCaptureStoppedChannel`
+- `_audioSource` on the same `Voice` object
+- `_clip` → `Button Pop.wav`
+- `_agentDialogue`
+- `_hintText` → `O microfone parou de ouvir.`
+
+### `HandGestureMicListener` (`HandGestureMicListener`)
+
+Purpose: hold-to-talk mic from a named hand gesture without calling `VoiceInputHandler` directly.
+
+Assign in Inspector:
+
+- `_handGestureChannel` → `HandGesturePerformedChannel`
+- `_micToggleRequestedChannel` → `MicToggleRequestedChannel`
+- `_gestureId` → `Shaka`
+
+Wiring:
+
+- `HandGesturePerformed` `Performed` → `MicToggleRequested` `Start`
+- `HandGesturePerformed` `Ended` → `MicToggleRequested` `Stop`
+- Ignores other gesture ids (ThumbsUp still goes only to `AgentActionMapper`)
+- Hold count still ignores duplicate Start/Stop if the same pose retriggers
 
 ### `VoiceAskControllerInput` (`VoiceAskControllerInput`)
 
@@ -281,11 +359,13 @@ Wiring:
 
 ### `AppVoiceExperience`
 
-Purpose: Meta Voice SDK runtime object required by `VoiceInputHandler`.
+Purpose: Meta Voice SDK runtime object required by `VoiceInputHandler` (Portuguese STT only).
 
 Assign in Inspector:
 
-- Wit runtime configuration/token asset as required by Meta Voice setup
+- Wit Runtime Configuration → **Configuration** → `Assets/WitAI/stt_witconfig.asset` (app `turing_stt`, Portuguese)
+
+Do not assign `tts_witconfig` here.
 
 Wiring:
 
@@ -311,14 +391,32 @@ Wiring:
 - Updated by `AgentVoiceFeedbackListener` (event-driven UI state)
 - Used by `AgentActionExecutor` to display subtitles
 
-### `AgentTTS` (`AgentTTS`)
+### `AgentTTS` (`AgentTTS`, implements `IAgentSpeech`)
 
-Purpose: speaks agent text through Android TTS.
+Purpose: synthesizes tutor speech through the scene `TTSSpeaker` (Wit.ai).
+
+Assign in Inspector:
+
+- `TTS Speaker` — the `TTS/TTSSpeaker` object (`WIT$REBECCA` or another preset)
+- `Load Timeout Seconds` — hang budget if Wit never starts playback
 
 Wiring:
 
-- Used by `AgentActionExecutor`
+- Used by `AgentActionExecutor` (`Speak(text, audioUrl)`; URL is ignored)
 - `AgentAnimator` listens to `OnSpeechFinished`
+- `VoiceDebugHotkeys` on the same object: **L** sample TTS, **T** STT overlay
+
+### `TTS` (`TTSWit` + `TTSSpeaker`)
+
+Purpose: Voice SDK TTS service + speaker. Created by **Assets → Create → Voice SDK → TTS → Add Default TTS Setup**.
+
+Assign in Inspector:
+
+- `TTSWit` → Request Settings → **Configuration** → `Assets/WitAI/tts_witconfig.asset` (app `turing_tts`, English TTS)
+- `TTSSpeaker` → Voice Preset (e.g. `WIT$REBECCA`)
+- Optional: `TTSSpeechSplitter` (`Max Text Length` 250) on `TTSSpeaker`
+
+Do not assign `stt_witconfig`, `Assets/WitAI/witconfig.asset` (`turing`), or the sample `TTS Voices - WitConfiguration` to `TTSWit`.
 
 ### `AgentActionMapper` (`AgentActionMapper`)
 
@@ -347,15 +445,16 @@ Assign / create:
 - Channel asset: `HandGesturePerformedEventChannel` (**Create → TuringSimulator → Events → Hand Gesture Performed**)
 - Sample detector: `StaticHandGesture` (or prefab `Assets/Samples/XR Hands/1.8.0/Gestures/Examples/Prefabs/One Hand Static Gesture.prefab`)
   - `Hand Tracking Events` → left/right `XRHandTrackingEvents` on XR Origin
-  - `Hand Shape Or Pose` → e.g. `Thumb Signal Hand Shape` / `Shaka Hand Shape`
+  - ThumbsUp (both hands): `Hand Shape Or Pose` → `Thumbs Up.asset`
+  - Shaka (mic, **Right Hand only**): `Hand Shape Or Pose` → `Shaka.asset` (pose, not only the shape)
 - `HandGestureChannelPublisher` (`Assets/TuringSimulator/Controller/Hands/HandGestureChannelPublisher.cs`)
-  - `_gestureId` → stable string (e.g. `ThumbsUp`)
+  - `_gestureId` → stable string (`ThumbsUp` or `Shaka`)
   - `_handGestureChannel` → the channel asset
   - UnityEvents from detector:
     - `gesturePerformed` → `PublishPerformed()`
     - `gestureEnded` → `PublishEnded()`
 
-`AgentActionMapper` rule example:
+`AgentActionMapper` rule example (ThumbsUp only — do not add a Shaka speech rule):
 
 - `SourceChannel` = `HandGesturePerformedChannel`
 - `MatchProperty` = `GestureKey`
@@ -364,7 +463,7 @@ Assign / create:
 
 Payload fields available for matching: `GestureId`, `Phase` (`Performed`/`Ended`), `GestureKey` (`GestureId:Phase`).
 
-Voice hold-to-talk can still use detector UnityEvents → `VoiceInputHandler.StartListening` / `StopListening` directly (no mapper required).
+Shaka hold-to-talk uses the same `HandGesturePerformed` channel from **Right Hand** only, then `HandGestureMicListener` → `MicToggleRequested` `Start`/`Stop`. Do not wire detector UnityEvents to `VoiceInputHandler`.
 
 ### `AgentActionExecutor` (`AgentActionExecutor`)
 

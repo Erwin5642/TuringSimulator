@@ -8,6 +8,7 @@ namespace TuringSimulator.Controller
     /// XR button adapter for machine playback controls.
     /// Wire one component per button: Start/Abort, Pause/Resume, Step Forward, Step Backward.
     /// Menu and Next remain UI-only controls.
+    /// Button labels are driven by MachineControlButtonLabel (Começar/Recomeçar, Pausar/Rodar).
     /// </summary>
     [RequireComponent(typeof(XRSimpleInteractable))]
     public sealed class XRMachineControlButton : MonoBehaviour

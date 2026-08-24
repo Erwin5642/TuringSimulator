@@ -27,6 +27,7 @@ Create one ScriptableObject asset for each channel class:
 17. `ThinkingStateChangedEventChannel`
 18. `AgentActionRequestedEventChannel`
 19. `HandGesturePerformedEventChannel` (optional; hands-only gesture → agent rules)
+20. `VoiceCaptureStoppedEventChannel` (optional; Wit capture-stopped cue)
 
 ## 2) Event Chain for Full Demo
 
@@ -66,6 +67,7 @@ Create one ScriptableObject asset for each channel class:
   - Raised by: `GameFlowController` (subscribed to `SimulationRunner.OnStepProduced`)
   - Trigger in play mode: each simulation engine step during run
   - Consumed by: optional analytics/timeline listeners
+  - Side effect in `GameFlowController`: the same `OnStepProduced` handler appends the step to `StepViewApplier` and wakes playback
 
 - `HaltReached`
   - Raised by: `ControllerInstaller` (when step kind is halt)
@@ -85,34 +87,44 @@ Create one ScriptableObject asset for each channel class:
 ### Voice Ask + agent action flow
 
 - `MicToggleRequested`
-  - Raised by: `VoiceAskControllerInput` (VR button action)
-  - Trigger in play mode: press configured mic toggle button
-  - Consumed by: `VoiceInputHandler` (start/stop listening)
+  - Payload: `MicListenMode` (`Toggle`, `Start`, `Stop`; default `Toggle`)
+  - Raised by: `VoiceAskControllerInput` (controller toggle) and `HandGestureMicListener` (Shaka hold-to-talk `Start`/`Stop`)
+  - Trigger in play mode: press configured mic toggle button, or hold/release Shaka
+  - Consumed by: `VoiceInputHandler` (`Start` / `Stop` / `Toggle`)
 
 - `ListeningStateChanged`
-  - Raised by: `VoiceInputHandler` (`OnStartListening`/`OnStoppedListening`)
-  - Trigger in play mode: mic opens/closes
+  - Raised by: `VoiceInputHandler` when a Shaka/T listen session starts or commits
+  - Trigger in play mode: mic session opens/closes (stays on across Wit pauses)
   - Consumed by: `AgentVoiceFeedbackListener` (UI listening indicator)
 
 - `PartialTranscription`
   - Raised by: `VoiceInputHandler` (partial STT chunks)
+  - Payload: `partial="..."` with the live Wit string (channel `Raise` records the event-trace row)
   - Trigger in play mode: speak while mic is active
   - Consumed by: `AgentVoiceFeedbackListener` (partial caption text)
 
 - `TranscriptionReady`
-  - Raised by: `VoiceInputHandler` (final STT text)
-  - Trigger in play mode: finish utterance
-  - Consumed by: `ITSClient` (creates ask request)
+  - Raised by: `VoiceInputHandler` after `_silenceCommitSeconds` of no new STT, or when the player stops Shaka / T
+  - Payload: `text="..."` with the latest Meta Voice STT string (not joined across utterances)
+  - Trigger in play mode: wait 15s after the last word, or release Shaka / second T. A Wit pause alone does not raise this.
+  - Consumed by: `ITSClient` (creates ask request when `/ask` is available) and `TranscriptionAskFallbackListener` (echoes STT as `AskResult` when `/ask` cannot be posted)
+
+- `VoiceCaptureStopped`
+  - Raised by: `VoiceInputHandler` when Wit `OnStoppedListening` fires while the Shaka/T session is still open
+  - Trigger in play mode: speak, then wait until Meta Voice stops capturing (before T / Shaka release)
+  - Consumed by: `VoiceHearingStoppedCue` (plays `Button Pop.wav` and shows `O microfone parou de ouvir.`)
 
 - `AskRequested`
   - Raised by: `ITSClient` (before POST `/ask`)
+  - Payload: `q="..."`
   - Trigger in play mode: valid transcription + active session
-  - Consumed by: `AgentActionMapper` (commonly map to thinking animation)
+  - Consumed by: `AgentActionMapper` (`Thinking`, empty text)
 
 - `AskResult`
   - Raised by: `ITSClient` (success/failure response)
+  - Payload: `success reply="..."`
   - Trigger in play mode: `/ask` returns or fails
-  - Consumed by: `AgentActionMapper` (map to talking + text)
+  - Consumed by: `AgentActionMapper` (`MatchProperty: Success` / `True` → `Talking`, `TextProperty: Reply`)
 
 - `ThinkingStateChanged`
   - Raised by: `ITSClient` (true while waiting, false when done/fail)
@@ -123,13 +135,17 @@ Create one ScriptableObject asset for each channel class:
   - Raised by: `AgentActionMapper` (rule output)
   - Trigger in play mode: any mapped source event
   - Consumed by:
-    - `AgentActionExecutor` (subtitle + TTS)
+    - `AgentActionExecutor` (subtitle + Wit TTS speech)
     - `AgentAnimator` (animation parameters/triggers)
 
 - `HandGesturePerformed` (optional)
   - Raised by: `HandGestureChannelPublisher` (wired from sample `StaticHandGesture` UnityEvents)
-  - Trigger in play mode: hold/release a configured hand shape
-  - Consumed by: `AgentActionMapper` rules filtered on `GestureId`, `Phase`, or `GestureKey`
+  - Trigger in play mode: hold/release a configured hand pose
+  - Consumed by:
+    - `AgentActionMapper` rules filtered on `GestureId`, `Phase`, or `GestureKey` (ThumbsUp)
+    - `HandGestureMicListener` for `_gestureId = Shaka` (mic Start/Stop; not a tutor line)
+
+Event-trace text: keep `PartialTranscription` / `TranscriptionReady` / `AskRequested` / `AskResult` payloads on the channel `ToString()`. `AgentTTS.Speak` also records `AgentSpeechStarted` with the spoken line. `EventTracePanel` `_maxPayloadLength` is 240 so Portuguese sentences stay readable.
 
 ## 3) Inspector Wiring Matrix (Minimum)
 
@@ -149,12 +165,20 @@ Create one ScriptableObject asset for each channel class:
 - `VoiceAskControllerInput`
   - assign `MicToggleRequestedEventChannel`
 
+- `HandGestureMicListener`
+  - assign `HandGesturePerformedEventChannel` and `MicToggleRequestedEventChannel`
+  - `_gestureId = Shaka`
+
 - `VoiceInputHandler`
   - assign:
     - `MicToggleRequestedEventChannel`
     - `ListeningStateChangedEventChannel`
     - `PartialTranscriptionEventChannel`
     - `TranscriptionReadyEventChannel`
+    - `VoiceCaptureStoppedEventChannel`
+
+- `VoiceHearingStoppedCue`
+  - assign `VoiceCaptureStoppedEventChannel`, `AudioSource`, `Button Pop.wav`, and `AgentDialogue`
 
 - `ITSClient`
   - assign:
@@ -163,6 +187,10 @@ Create one ScriptableObject asset for each channel class:
     - `AskResultEventChannel`
     - `ThinkingStateChangedEventChannel`
 
+- `TranscriptionAskFallbackListener`
+  - assign `TranscriptionReadyEventChannel` and `AskResultEventChannel`
+  - assign `ITSClient` when present (so echo only runs when `/ask` cannot be posted)
+
 - `AgentActionMapper`
   - assign `AgentActionRequestedEventChannel`
   - add rule entries with `SourceChannel` + optional filter + text mode + animation
@@ -170,6 +198,7 @@ Create one ScriptableObject asset for each channel class:
 - `AgentActionExecutor`
   - assign `AgentActionRequestedEventChannel`
   - assign `AgentDialogue` and `AgentTTS` references (or rely on singleton fallback)
+  - on `AgentTTS`, assign `TTS Speaker` to the scene `TTSSpeaker`
 
 - `AgentAnimator`
   - assign `AgentActionRequestedEventChannel`
@@ -230,7 +259,19 @@ Optional release rule:
 - `TextMode`: `Empty`
 - `Animation`: `Idle`
 
-For voice hold-to-talk without the agent mapper, keep wiring `StaticHandGesture` UnityEvents directly to `VoiceInputHandler.StartListening` / `StopListening`.
+Shaka is mic input, not a tutor mapper rule. Hold-to-talk:
+
+1. Right Hand: second `StaticHandGesture` + `HandGestureChannelPublisher` with pose `Shaka.asset` and `_gestureId = Shaka`
+2. `HandGestureMicListener` maps `Performed` → `MicToggleRequested` `Start` and `Ended` → `Stop` (two-hand hold count)
+3. `VoiceInputHandler` drives `AppVoiceExperience` (`stt_witconfig` / `turing_stt` / PT). The committed text is the latest Wit string; a listen session can wait for silence or Shaka/T stop before raising `TranscriptionReady`.
+4. `TranscriptionReady` (after 15s silence or Shaka/T stop) → `ITSClient` `/ask` → mapper `AskResult` → `AgentTTS` (`tts_witconfig` / `turing_tts` / EN). If `/ask` cannot be posted, `TranscriptionAskFallbackListener` raises `AskResult` with `Reply` = STT text instead.
+
+Do not wire `StaticHandGesture` UnityEvents to `VoiceInputHandler.StartListening` / `StopListening`.
+
+Ask mapper rules (pt-BR subtitles; English TTS voice):
+
+- `AskRequested` → `Thinking`, `TextMode: Empty`
+- `AskResult` / `MatchProperty: Success` / `True` → `Talking`, `TextMode: PayloadProperty` / `Reply`
 
 ## 5) Smoke Test Sequence
 
@@ -238,8 +279,8 @@ For voice hold-to-talk without the agent mapper, keep wiring `StaticHandGesture`
 2. Start session from menu and load level.
 3. Edit program and run it.
 4. Confirm halt -> validation -> level outcome events.
-5. Press mic toggle button and speak.
-6. Confirm ask lifecycle events (`TranscriptionReady` -> `AskRequested` -> `AskResult`).
+5. Press mic toggle **or hold Shaka**, speak Portuguese, pause through a short gap, then wait 15s **or** release Shaka / press T.
+6. Confirm ask lifecycle events (`TranscriptionReady` `text=` -> `AskRequested` `q=` -> `AskResult` `reply=`) on the event trace, plus `AgentSpeechStarted` with the spoken line.
 7. Confirm `AgentActionRequested` fires and drives both:
    - speech/subtitles (`AgentActionExecutor`)
    - animation (`AgentAnimator`)

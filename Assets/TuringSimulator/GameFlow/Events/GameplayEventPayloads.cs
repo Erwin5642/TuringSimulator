@@ -213,16 +213,30 @@ namespace TuringSimulator.GameFlow.Events
         public override string ToString() => $"level={LevelId} outcome={Outcome} ctx={Context}";
     }
 
+    public enum MicListenMode
+    {
+        Toggle = 0,
+        Start = 1,
+        Stop = 2,
+    }
+
     public readonly struct MicToggleRequestedEventData
     {
         public MicToggleRequestedEventData(EventContextData context)
+            : this(context, MicListenMode.Toggle)
+        {
+        }
+
+        public MicToggleRequestedEventData(EventContextData context, MicListenMode mode)
         {
             Context = context;
+            Mode = mode;
         }
 
         public EventContextData Context { get; }
+        public MicListenMode Mode { get; }
 
-        public override string ToString() => $"ctx={Context}";
+        public override string ToString() => $"mode={Mode} ctx={Context}";
     }
 
     public enum HandGesturePhase
@@ -258,6 +272,18 @@ namespace TuringSimulator.GameFlow.Events
         public string GestureKey => $"{GestureId}:{Phase}";
 
         public override string ToString() => $"gesture={GestureKey} ctx={Context}";
+    }
+
+    public readonly struct SceneReloadRequestedEventData
+    {
+        public SceneReloadRequestedEventData(EventContextData context)
+        {
+            Context = context;
+        }
+
+        public EventContextData Context { get; }
+
+        public override string ToString() => $"sceneReload ctx={Context}";
     }
 
     public readonly struct ListeningStateChangedEventData
@@ -302,6 +328,20 @@ namespace TuringSimulator.GameFlow.Events
         public override string ToString() => $"text=\"{Text}\" ctx={Context}";
     }
 
+    public readonly struct VoiceCaptureStoppedEventData
+    {
+        public VoiceCaptureStoppedEventData(EventContextData context, string heardText)
+        {
+            Context = context;
+            HeardText = heardText ?? string.Empty;
+        }
+
+        public EventContextData Context { get; }
+        public string HeardText { get; }
+
+        public override string ToString() => $"captureStopped heard=\"{HeardText}\" ctx={Context}";
+    }
+
     public readonly struct AskRequestedEventData
     {
         public AskRequestedEventData(
@@ -326,23 +366,30 @@ namespace TuringSimulator.GameFlow.Events
 
     public readonly struct AskResultEventData
     {
-        public AskResultEventData(EventContextData context, bool success, string reply, string error)
+        public AskResultEventData(
+            EventContextData context,
+            bool success,
+            string reply,
+            string error,
+            string audioUrl = null)
         {
             Context = context;
             Success = success;
             Reply = reply ?? string.Empty;
             Error = error ?? string.Empty;
+            AudioUrl = audioUrl ?? string.Empty;
         }
 
         public EventContextData Context { get; }
         public bool Success { get; }
         public string Reply { get; }
         public string Error { get; }
+        public string AudioUrl { get; }
 
         public override string ToString()
         {
             return Success
-                ? $"success reply=\"{Reply}\" ctx={Context}"
+                ? $"success reply=\"{Reply}\" audio=\"{AudioUrl}\" ctx={Context}"
                 : $"failure error=\"{Error}\" ctx={Context}";
         }
     }
@@ -372,17 +419,24 @@ namespace TuringSimulator.GameFlow.Events
 
     public readonly struct AgentActionRequestedEventData
     {
-        public AgentActionRequestedEventData(EventContextData context, string text, AgentAnimationKind animation)
+        public AgentActionRequestedEventData(
+            EventContextData context,
+            string text,
+            AgentAnimationKind animation,
+            string audioUrl = null)
         {
             Context = context;
             Text = text ?? string.Empty;
             Animation = animation;
+            AudioUrl = audioUrl ?? string.Empty;
         }
 
         public EventContextData Context { get; }
         public string Text { get; }
         public AgentAnimationKind Animation { get; }
+        public string AudioUrl { get; }
 
-        public override string ToString() => $"animation={Animation} text=\"{Text}\" ctx={Context}";
+        public override string ToString() =>
+            $"animation={Animation} text=\"{Text}\" audio=\"{AudioUrl}\" ctx={Context}";
     }
 }

@@ -1,57 +1,40 @@
 // AgentTTS.cs
-// Text-to-Speech for the ITS agent using Android's built-in TTS engine.
-// Targets Brazilian Portuguese (pt-BR) with fallbacks when Quest lacks that voice.
-//
-// No external SDK or API key required — Android TTS is entirely on-device.
-//
-// SETUP:
-//   1. Assets/Plugins/Android/TtsPackageVisibility.androidlib must declare
-//      android.intent.action.TTS_SERVICE under <queries> (Android 11+ / Quest).
-//   2. On the Quest headset: Settings → Accessibility → Text-to-Speech —
-//      confirm a Portuguese TTS voice is installed when possible.
+// Synthesizes tutor speech through the scene TTSSpeaker (Wit.ai / Voice SDK).
 //
 // USAGE:
-//   AgentTTS.Instance.Speak("Olá, treineiro! Precisa de ajuda?");
+//   AgentTTS.Instance.Speak("Olá, treineiro!");
 //   AgentTTS.Instance.Stop();
-//   Subscribe to OnSpeechStarted / OnSpeechFinished for UI sync.
 
 using System;
 using System.Collections;
-using System.Threading;
+using Meta.WitAi.TTS.Data;
+using Meta.WitAi.TTS.Utilities;
+using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
-#pragma warning disable CS0414, CS0067
-
-public class AgentTTS : MonoBehaviour
+[DefaultExecutionOrder(-90)]
+public class AgentTTS : MonoBehaviour, IAgentSpeech
 {
     public static AgentTTS Instance { get; private set; }
 
-    [Header("Voice settings")]
-    [Tooltip("BCP-47 language tag for Brazilian Portuguese.")]
-    [SerializeField] private string _languageTag = "pt-BR";
+    [Header("Wit TTS")]
+    [Tooltip("Scene TTSSpeaker under the TTS root. Required for speech.")]
+    [SerializeField] private TTSSpeaker _ttsSpeaker;
 
-    [Tooltip("Speech rate. 1.0 = normal, 0.85 = slightly slower (clearer for learners).")]
-    [SerializeField] [Range(0.5f, 2.0f)] private float _speechRate = 0.9f;
-
-    [Tooltip("Pitch. 1.0 = normal. Slightly higher = friendlier robot voice.")]
-    [SerializeField] [Range(0.5f, 2.0f)] private float _pitch = 1.1f;
+    [Tooltip("If Wit never starts playback, stop and finish so animation/subtitles do not hang.")]
+    [SerializeField] [Min(1f)] private float _loadTimeoutSeconds = 10f;
 
     public event Action<string> OnSpeechStarted;
     public event Action OnSpeechFinished;
-    public event Action<string> OnTTSError;
+    public event Action<string> OnSpeechError;
 
     public bool IsSpeaking { get; private set; }
 
-    private AndroidJavaObject _tts;
-    private AndroidJavaObject _unityActivity;
-    private bool _ttsReady;
-    private string _activeLanguage = string.Empty;
-
-    private int _pendingInitStatus = InitStatusNone;
-    private int _pendingSpeechFinished;
-
-    private const string UttId = "ITS_AGENT";
-    private const int InitStatusNone = int.MinValue;
+    private int _speakGeneration;
+    private bool _suppressEvents;
+    private bool _playbackStarted;
+    private bool _subscribed;
+    private Coroutine _timeoutRoutine;
 
     private void Awake()
     {
@@ -63,349 +46,199 @@ public class AgentTTS : MonoBehaviour
 
         Instance = this;
 
-        // DontDestroyOnLoad only works on root objects.
+        if (_ttsSpeaker == null)
+            _ttsSpeaker = FindAnyObjectByType<TTSSpeaker>();
+
         if (transform.parent != null)
             transform.SetParent(null, true);
 
+        PersistTtsHierarchy();
         DontDestroyOnLoad(gameObject);
     }
 
-    private void Start()
+    private void OnEnable()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        InitAndroidTTS();
-#else
-        Debug.Log("[AgentTTS] Running in Editor — TTS output will be logged only.");
-        _ttsReady = true;
-        _activeLanguage = _languageTag;
-#endif
+        Subscribe();
     }
 
-    private void Update()
+    private void OnDisable()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        var status = Interlocked.Exchange(ref _pendingInitStatus, InitStatusNone);
-        if (status != InitStatusNone)
-            FinishAndroidInit(status);
-
-        if (Interlocked.Exchange(ref _pendingSpeechFinished, 0) == 1)
-        {
-            IsSpeaking = false;
-            OnSpeechFinished?.Invoke();
-        }
-#endif
+        Unsubscribe();
     }
 
     private void OnDestroy()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        ShutdownTTS();
-#endif
+        Unsubscribe();
         if (Instance == this)
             Instance = null;
     }
 
-    /// <summary>
-    /// Speak a string. Interrupts any currently playing speech.
-    /// </summary>
-    public void Speak(string text)
+    public void Speak(string text, string audioUrl = null)
     {
         if (string.IsNullOrWhiteSpace(text))
             return;
 
-#if UNITY_ANDROID && !UNITY_EDITOR
-        if (!_ttsReady)
+        if (!string.IsNullOrWhiteSpace(audioUrl))
+            Debug.Log("[AgentTTS] Ignoring audioUrl; speech uses Wit TTS.");
+
+        if (_ttsSpeaker == null)
         {
-            Debug.LogWarning("[AgentTTS] TTS not ready yet — queuing.");
-            StartCoroutine(SpeakWhenReady(text));
+            Debug.LogError("[AgentTTS] TTSSpeaker is not assigned.");
+            OnSpeechError?.Invoke("TTSSpeaker is not assigned.");
             return;
         }
 
-        SpeakNative(text);
-#else
-        Debug.Log($"[AgentTTS] SPEAK: {text}");
+        InterruptCurrent(invokeFinishedIfSpeaking: true);
+
+        var generation = _speakGeneration;
+        _playbackStarted = false;
+        IsSpeaking = true;
         OnSpeechStarted?.Invoke(text);
-        OnSpeechFinished?.Invoke();
-#endif
+        EventTraceLog.Record("AgentSpeechStarted", text, this);
+        Debug.Log($"[AgentTTS] Speak requested chars={text.Length} voice={_ttsSpeaker.VoiceID}.");
+
+        _ttsSpeaker.Speak(text);
+        _timeoutRoutine = StartCoroutine(WatchLoadTimeout(generation));
     }
 
-    /// <summary>Stop any ongoing speech immediately.</summary>
     public void Stop()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        try
+        InterruptCurrent(invokeFinishedIfSpeaking: true);
+    }
+
+    [ContextMenu("Speak Debug Sample")]
+    private void SpeakDebugSample()
+    {
+        Speak("Olá, treineiro. Este é um teste da voz do tutor.");
+    }
+
+    private void PersistTtsHierarchy()
+    {
+        if (_ttsSpeaker == null)
+            return;
+
+        var ttsRoot = _ttsSpeaker.transform.root;
+        if (ttsRoot != null && ttsRoot != transform)
+            DontDestroyOnLoad(ttsRoot.gameObject);
+    }
+
+    private void Subscribe()
+    {
+        if (_subscribed || _ttsSpeaker == null || _ttsSpeaker.Events == null)
+            return;
+
+        _ttsSpeaker.Events.OnPlaybackStart.AddListener(HandlePlaybackStart);
+        _ttsSpeaker.Events.OnLoadFailed.AddListener(HandleLoadFailed);
+        _ttsSpeaker.Events.OnComplete.AddListener(HandleComplete);
+        _ttsSpeaker.Events.OnPlaybackQueueComplete.AddListener(HandleQueueComplete);
+        _subscribed = true;
+    }
+
+    private void Unsubscribe()
+    {
+        if (!_subscribed || _ttsSpeaker == null || _ttsSpeaker.Events == null)
         {
-            _tts?.Call("stop");
+            _subscribed = false;
+            return;
         }
-        catch (Exception e)
+
+        _ttsSpeaker.Events.OnPlaybackStart.RemoveListener(HandlePlaybackStart);
+        _ttsSpeaker.Events.OnLoadFailed.RemoveListener(HandleLoadFailed);
+        _ttsSpeaker.Events.OnComplete.RemoveListener(HandleComplete);
+        _ttsSpeaker.Events.OnPlaybackQueueComplete.RemoveListener(HandleQueueComplete);
+        _subscribed = false;
+    }
+
+    private void InterruptCurrent(bool invokeFinishedIfSpeaking)
+    {
+        _speakGeneration++;
+        _playbackStarted = false;
+        StopTimeout();
+
+        _suppressEvents = true;
+        _ttsSpeaker?.Stop();
+        _suppressEvents = false;
+
+        if (invokeFinishedIfSpeaking && IsSpeaking)
         {
-            Debug.LogWarning($"[AgentTTS] stop() failed: {e.Message}");
+            IsSpeaking = false;
+            OnSpeechFinished?.Invoke();
         }
-#endif
+        else
+        {
+            IsSpeaking = false;
+        }
+    }
+
+    private IEnumerator WatchLoadTimeout(int generation)
+    {
+        var elapsed = 0f;
+        var timeout = Mathf.Max(1f, _loadTimeoutSeconds);
+        while (generation == _speakGeneration && elapsed < timeout && !_playbackStarted)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        _timeoutRoutine = null;
+        if (generation != _speakGeneration || _playbackStarted)
+            yield break;
+
+        Debug.LogWarning("[AgentTTS] Wit TTS load timed out.");
+        OnSpeechError?.Invoke("TTS load timed out.");
+        _ttsSpeaker?.Stop();
+        FinishIfIdle();
+    }
+
+    private void HandlePlaybackStart(TTSSpeaker speaker, TTSClipData clip)
+    {
+        if (_suppressEvents)
+            return;
+
+        _playbackStarted = true;
+        StopTimeout();
+    }
+
+    private void HandleLoadFailed(TTSSpeaker speaker, TTSClipData clip, string error)
+    {
+        if (_suppressEvents)
+            return;
+
+        var message = string.IsNullOrWhiteSpace(error) ? "TTS load failed." : error;
+        Debug.LogWarning($"[AgentTTS] Wit TTS load failed: {message}");
+        OnSpeechError?.Invoke(message);
+        FinishIfIdle();
+    }
+
+    private void HandleComplete(TTSSpeaker speaker, TTSClipData clip)
+    {
+        FinishIfIdle();
+    }
+
+    private void HandleQueueComplete()
+    {
+        FinishIfIdle();
+    }
+
+    private void FinishIfIdle()
+    {
+        if (_suppressEvents || !IsSpeaking)
+            return;
+        if (_ttsSpeaker != null && _ttsSpeaker.IsActive)
+            return;
+
+        StopTimeout();
         IsSpeaking = false;
         OnSpeechFinished?.Invoke();
+        Debug.Log("[AgentTTS] Playback finished.");
     }
 
-#if UNITY_ANDROID && !UNITY_EDITOR
-
-    private void InitAndroidTTS()
+    private void StopTimeout()
     {
-        try
-        {
-            using var playerClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
-            _unityActivity = playerClass.GetStatic<AndroidJavaObject>("currentActivity");
-
-            // Only enqueue status here — never touch AndroidJavaObject from the binder thread.
-            var initListener = new TTSInitListener(status =>
-                Interlocked.Exchange(ref _pendingInitStatus, status));
-
-            _tts = new AndroidJavaObject(
-                "android.speech.tts.TextToSpeech",
-                _unityActivity,
-                initListener);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[AgentTTS] Failed to initialise Android TTS: {e.Message}");
-            OnTTSError?.Invoke(e.Message);
-        }
-    }
-
-    private void FinishAndroidInit(int status)
-    {
-        if (status != 0)
-        {
-            Debug.LogError($"[AgentTTS] TTS init failed with status {status}.");
-            OnTTSError?.Invoke($"TTS init failed: {status}");
-            return;
-        }
-
-        if (_tts == null)
-        {
-            Debug.LogError("[AgentTTS] TTS object is null after init.");
-            return;
-        }
-
-        try
-        {
-            _activeLanguage = ApplyLanguageWithFallback();
-            _tts.Call<int>("setSpeechRate", _speechRate);
-            _tts.Call<int>("setPitch", _pitch);
-            TryAttachProgressListener();
-
-            string engine = null;
-            try
-            {
-                engine = _tts.Call<string>("getDefaultEngine");
-            }
-            catch
-            {
-                // Optional diagnostic.
-            }
-
-            _ttsReady = true;
-            Debug.Log(
-                $"[AgentTTS] Android TTS ready — requested={_languageTag} active={_activeLanguage} engine={engine ?? "unknown"}.");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[AgentTTS] FinishAndroidInit failed: {e}");
-            OnTTSError?.Invoke(e.Message);
-        }
-    }
-
-    private string ApplyLanguageWithFallback()
-    {
-        using var localeClass = new AndroidJavaClass("java.util.Locale");
-
-        // Preferred BCP-47 tag (e.g. pt-BR).
-        if (TrySetLanguageTag(localeClass, _languageTag, out var chosen))
-            return chosen;
-
-        // Language only (pt).
-        var dash = _languageTag != null ? _languageTag.IndexOf('-') : -1;
-        if (dash > 0)
-        {
-            var languageOnly = _languageTag.Substring(0, dash);
-            if (TrySetLanguageTag(localeClass, languageOnly, out chosen))
-            {
-                Debug.LogWarning(
-                    $"[AgentTTS] '{_languageTag}' unavailable; fell back to '{languageOnly}'.");
-                return chosen;
-            }
-        }
-
-        // Device default — better than staying silent on Quest without pt-BR voice data.
-        using var defaults = localeClass.CallStatic<AndroidJavaObject>("getDefault");
-        var result = _tts.Call<int>("setLanguage", defaults);
-        var defaultTag = SafeLocaleTag(defaults);
-        Debug.LogWarning(
-            $"[AgentTTS] Preferred languages unavailable (lastResult={result}). Using device default '{defaultTag}'.");
-        return defaultTag;
-    }
-
-    private bool TrySetLanguageTag(AndroidJavaClass localeClass, string tag, out string appliedTag)
-    {
-        appliedTag = tag;
-        if (string.IsNullOrWhiteSpace(tag))
-            return false;
-
-        using var locale = localeClass.CallStatic<AndroidJavaObject>("forLanguageTag", tag);
-        var result = _tts.Call<int>("setLanguage", locale);
-
-        // 0+ = available / country or language available. -1 missing data, -2 not supported.
-        if (result >= 0)
-            return true;
-
-        Debug.LogWarning($"[AgentTTS] Language '{tag}' not available (result={result}).");
-        return false;
-    }
-
-    private static string SafeLocaleTag(AndroidJavaObject locale)
-    {
-        try
-        {
-            return locale.Call<string>("toLanguageTag");
-        }
-        catch
-        {
-            try
-            {
-                return locale.Call<string>("toString");
-            }
-            catch
-            {
-                return "unknown";
-            }
-        }
-    }
-
-    private void TryAttachProgressListener()
-    {
-        try
-        {
-            var progressListener = new TTSProgressListener(
-                onStart: _ => { /* IsSpeaking already set in SpeakNative */ },
-                onDone: _ => Interlocked.Exchange(ref _pendingSpeechFinished, 1),
-                onError: id =>
-                {
-                    Debug.LogError($"[AgentTTS] Utterance error for '{id}'.");
-                    Interlocked.Exchange(ref _pendingSpeechFinished, 1);
-                });
-
-            // void method — do not use Call<int>.
-            _tts.Call("setOnUtteranceProgressListener", progressListener);
-        }
-        catch (Exception e)
-        {
-            // Speech can still work without progress callbacks.
-            Debug.LogWarning($"[AgentTTS] Progress listener unavailable: {e.Message}");
-        }
-    }
-
-    private void SpeakNative(string text)
-    {
-        try
-        {
-            using var paramsBundle = new AndroidJavaObject("android.os.Bundle");
-            var result = _tts.Call<int>("speak", text, 0, paramsBundle, UttId);
-            if (result != 0)
-            {
-                Debug.LogError($"[AgentTTS] speak() failed with result={result} for text length {text.Length}.");
-                OnTTSError?.Invoke($"speak failed: {result}");
-                return;
-            }
-
-            IsSpeaking = true;
-            OnSpeechStarted?.Invoke(text);
-            Debug.Log($"[AgentTTS] Speaking ({_activeLanguage}, {text.Length} chars): {text}");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[AgentTTS] speak() threw: {e}");
-            OnTTSError?.Invoke(e.Message);
-        }
-    }
-
-    private void ShutdownTTS()
-    {
-        if (_tts == null)
+        if (_timeoutRoutine == null)
             return;
 
-        try
-        {
-            _tts.Call("stop");
-            _tts.Call("shutdown");
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"[AgentTTS] ShutdownTTS: {e.Message}");
-        }
-
-        _tts.Dispose();
-        _tts = null;
-        _ttsReady = false;
-    }
-
-#endif
-
-    private IEnumerator SpeakWhenReady(string text)
-    {
-        float waited = 0f;
-        while (!_ttsReady && waited < 8f)
-        {
-            yield return new WaitForSeconds(0.1f);
-            waited += 0.1f;
-        }
-
-        if (_ttsReady)
-            Speak(text);
-        else
-            Debug.LogWarning("[AgentTTS] TTS did not become ready in time.");
+        StopCoroutine(_timeoutRoutine);
+        _timeoutRoutine = null;
     }
 }
-
-#if UNITY_ANDROID && !UNITY_EDITOR
-
-/// <summary>Proxies android.speech.tts.TextToSpeech.OnInitListener</summary>
-internal sealed class TTSInitListener : AndroidJavaProxy
-{
-    private readonly Action<int> _callback;
-
-    public TTSInitListener(Action<int> callback)
-        : base("android.speech.tts.TextToSpeech$OnInitListener")
-    {
-        _callback = callback;
-    }
-
-    // Called by Android on a binder thread — keep this allocation-free and JNI-free.
-    public void onInit(int status) => _callback(status);
-}
-
-/// <summary>Proxies android.speech.tts.UtteranceProgressListener</summary>
-internal sealed class TTSProgressListener : AndroidJavaProxy
-{
-    private readonly Action<string> _onStart;
-    private readonly Action<string> _onDone;
-    private readonly Action<string> _onError;
-
-    public TTSProgressListener(
-        Action<string> onStart,
-        Action<string> onDone,
-        Action<string> onError)
-        : base("android.speech.tts.UtteranceProgressListener")
-    {
-        _onStart = onStart;
-        _onDone = onDone;
-        _onError = onError;
-    }
-
-    public void onStart(string utteranceId) => _onStart(utteranceId);
-    public void onDone(string utteranceId) => _onDone(utteranceId);
-    public void onError(string utteranceId) => _onError(utteranceId);
-    public void onError(string utteranceId, int errorCode) => _onError(utteranceId);
-}
-
-#endif
-
-#pragma warning restore CS0414, CS0067

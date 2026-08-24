@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace TuringSimulator.GameFlow
@@ -28,22 +27,11 @@ namespace TuringSimulator.GameFlow
 
         public void ReloadCurrentScene()
         {
-            if (_isReloading)
+            if (!SceneReload.TryBeginReload(ref _isReloading))
                 return;
 
-            var activeScene = SceneManager.GetActiveScene();
-            if (!activeScene.IsValid() || activeScene.buildIndex < 0)
-            {
-                Debug.LogError("[SceneReloadButton] The active scene is not in Build Settings.");
-                return;
-            }
-
-            _isReloading = true;
             if (_button != null)
                 _button.interactable = false;
-
-            TuringBootstrap.Instance?.PrepareForSceneReload();
-            SceneManager.LoadSceneAsync(activeScene.buildIndex, LoadSceneMode.Single);
         }
     }
 }

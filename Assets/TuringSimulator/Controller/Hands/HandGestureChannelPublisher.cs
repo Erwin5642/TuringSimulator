@@ -53,7 +53,6 @@ namespace TuringSimulator.Controller.Hands
                 _gestureId.Trim(),
                 phase);
 
-            EventTraceLog.Record(nameof(HandGesturePerformedEventData), payload.ToString(), this);
             _handGestureChannel.Raise(payload, this);
         }
 

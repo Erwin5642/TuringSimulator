@@ -21,7 +21,7 @@ namespace TuringSimulator.GameFlow.Events
         [Header("Refresh")]
         [SerializeField] private float _refreshIntervalSeconds = 0.25f;
         [SerializeField] private int _maxVisibleLines = 24;
-        [SerializeField] private int _maxPayloadLength = 96;
+        [SerializeField] private int _maxPayloadLength = 240;
         [SerializeField] private string _eventNameFilter = string.Empty;
 
         [Header("Startup")]

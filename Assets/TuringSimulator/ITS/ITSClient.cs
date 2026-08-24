@@ -13,7 +13,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 
 [DefaultExecutionOrder(-200)]
-public class ITSClient : MonoBehaviour
+public class ITSClient : MonoBehaviour, IAskClient
 {
     public static ITSClient Instance { get; private set; }
 
@@ -30,6 +30,8 @@ public class ITSClient : MonoBehaviour
     public event Action<string> OnAskReply;
     public event Action<string> OnServerError;
     public event Action<string> OnSessionCreated;
+
+    public bool CanPostAsk => _serverAvailable;
 
     bool _serverAvailable;
     string _pendingAskCorrelationId = string.Empty;
@@ -73,10 +75,7 @@ public class ITSClient : MonoBehaviour
     {
         if (!_serverAvailable)
         {
-            PublishAskFailure(
-                correlationId,
-                "Server not available.",
-                "Servidor indisponivel no momento. Tente novamente em instantes.");
+            EchoTranscription(correlationId, question);
             return;
         }
 
@@ -150,7 +149,8 @@ public class ITSClient : MonoBehaviour
             _pendingAskCorrelationId,
             success: true,
             reply: reply,
-            error: string.Empty);
+            error: string.Empty,
+            audioUrl: ResolveAudioUrl(dto?.AudioUrl));
         _pendingAskCorrelationId = string.Empty;
     }
 
@@ -219,6 +219,9 @@ public class ITSClient : MonoBehaviour
             return;
         }
 
+        if (!CanPostAsk)
+            return;
+
         var tracker = SkillTracker.Instance;
         var studentId = tracker != null && tracker.HasActiveSession ? tracker.StudentId : string.Empty;
         if (string.IsNullOrWhiteSpace(studentId))
@@ -240,6 +243,14 @@ public class ITSClient : MonoBehaviour
         Ask(studentId, levelId, text, correlationId);
     }
 
+    void EchoTranscription(string correlationId, string text)
+    {
+        OnAskReply?.Invoke(text);
+        PublishThinkingState(correlationId, false);
+        PublishAskResult(correlationId, success: true, reply: text, error: string.Empty);
+        Debug.Log($"[ITSClient] /ask skipped; echoing STT via TTS chars={text.Length}.");
+    }
+
     void PublishAskRequested(string correlationId, string studentId, string levelId, string question)
     {
         if (_askRequestedChannel == null)
@@ -250,11 +261,15 @@ public class ITSClient : MonoBehaviour
             studentId,
             levelId,
             question);
-        EventTraceLog.Record(nameof(AskRequestedEventData), payload.ToString(), this);
         _askRequestedChannel.Raise(payload, this);
     }
 
-    void PublishAskResult(string correlationId, bool success, string reply, string error)
+    void PublishAskResult(
+        string correlationId,
+        bool success,
+        string reply,
+        string error,
+        string audioUrl = null)
     {
         if (_askResultChannel == null)
             return;
@@ -263,8 +278,8 @@ public class ITSClient : MonoBehaviour
             EventContextFactory.Create(nameof(ITSClient), correlationId),
             success,
             reply,
-            error);
-        EventTraceLog.Record(nameof(AskResultEventData), payload.ToString(), this);
+            error,
+            audioUrl);
         _askResultChannel.Raise(payload, this);
     }
 
@@ -276,7 +291,6 @@ public class ITSClient : MonoBehaviour
         var payload = new ThinkingStateChangedEventData(
             EventContextFactory.Create(nameof(ITSClient), correlationId),
             isThinking);
-        EventTraceLog.Record(nameof(ThinkingStateChangedEventData), payload.ToString(), this);
         _thinkingStateChannel.Raise(payload, this);
     }
 
@@ -295,6 +309,23 @@ public class ITSClient : MonoBehaviour
         PublishThinkingState(correlationId, false);
         PublishAskResult(correlationId, success: false, reply: string.Empty, error: userFacingMessage);
         _pendingAskCorrelationId = string.Empty;
+    }
+
+    string ResolveAudioUrl(string audioUrl)
+    {
+        if (string.IsNullOrWhiteSpace(audioUrl))
+            return string.Empty;
+
+        var trimmed = audioUrl.Trim();
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return trimmed;
+
+        var root = (_baseUrl ?? string.Empty).TrimEnd('/');
+        if (string.IsNullOrEmpty(root))
+            return trimmed;
+
+        return $"{root}/{trimmed.TrimStart('/')}";
     }
 
     static string BuildCorrelationId(string prefix) =>

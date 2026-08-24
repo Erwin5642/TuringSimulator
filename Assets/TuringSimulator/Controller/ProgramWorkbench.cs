@@ -7,6 +7,7 @@ namespace TuringSimulator.Controller
 {
     /// <summary>
     /// Holds serialized references to all XR blocks/cards and mirrors <see cref="IProgramEditController"/> lock state.
+    /// Recompiles only when the start-rooted program graph fingerprint changes.
     /// </summary>
     public sealed class ProgramWorkbench : MonoBehaviour, IProgramEditingUi
     {
@@ -15,7 +16,7 @@ namespace TuringSimulator.Controller
         [Header("Program Start")]
         [Tooltip("Workbench start/power output port. Its connected peer defines the program entry block.")]
         [SerializeField] WireSocketBehaviour startOutputPort;
-        [Tooltip("Legacy fallback when no start output port is wired. Must match ProgramBlockBehaviour.blockId.")]
+        [Tooltip("Legacy fallback only when startOutputPort is unassigned. Must match ProgramBlockBehaviour.blockId.")]
         [SerializeField] string entryBlockId;
 
         [SerializeField] ProgramBlockBehaviour[] blocks;
@@ -26,10 +27,13 @@ namespace TuringSimulator.Controller
 
         readonly List<GameObject> _spawnedCardRoots = new();
         readonly List<GameObject> _spawnedBlockRoots = new();
+        readonly IProgramBlockConnectivity _connectivity = new ProgramBlockConnectivity();
 
         IProgramEditController _edit;
 
         float _debounceUntil = -1f;
+        string _lastFingerprint;
+        bool _connectivityInitialized;
 
         const float DebounceSeconds = 0.12f;
 
@@ -44,6 +48,7 @@ namespace TuringSimulator.Controller
             }
 
             Instance = this;
+            _connectivity.Clear();
         }
 
         void OnDestroy()
@@ -67,10 +72,47 @@ namespace TuringSimulator.Controller
             RebuildProgramFromScene();
         }
 
-        /// <summary>Debounced graph rebuild after socket/wire changes.</summary>
+        /// <summary>Debounced full check (cards, spawn/despawn, unknown dirty).</summary>
         public void MarkTopologyDirty()
         {
             _debounceUntil = Time.unscaledTime + DebounceSeconds;
+        }
+
+        /// <summary>
+        /// Wire connect/disconnect. Updates union-find and only schedules a rebuild when the
+        /// start-rooted undirected forest may have changed.
+        /// </summary>
+        public void MarkWireChanged(string nodeA, string nodeB, bool connected)
+        {
+            if (string.IsNullOrEmpty(nodeA) || string.IsNullOrEmpty(nodeB))
+            {
+                MarkTopologyDirty();
+                return;
+            }
+
+            EnsureConnectivityInitialized();
+
+            var startId = _connectivity.StartNodeId;
+            if (connected)
+            {
+                var touchesStart =
+                    _connectivity.SameComponent(nodeA, startId) ||
+                    _connectivity.SameComponent(nodeB, startId);
+                _connectivity.Union(nodeA, nodeB);
+                if (!touchesStart && !_connectivity.SameComponent(nodeA, startId))
+                    return;
+            }
+            else
+            {
+                var touchesStart =
+                    _connectivity.SameComponent(nodeA, startId) ||
+                    _connectivity.SameComponent(nodeB, startId);
+                RebuildConnectivityFromScene();
+                if (!touchesStart)
+                    return;
+            }
+
+            MarkTopologyDirty();
         }
 
         public void Initialize(IProgramEditController editController)
@@ -78,6 +120,8 @@ namespace TuringSimulator.Controller
             _edit = editController ?? throw new ArgumentNullException(nameof(editController));
             _edit.EditingAvailabilityChanged += OnEditingAvailabilityChanged;
             SetEditingEnabled(_edit.CanEdit);
+            RebuildConnectivityFromScene();
+            _lastFingerprint = null;
         }
 
         void OnEditingAvailabilityChanged(bool canEdit)
@@ -182,6 +226,7 @@ namespace TuringSimulator.Controller
                     b.SetInteractionEnabled(allow);
             }
 
+            RebuildConnectivityFromScene();
             MarkTopologyDirty();
         }
 
@@ -193,6 +238,7 @@ namespace TuringSimulator.Controller
         void UntrackSpawnedBlock(GameObject root)
         {
             _spawnedBlockRoots.Remove(root);
+            RebuildConnectivityFromScene();
             MarkTopologyDirty();
         }
 
@@ -201,11 +247,12 @@ namespace TuringSimulator.Controller
             if (_edit == null || !_edit.CanEdit)
                 return;
 
+            RebuildConnectivityFromScene();
+
             var resolvedEntryBlockId = ResolveEntryBlockId();
             if (string.IsNullOrWhiteSpace(resolvedEntryBlockId))
             {
-                Debug.LogWarning(
-                    "[ProgramWorkbench] Missing start wiring. Connect the workbench start output port to a block input.");
+                ApplyHaltIfChanged();
                 return;
             }
 
@@ -213,11 +260,12 @@ namespace TuringSimulator.Controller
             if (compileBlocks.Count == 0)
             {
                 Debug.LogWarning(
-                    "[ProgramWorkbench] No reachable blocks found from the current start connection.");
+                    "[ProgramWorkbench] Start is wired but the entry block is not registered. Applying halt.");
+                ApplyHaltIfChanged();
                 return;
             }
 
-            var nodes = new List<ProgramGraphNodeData>();
+            var nodes = new List<ProgramGraphNodeData>(compileBlocks.Count);
             foreach (var b in compileBlocks)
             {
                 if (b != null)
@@ -245,13 +293,71 @@ namespace TuringSimulator.Controller
             }
 
             var snap = new ProgramGraphSnapshot(nodes, edges, resolvedEntryBlockId);
+            var fingerprint = ProgramGraphFingerprint.Compute(snap);
+            if (string.Equals(fingerprint, _lastFingerprint, StringComparison.Ordinal))
+                return;
+
             if (!GraphToProgramCompiler.TryCompile(snap, out var builder, out var err))
             {
-                Debug.LogWarning($"[ProgramWorkbench] Compile failed: {err}");
+                Debug.LogWarning(
+                    $"[ProgramWorkbench] Compile failed (keeping previous program): {err}");
                 return;
             }
 
             _edit.ReplaceProgramBuilder(builder);
+            _lastFingerprint = fingerprint;
+        }
+
+        void ApplyHaltIfChanged()
+        {
+            if (string.Equals(_lastFingerprint, ProgramGraphFingerprint.HaltFingerprint, StringComparison.Ordinal))
+                return;
+
+            _edit.Clear();
+            _lastFingerprint = ProgramGraphFingerprint.HaltFingerprint;
+            Debug.Log(
+                "[ProgramWorkbench] Start port unwired (or entry missing). Program set to halt.");
+        }
+
+        void EnsureConnectivityInitialized()
+        {
+            if (_connectivityInitialized)
+                return;
+            RebuildConnectivityFromScene();
+        }
+
+        void RebuildConnectivityFromScene()
+        {
+            var allBlocks = CollectAllBlocks();
+            var nodeIds = new List<string>(allBlocks.Count + 1) { _connectivity.StartNodeId };
+            for (var i = 0; i < allBlocks.Count; i++)
+            {
+                if (allBlocks[i] != null)
+                    nodeIds.Add(allBlocks[i].BlockId);
+            }
+
+            var undirected = new List<(string A, string B)>();
+            var entryId = ResolveEntryBlockIdFromPortsOnly();
+            if (!string.IsNullOrEmpty(entryId))
+                undirected.Add((_connectivity.StartNodeId, entryId));
+
+            for (var i = 0; i < allBlocks.Count; i++)
+            {
+                var block = allBlocks[i];
+                if (block == null)
+                    continue;
+
+                foreach (var o in block.EnumerateOutputSockets())
+                {
+                    var peerOwner = o?.ConnectedPeer?.Owner;
+                    if (peerOwner == null)
+                        continue;
+                    undirected.Add((block.BlockId, peerOwner.BlockId));
+                }
+            }
+
+            _connectivity.Rebuild(nodeIds, undirected);
+            _connectivityInitialized = true;
         }
 
         List<ProgramBlockBehaviour> CollectReachableBlocksFromEntry(string entryBlockId)
@@ -332,21 +438,41 @@ namespace TuringSimulator.Controller
             return result;
         }
 
+        /// <summary>
+        /// Entry from start port when assigned; otherwise legacy <see cref="entryBlockId"/>.
+        /// Assigned but unwired start port yields empty (halt) — legacy id is ignored.
+        /// </summary>
         string ResolveEntryBlockId()
         {
-            if (startOutputPort != null &&
-                startOutputPort.ConnectedPeer != null &&
-                startOutputPort.ConnectedPeer.Owner != null)
-            {
-                if (startOutputPort.ConnectedPeer.PortIndex != -1)
-                {
-                    Debug.LogWarning(
-                        "[ProgramWorkbench] Start output port should connect to a block input port.");
-                }
-                return startOutputPort.ConnectedPeer.Owner.BlockId;
-            }
+            if (startOutputPort != null)
+                return ResolveEntryBlockIdFromPortsOnly();
 
             return entryBlockId ?? string.Empty;
+        }
+
+        string ResolveEntryBlockIdFromPortsOnly()
+        {
+            if (startOutputPort == null ||
+                startOutputPort.ConnectedPeer == null ||
+                startOutputPort.ConnectedPeer.Owner == null)
+                return string.Empty;
+
+            if (startOutputPort.ConnectedPeer.PortIndex != -1)
+            {
+                Debug.LogWarning(
+                    "[ProgramWorkbench] Start output port should connect to a block input port.");
+            }
+
+            return startOutputPort.ConnectedPeer.Owner.BlockId;
+        }
+
+        internal static string ResolveConnectivityNodeId(WireSocketBehaviour socket)
+        {
+            if (socket == null)
+                return null;
+            if (socket.Owner != null)
+                return socket.Owner.BlockId;
+            return ProgramBlockConnectivity.StartId;
         }
 
         sealed class SpawnedCardRegistry : MonoBehaviour

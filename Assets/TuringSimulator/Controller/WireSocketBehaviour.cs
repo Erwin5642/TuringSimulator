@@ -75,7 +75,7 @@ namespace TuringSimulator.Controller
                 if (connectedPeer != null && connectedPeer.connectedPeer != this)
                     connectedPeer.connectedPeer = this;
 
-                NotifyWorkbenchTopologyDirty();
+                NotifyWorkbenchWireChanged(this, previous, connectedPeer);
                 RefreshVisualImmediate();
                 previous?.RefreshVisualImmediate();
                 connectedPeer?.RefreshVisualImmediate();
@@ -171,6 +171,38 @@ namespace TuringSimulator.Controller
         {
             if (ProgramWorkbench.Instance != null)
                 ProgramWorkbench.Instance.MarkTopologyDirty();
+        }
+
+        static void NotifyWorkbenchWireChanged(
+            WireSocketBehaviour self,
+            WireSocketBehaviour previous,
+            WireSocketBehaviour next)
+        {
+            var workbench = ProgramWorkbench.Instance;
+            if (workbench == null)
+                return;
+
+            var selfId = ProgramWorkbench.ResolveConnectivityNodeId(self);
+            if (previous != null)
+            {
+                var prevId = ProgramWorkbench.ResolveConnectivityNodeId(previous);
+                if (!string.IsNullOrEmpty(selfId) && !string.IsNullOrEmpty(prevId))
+                    workbench.MarkWireChanged(selfId, prevId, connected: false);
+                else
+                    workbench.MarkTopologyDirty();
+            }
+
+            if (next != null)
+            {
+                var nextId = ProgramWorkbench.ResolveConnectivityNodeId(next);
+                if (!string.IsNullOrEmpty(selfId) && !string.IsNullOrEmpty(nextId))
+                    workbench.MarkWireChanged(selfId, nextId, connected: true);
+                else
+                    workbench.MarkTopologyDirty();
+            }
+
+            if (previous == null && next == null)
+                workbench.MarkTopologyDirty();
         }
 
         static bool AreCompatible(WireSocketBehaviour a, WireSocketBehaviour b)

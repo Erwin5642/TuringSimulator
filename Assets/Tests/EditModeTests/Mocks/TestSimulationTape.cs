@@ -51,6 +51,9 @@ namespace Tests.EditModeTests.Mocks
                     break;
             }
         }
+
+        public TapeSnapshot Snapshot()
+            => new TapeSnapshot(_cells, HeadIndex);
         
         /// <summary>
         /// Returns a snapshot of the tape content in order from min to max index.

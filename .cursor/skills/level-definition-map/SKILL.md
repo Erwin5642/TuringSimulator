@@ -11,26 +11,22 @@ Use this skill when a request involves level creation, level IDs, progression or
 - Unity runtime shape: `Assets/TuringSimulator/Core/Level/LevelDefinition.cs`
 - Unity level assets: `Assets/Prefabs/Levels/Level */Level * Definition.asset`
 - Unity progression list: `Assets/Prefabs/Levels/LevelDatabase.asset`
-- Server level metadata: `TuringBotAPI/orchestrator.py` (`LEVEL_META`)
-- Server skill progression: `TuringBotAPI/domain/concepts.py` (`introduced_in`, `exercised_in`)
-- Server hint coverage: `TuringBotAPI/domain/hints.py` (`_tree(level_id, skill_id, ...)`)
+- Server goal docs: `TuringBotAPI/knowledge/goals/*.md` (`level_id` frontmatter)
+- Unity constants: `Assets/TuringSimulator/ITS/ITSModel.cs` (`LevelID` class)
 
 ## Level ID contract
 
 - `levelId` in Unity `LevelDefinition` is the cross-system key.
 - Active Unity progression has **eight** levels in `LevelDatabase` (no `AppendScrew`).
-- IDs that ship in Unity must exist in server `LEVEL_META`, `concepts.py`, and `hints.py`.
-- Server may retain unused IDs (e.g. `AppendScrew`); do not re-add them to Unity without an explicit product decision.
-- Keep Unity constants aligned: `Assets/TuringSimulator/ITS/ITSModel.cs` (`LevelID` class).
+- IDs that ship in Unity must have a matching server goal document.
+- Keep `levelId` values aligned across the Unity asset, `LevelID`, and the goal markdown `level_id`.
 
 ## Edit workflow
 
 1. Create or update the Unity level asset (`title`, `description`, `levelId`, tests).
 2. Add or reorder the level in `LevelDatabase.asset`.
-3. Mirror the same level ID in `LEVEL_META` with goal and allowed blocks.
-4. Update `concepts.py` so skills introduced/exercised in that level stay valid.
-5. Add or update hint trees for that level in `hints.py`.
-6. Update tests/docs that mention the level ID.
+3. Add or update `TuringBotAPI/knowledge/goals/` with the same `level_id`, pt-BR goal, and allowed blocks.
+4. Update tests/docs that mention the level ID.
 
 ## Guardrails
 

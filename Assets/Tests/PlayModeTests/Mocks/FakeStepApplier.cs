@@ -49,5 +49,10 @@ namespace Tests.PlayModeTests.Mocks
                 _steps.AddRange(steps);
             _currentIndex = -1;
         }
+
+        public void AppendStep(StepResult step)
+        {
+            _steps.Add(step);
+        }
     }
 }

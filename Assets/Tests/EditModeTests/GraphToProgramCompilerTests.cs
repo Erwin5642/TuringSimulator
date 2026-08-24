@@ -121,6 +121,7 @@ namespace EditModeTests
             Assert.That(program.TryGetTransition(0, Symbol.Blank, out var t), Is.True);
             Assert.That(t.DirectionToMove, Is.EqualTo(MoveDirection.Right));
             Assert.That(program.IsFinalState(t.ToState), Is.False);
+            Assert.That(program.TransitionCount, Is.EqualTo(TapeAlphabet.All.Length));
         }
     }
 }

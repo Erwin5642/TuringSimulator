@@ -1,9 +1,7 @@
-﻿using System;
+﻿using System.Collections;
 using System.Threading;
-using System.Threading.Tasks;
 using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Simulation.Step;
-using TuringSimulator.Core.Simulation;
 using TuringSimulator.Core.Tape;
 using TuringSimulator.Core.Types;
 
@@ -11,7 +9,7 @@ namespace TuringSimulator.Core.Simulation
 {
     public class SimulationEngine : ISimulationEngine
     {
-        public async Task Run(
+        public IEnumerator Run(
             IProgram program,
             ITape tape,
             ISimulationBuffer buffer,
@@ -27,7 +25,7 @@ namespace TuringSimulator.Core.Simulation
                 if (program.IsFinalState(currentState))
                 {
                     buffer.Complete(HaltStatus.Accept);
-                    return;
+                    yield break;
                 }
 
                 var currentSymbol = tape.Read();
@@ -37,7 +35,7 @@ namespace TuringSimulator.Core.Simulation
                 if (!program.TryGetTransition(currentState, currentSymbol, out var transition))
                 {
                     buffer.Complete(HaltStatus.Reject);
-                    return;
+                    yield break;
                 }
 
                 var symbolToWrite = transition.SymbolToWrite;
@@ -60,8 +58,8 @@ namespace TuringSimulator.Core.Simulation
 
                 currentState = stateToGo;
                 stepCount++;
-                
-                await Task.Yield();
+
+                yield return null;
             }
 
             if (ct.IsCancellationRequested)

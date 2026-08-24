@@ -7,100 +7,56 @@ This document describes the ITS server behavior as implemented today.
 Main app file: `TuringBotAPI/main.py`
 
 - FastAPI app with lifespan hooks:
-  - startup: `setup_logging()`, `STUDENT_MODEL.load()`
-  - shutdown: `STUDENT_MODEL.save()`
+  - startup: `setup_logging()`, build tutor provider, load markdown corpus into `KnowledgeStore`
+  - no student-state file; sessions are UUID identities only
 - CORS currently open (`allow_origins=["*"]`) for local development.
 
 ## REST API Surface
 
-- `POST /event`
-  - validates incoming skill IDs
-  - updates BKT via `STUDENT_MODEL.observe(student_id, skill_id, correct)`
-  - optionally generates a short reactive comment
-  - persists state immediately
+Unity's main demo line uses only these three endpoints.
+
 - `POST /ask`
-  - generates a free-form tutoring reply
-- `POST /hint`
-  - chooses weak skill (if not provided)
-  - escalates hint level per student/skill
-  - returns structured hint response
-- `GET /state/{student_id}`
-  - debug introspection of knowledge state
-- `GET /health`
-  - basic health/version check plus active tutor provider (`gemini` or `fallback`)
+  - free-form question with `student_id`, `level_id`, `question`
+  - agentic RAG: Gemini may call `search_docs` up to three times, then answers
+  - response includes `audio_url` (always `null`; Unity synthesizes speech with Wit TTS)
 - `POST /session/new`
-  - allocates a fresh server-side `student_id`
-  - persists immediately so the session id survives restart
+  - allocates a fresh `student_id` (`student_{uuid}`)
+  - no BKT or per-student memory is stored
+- `GET /health`
+  - `{status, version, tutor_provider, documents}`
+  - `tutor_provider` is `gemini` or `fallback`
 
-## Live WebSocket Protocol
+Removed from this MVP: `POST /event`, `POST /hint`, `GET /state/{id}`, `GET /ws/live`.
 
-Endpoint: `/ws/live`
+## Agentic RAG
 
-Server validates envelope and payload shapes using protocol models in:
+Files:
 
-- `TuringBotAPI/protocol/live_v1.py`
+- `TuringBotAPI/knowledge/**/*.md` — reviewed corpus (persona, gameplay, objects, goals, concepts)
+- `TuringBotAPI/rag/documents.py` — frontmatter loader
+- `TuringBotAPI/rag/store.py` — in-memory index + SQLite embedding cache
+- `TuringBotAPI/agent.py` — `search_docs` tool + answer loop
+- `TuringBotAPI/tutor_provider.py` — Gemini or offline fallback
 
-Current behavior highlights:
+Index:
 
-- handshake acknowledgment
-- protocol-version validation
-- payload-kind validation
-- periodic advisory nudge on `live.sim_step` every N steps (currently modulus-based)
+- All markdown files load at startup.
+- Each file is one chunk with YAML frontmatter (`id`, `category`, `title`, `level_id`).
+- Vectors stay in RAM. SQLite cache (`RAG_CACHE_PATH`, default `embeddings.sqlite`) stores embeddings by `doc_id` + content hash.
+- `search_docs` does cosine search when embeddings exist; otherwise token overlap.
+- Hits whose `level_id` matches the `/ask` level receive a score boost.
 
-This path is advisory-focused and intentionally lightweight.
+Agent:
 
-## Student Model (Personalization Core)
-
-File: `TuringBotAPI/student_model.py`
-
-Storage model:
-
-- in-memory dictionary keyed by `student_id` then `skill_id`
-- value is `SkillState` (BKT probability + hint progression metadata)
-
-Key behaviors:
-
-- lazy initialization per unseen `(student_id, skill_id)`
-- BKT update on each observation
-- weakest-skill ranking for hint targeting
-- hint-level escalation and reset logic
-
-Persistence:
-
-- file path from `STUDENT_STATE_PATH` env, default `student_state.json`
-- load on startup, save on shutdown
-- save also occurs after `/event`
-
-## Tutoring Orchestration
-
-File: `TuringBotAPI/orchestrator.py`
-
-Builds model prompt context from:
-
-- level metadata (`LEVEL_META`)
-- concept map and mappings (`domain/concepts.py`)
-- per-student knowledge state (`STUDENT_MODEL`)
-- hint forest (`domain/hints.py`) for graduated hints
-
-Unity ships eight playable levels and does not include `AppendScrew`. Prefer
-keeping server metadata for active Unity `levelId`s in sync; leftover server
-entries are harmless but unused by the client progression.
-
-Outputs:
-
-- ask response
-- hint response (with selected `skill_id` and `hint_level`)
-- event comment (selectively generated)
+- Persona document is always injected into the system prompt.
+- Gemini function-calling, max 3 `search_docs` rounds, then a final pt-BR reply.
+- If Gemini is missing or fails, the server still searches and returns a deterministic pt-BR reply built from the top chunks.
 
 Provider boundary:
 
-- `TuringBotAPI/tutor_provider.py` defines the small async provider contract.
-- Gemini is constructed lazily and only when `GEMINI_API_KEY` is available.
-- If Gemini is unavailable or a generation call fails, the API returns a
-  deterministic factory-themed fallback rather than failing startup or
-  dropping the tutor interaction.
-- The fallback is intended for development/demo continuity; it is not a
-  replacement for evaluating Gemini response quality.
+- Gemini is constructed only when `GEMINI_API_KEY` is available.
+- Embedding model defaults to `models/text-embedding-004`.
+- Fallback is for development/demo continuity, not a substitute for Gemini quality.
 
 ## Logging and Observability
 
@@ -108,29 +64,32 @@ Files:
 
 - `TuringBotAPI/logging_config.py`
 - `TuringBotAPI/main.py`
-- `TuringBotAPI/student_model.py`
 
 Features:
 
 - console logs for runtime diagnostics
 - optional structured JSON-line logs via `AGENT_LOG_PATH`
-- event-level metadata (student_id, level_id, skill_id, latency, event_type, kind)
+- ask-level metadata (student_id, level_id, latency)
 
 ## AI-Agent Safe Invariants (Server)
 
-- `student_id` is the identity key for personalization.
-- Any contract change in request/response payloads must be mirrored in Unity DTOs and serializers.
-- Keep protocol version and kind constants synchronized with client protocol definitions.
-- Maintain graceful handling for unknown/legacy skill IDs when loading persisted data.
-- A live WebSocket must receive a valid handshake before telemetry; subsequent
-  frames must use the same `session_id` and `student_id` as that handshake.
+- Unity `/ask` JSON stays `snake_case` with `student_id`, `level_id`, `question`.
+- `audio_url` remains `null`; do not start hosting clips without a Unity change.
+- Player-facing replies and fallbacks stay pt-BR.
+- Knowledge edits happen in `TuringBotAPI/knowledge/`, not in Python skill tables.
+- Keep `level_id` values aligned with Unity `LevelDefinition.levelId`.
+
+## Deploy (Quave ONE)
+
+Image: `TuringBotAPI/Dockerfile` (context `TuringBotAPI`). Custom Dockerfile preset.
+
+- App port `3000`, HTTP probe `/health`
+- `GEMINI_API_KEY` is a runtime (Deploy) env var, not a build ARG
+- Embedding cache is ephemeral at `/tmp/embeddings.sqlite`
 
 ## Known Gaps
 
-- Session history is retained by design; there is no deletion endpoint in current API.
-- `/session/new` intentionally creates a fresh BKT identity. A future login/resume
-  flow should be added if players must return to a named account.
-- The live channel remains advisory-only; `/ask`, `/hint`, and reactive `/event`
-  comments use the REST path.
-- Provider tests currently verify fallback selection and session isolation; Gemini
-  quality and quota behavior still require an environment with a real API key.
+- No per-student memory, hint escalation, or BKT.
+- No live WebSocket advisory channel.
+- Teleport copy is XR-locomotion generic; confirm against the shipped scene pads/controls.
+- Spoken clips are not generated on the server.

@@ -1,5 +1,5 @@
 // AgentDialogue.cs
-// Voice Ask hub for the main demo line: controller mic -> Wit STT -> /ask -> bubble/TTS.
+// Voice Ask hub for the main demo line: controller mic -> Wit STT -> /ask -> bubble/speech.
 
 using System;
 using System.Collections;
@@ -47,7 +47,7 @@ public class AgentDialogue : MonoBehaviour
 
     private void Start()
     {
-        _bubbleRoot?.SetActive(false);
+        SetActiveIfAssigned(_bubbleRoot, false);
         SetThinkingState(false);
         SetListeningState(false);
         SetPartialTranscription(string.Empty);
@@ -187,7 +187,7 @@ public class AgentDialogue : MonoBehaviour
 
     public void SetThinkingState(bool thinking)
     {
-        _loadingIndicator?.SetActive(thinking);
+        SetActiveIfAssigned(_loadingIndicator, thinking);
         if (thinking)
             OnThinkingStarted?.Invoke();
         else
@@ -197,7 +197,7 @@ public class AgentDialogue : MonoBehaviour
     public void SetListeningState(bool isListening)
     {
         _micToggle = isListening;
-        _micActiveIndicator?.SetActive(isListening);
+        SetActiveIfAssigned(_micActiveIndicator, isListening);
     }
 
     public void SetPartialTranscription(string partial)
@@ -229,7 +229,14 @@ public class AgentDialogue : MonoBehaviour
     private IEnumerator DismissAfterDelay()
     {
         yield return new WaitForSeconds(_autoDismissAfter);
-        _bubbleRoot?.SetActive(false);
+        SetActiveIfAssigned(_bubbleRoot, false);
+    }
+
+    // UnityEngine.Object fake-null is not C# null, so ?. still calls SetActive and throws.
+    private static void SetActiveIfAssigned(GameObject target, bool active)
+    {
+        if (target != null)
+            target.SetActive(active);
     }
 
     private void EnsureBubbleExists()

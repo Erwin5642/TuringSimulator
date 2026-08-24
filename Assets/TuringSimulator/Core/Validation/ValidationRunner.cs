@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Simulation;
 using TuringSimulator.Core.Tape;
+using TuringSimulator.Core.Types;
 
 namespace TuringSimulator.Core.Validation
 {
@@ -48,7 +50,7 @@ namespace TuringSimulator.Core.Validation
             _program = program ?? throw new ArgumentNullException(nameof(program));
         }
 
-        public async Task Start(CancellationToken cancellationToken = default)
+        public Task Start(CancellationToken cancellationToken = default)
         {
             if (_program == null)
                 throw new InvalidOperationException("A program must be set before calling this method.");
@@ -57,15 +59,10 @@ namespace TuringSimulator.Core.Validation
 
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            var tasks = new Task[_tests.Length];
+            for (var i = 0; i < _tests.Length; i++)
+                RunCase(i, _cts.Token);
 
-            for (int i = 0; i < _tests.Length; i++)
-            {
-                int index = i;
-                tasks[index] = RunCase(index, _cts.Token);
-            }
-
-            await Task.WhenAll(tasks);
+            return Task.CompletedTask;
         }
         
         public void Cancel()
@@ -73,13 +70,44 @@ namespace TuringSimulator.Core.Validation
             _cts?.Cancel();
         }
 
-        async Task RunCase(int index, CancellationToken token)
+        void RunCase(int index, CancellationToken token)
         {
             var test = _tests[index];
             var inputTape = new SimulationTape(test.headIndex, test.initialSymbols);
             var expectedTape = new SimulationTape(test.expectedHeadIndex, test.expectedSymbols);
             var runner = new SimulationRunner(new SimulationBuffer());
-            var result = await runner.Run(new SimulationRunRequest(_program, inputTape), token);
+
+            SimulationRunResult result = default;
+            var completed = false;
+            var routine = runner.Run(
+                new SimulationRunRequest(_program, inputTape),
+                r =>
+                {
+                    result = r;
+                    completed = true;
+                },
+                token);
+
+            // Validation runs to completion on the caller thread (no frame yields needed).
+            while (routine.MoveNext())
+            {
+                if (token.IsCancellationRequested)
+                {
+                    runner.Cancel();
+                    break;
+                }
+            }
+
+            if (!completed)
+            {
+                _results[index] = false;
+                _validationResults[index].ActualStatus = HaltStatus.Aborted;
+                _validationResults[index].ActualTape = inputTape;
+                _validationResults[index].Passed = false;
+                _validationResults[index].Error = "Validation case did not complete.";
+                return;
+            }
+
             var passed = result.HaltStatus == test.expectedStatus &&
                          result.FinalTape.HeadIndex == test.expectedHeadIndex &&
                          result.FinalTape.StructuralEquals(expectedTape.Snapshot());

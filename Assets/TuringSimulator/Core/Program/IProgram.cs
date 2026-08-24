@@ -14,6 +14,9 @@ namespace TuringSimulator.Core.Program
 
         IReadOnlyCollection<int> FinalStates { get; }
 
+        /// <summary>Number of defined (state, read-symbol) → transition entries.</summary>
+        int TransitionCount { get; }
+
         bool IsFinalState(int state);
 
         /// <summary>

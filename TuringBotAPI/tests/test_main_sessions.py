@@ -1,48 +1,60 @@
-import asyncio
+from fastapi.testclient import TestClient
 
-import student_model
-from main import (
-    EventRequest,
-    get_state,
-    handle_event,
-    health,
-    new_session,
-)
+from main import app
 
 
-def test_health_reports_tutor_provider():
-    response = asyncio.run(health())
+def test_health_reports_fallback_and_documents():
+    with TestClient(app) as client:
+        response = client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["tutor_provider"] == "fallback"
+    assert body["documents"] >= 20
 
-    assert response["status"] == "ok"
-    assert response["tutor_provider"] in {"fallback", "gemini"}
+
+def test_session_new_returns_unique_ids():
+    with TestClient(app) as client:
+        first = client.post("/session/new").json()["student_id"]
+        second = client.post("/session/new").json()["student_id"]
+    assert first.startswith("student_")
+    assert second.startswith("student_")
+    assert first != second
 
 
-def test_sequential_sessions_isolate_event_evidence(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        student_model,
-        "_STATE_PATH",
-        tmp_path / "student_state.json",
-    )
-    student_model.STUDENT_MODEL._store.clear()
-
-    player_a = asyncio.run(new_session()).student_id
-    player_b = asyncio.run(new_session()).student_id
-
-    asyncio.run(
-        handle_event(
-            EventRequest(
-                student_id=player_a,
-                level_id="MoveLeftRight",
-                event_type="program_run",
-                correct=True,
-                skill_ids=["S3.1"],
-            )
+def test_ask_offline_returns_ptbr_reply_and_null_audio():
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "student_id": "student_test",
+                "level_id": "MoveLeftRight",
+                "question": "Como eu falo com o tutor?",
+            },
         )
-    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["audio_url"] is None
+    assert body["reply"]
+    lowered = body["reply"].lower()
+    assert "shaka" in lowered or "mão direita" in lowered or "radio" in lowered or "rádio" in lowered
 
-    state_a = asyncio.run(get_state(player_a))
-    state_b = asyncio.run(get_state(player_b))
 
-    assert player_a != player_b
-    assert state_a.knowledge_state["S3.1"] > 0.30
-    assert state_b.knowledge_state == {}
+def test_ask_rejects_empty_question():
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "student_id": "student_test",
+                "level_id": "MoveLeftRight",
+                "question": "   ",
+            },
+        )
+    assert response.status_code == 422
+
+
+def test_removed_endpoints_are_gone():
+    with TestClient(app) as client:
+        assert client.post("/event", json={}).status_code == 404
+        assert client.post("/hint", json={}).status_code == 404
+        assert client.get("/state/student_x").status_code == 404

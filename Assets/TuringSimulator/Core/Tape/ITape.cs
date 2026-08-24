@@ -12,5 +12,6 @@ namespace TuringSimulator.Core.Tape
         Symbol Read();
         void Write(Symbol symbol);
         void Move(MoveDirection direction);
+        TapeSnapshot Snapshot();
     }
 }

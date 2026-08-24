@@ -11,9 +11,8 @@ This guide is for agents making changes in this repository.
 
 ## Contract-Sensitive Areas
 
-- `student_id`, `level_id`, `skill_ids` payload semantics
+- `student_id`, `level_id` payload semantics on `/ask`
 - REST JSON naming (`snake_case`) and Newtonsoft settings on Unity side
-- WebSocket live protocol version/kinds and payload DTOs
 
 Primary files:
 
@@ -24,15 +23,15 @@ Primary files:
   - `Assets/TuringSimulator/ITS/LiveTutorSocket.cs`
 - Server:
   - `TuringBotAPI/main.py`
-  - `TuringBotAPI/protocol/live_v1.py`
-  - `TuringBotAPI/student_model.py`
-  - `TuringBotAPI/orchestrator.py`
+  - `TuringBotAPI/agent.py`
+  - `TuringBotAPI/rag/store.py`
+  - `TuringBotAPI/knowledge/`
 
 ## Common Pitfalls
 
 - Updating server endpoints but not Unity callers.
-- Changing level IDs in Unity assets without updating server level metadata/hints/concepts.
-- Breaking `SkillTracker` mappings without adjusting server concept map assumptions.
+- Changing level IDs in Unity assets without updating `TuringBotAPI/knowledge/goals/` docs.
+- Breaking `SkillTracker` session/level fields used on `/ask` payloads.
 - Assuming menu/session lifecycle exists in current runtime flow.
 - Adding hidden runtime discovery when an Inspector-visible scene binding would
   make the system easier to understand and debug.
@@ -41,11 +40,9 @@ Primary files:
 
 - For ITS changes:
   - validate `/health`
-  - smoke-check `/event`, `/ask`, `/hint`
+  - smoke-check `/ask` and `/session/new`
+  - run `pytest` in `TuringBotAPI/tests/`
   - ensure no serialization regressions on Unity side
-- For protocol changes:
-  - verify both client and server protocol constants and payload DTOs
-  - run/update protocol tests in `TuringBotAPI/tests/`
 - For scene/content changes:
   - validate `BasicScene` with `MvpSceneWiringValidator`
   - inspect the hierarchy and serialized references in the Unity Editor

@@ -10,21 +10,26 @@ namespace TuringSimulator.GameFlow
 
         public event Action<GameState, GameState> OnStateChanged;
 
-        public bool CanTransitionTo(GameState next)
+        public static bool IsAllowed(GameState from, GameState to)
         {
-            var result = CurrentState switch
+            return from switch
             {
-                GameState.Menu => next == GameState.Loading,
-                GameState.Loading => next is GameState.Editing or GameState.Menu,
-                GameState.Editing => next is GameState.Running or GameState.Menu,
-                GameState.Running => next is GameState.Halted,
-                GameState.Halted => next is GameState.Validating or GameState.Menu,
-                GameState.Validating => next is GameState.Victory or GameState.Defeat,
-                GameState.Victory => next is GameState.Loading or GameState.Menu,
-                GameState.Defeat => next is GameState.Debugging or GameState.Loading or GameState.Menu,
-                GameState.Debugging => next is GameState.Loading or GameState.Menu,
+                GameState.Menu => to == GameState.Loading,
+                GameState.Loading => to is GameState.Editing or GameState.Menu,
+                GameState.Editing => to is GameState.Running or GameState.Menu,
+                GameState.Running => to is GameState.Halted or GameState.Editing,
+                GameState.Halted => to is GameState.Validating or GameState.Menu,
+                GameState.Validating => to is GameState.Victory or GameState.Defeat,
+                GameState.Victory => to is GameState.Loading or GameState.Menu,
+                GameState.Defeat => to is GameState.Editing or GameState.Debugging or GameState.Loading or GameState.Menu,
+                GameState.Debugging => to is GameState.Editing or GameState.Loading or GameState.Menu,
                 _ => false
             };
+        }
+
+        public bool CanTransitionTo(GameState next)
+        {
+            var result = IsAllowed(CurrentState, next);
             if (!result) Debug.Log($"[GSM] Cannot transition from {CurrentState} to {next} state.");
             
             return result;

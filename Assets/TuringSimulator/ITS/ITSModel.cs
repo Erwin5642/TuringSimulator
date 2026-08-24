@@ -16,6 +16,7 @@ namespace ITS
     public class AskResponseDto
     {
         public string Reply { get; set; }
+        public string AudioUrl { get; set; }
     }
 
     [Serializable]

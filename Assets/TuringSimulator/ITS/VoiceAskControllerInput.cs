@@ -66,7 +66,6 @@ public class VoiceAskControllerInput : MonoBehaviour
             EventContextFactory.Create(nameof(VoiceAskControllerInput), "controller-mic-toggle"));
         if (_micToggleRequestedChannel != null)
         {
-            EventTraceLog.Record(nameof(MicToggleRequestedEventData), eventData.ToString(), this);
             _micToggleRequestedChannel.Raise(eventData, this);
             return;
         }

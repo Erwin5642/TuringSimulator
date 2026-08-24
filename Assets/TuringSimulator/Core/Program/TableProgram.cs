@@ -13,6 +13,7 @@ namespace TuringSimulator.Core.Program
 
         public IReadOnlyCollection<int> States => _states;
         public IReadOnlyCollection<int> FinalStates => _finalStates;
+        public int TransitionCount => _transitions.Count;
 
         internal TableProgram(
             int startState,

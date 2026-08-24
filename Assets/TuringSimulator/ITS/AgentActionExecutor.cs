@@ -2,7 +2,7 @@ using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
 /// <summary>
-/// Executes agent actions by driving dialogue/TTS endpoints.
+/// Executes agent actions by driving dialogue and speech playback.
 /// </summary>
 public sealed class AgentActionExecutor : MonoBehaviour
 {
@@ -35,6 +35,6 @@ public sealed class AgentActionExecutor : MonoBehaviour
 
         if (dialogue != null)
             dialogue.ShowSubtitle(eventData.Text);
-        tts?.Speak(eventData.Text);
+        tts?.Speak(eventData.Text, eventData.AudioUrl);
     }
 }

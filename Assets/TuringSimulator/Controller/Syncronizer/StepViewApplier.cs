@@ -11,6 +11,7 @@ namespace TuringSimulator.Controller.Syncronizer
         public int CurrentStepIndex { get; private set; }
         public int TotalSteps => _steps.Count;
         private bool _isBusy;
+        private int _generation;
 
         private readonly List<StepResult> _steps = new();
         private readonly IMachineView _view;
@@ -24,6 +25,7 @@ namespace TuringSimulator.Controller.Syncronizer
             if (_isBusy) return null;
             _isBusy = true;
             Debug.Log("[StepApplier] Trying to step");
+            var generation = _generation;
             try
             {
                 if (CurrentStepIndex < 0 || CurrentStepIndex >= _steps.Count)
@@ -37,6 +39,9 @@ namespace TuringSimulator.Controller.Syncronizer
                 Debug.Log("[StepApplier] Waiting for view");
                 
                 await _view.UpdateStepForward(step);
+
+                if (generation != _generation)
+                    return null;
 
                 Debug.Log($"[StepApplier] Step applied: {step}");
                 
@@ -56,6 +61,7 @@ namespace TuringSimulator.Controller.Syncronizer
             if (_isBusy) return null;
             _isBusy = true;
             Debug.Log("[StepApplier] Trying to step");
+            var generation = _generation;
 
             try
             {
@@ -66,29 +72,35 @@ namespace TuringSimulator.Controller.Syncronizer
                     return null;
                 }
 
-                CurrentStepIndex = targetStepIndex;
                 var step = _steps[targetStepIndex];
                 
                 Debug.Log("[StepApplier] Waiting for view");
                 await _view.UpdateStepBackward(step.Inverse());
+
+                if (generation != _generation)
+                    return null;
+
+                CurrentStepIndex = targetStepIndex;
                 Debug.Log($"[StepApplier] Step applied: {step.Inverse()}");
                 return step;
             }
             finally
             {
-                _isBusy = false;  
+                _isBusy = false;
                 Debug.Log("[StepApplier] Step updated");
             }
         }
 
         public void Reset()
         {
+            _generation++;
             CurrentStepIndex = 0;
             _steps.Clear();
         }
 
         public void LoadSteps(IReadOnlyList<StepResult> steps)
         {
+            _generation++;
             _steps.Clear();
             if (steps != null)
             {
@@ -97,6 +109,11 @@ namespace TuringSimulator.Controller.Syncronizer
             }
 
             CurrentStepIndex = 0;
+        }
+
+        public void AppendStep(StepResult step)
+        {
+            _steps.Add(step);
         }
     }
 }

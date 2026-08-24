@@ -11,6 +11,7 @@ namespace TuringSimulator.Controller.Syncronizer
         Task<StepResult?> TryStepForward();
         Task<StepResult?> TryStepBackward();
         void LoadSteps(IReadOnlyList<StepResult> steps);
+        void AppendStep(StepResult step);
 
         void Reset();
     }

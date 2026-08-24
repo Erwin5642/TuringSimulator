@@ -6,7 +6,10 @@
         "UnityEditor.TestRunner",
         "TuringSimulator.Core",
         "GUID:cbfd5ab04ba58ca42918461a564647fc",
+        "TuringSimulator.GameFlow.Events",
+        "TuringSimulator.GameFlow",
         "TuringSimulator.ITS",
+        "TuringSimulator.View",
         "Newtonsoft.Json"
     ],
     "includePlatforms": [
