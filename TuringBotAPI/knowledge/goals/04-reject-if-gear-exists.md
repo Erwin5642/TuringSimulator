@@ -7,8 +7,8 @@ level_id: RejectIfGearExists
 
 Título na fábrica: Detectar Engrenagem.
 
-Objetivo: se encontrar qualquer Engrenagem, vá ao módulo Rejeitar. Se chegar ao branco sem encontrar Engrenagem, vá ao módulo Aceitar.
+Objetivo: se encontrar qualquer Engrenagem, vá ao módulo Rejeitar. Se chegar ao vazio sem encontrar Engrenagem, vá ao módulo Aceitar.
 
-Blocos deste nível: movimento, condição, aceitar e rejeitar.
+Circuitos deste nível: movimento, condição, aceitar e rejeitar.
 
-O que conta como feito: uma engrenagem em qualquer posição falha o lote na hora; fita só com outras peças até o branco passa. A engrenagem pode não estar na primeira célula — o robô precisa varrer a esteira.
+O que conta como feito: uma engrenagem em qualquer posição falha a entrada na hora; fita só com outros materiais até o vazio passa. A engrenagem pode não estar na primeira posição na esteira — o circuito precisa varrer a esteira inteira.

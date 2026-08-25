@@ -1,14 +1,14 @@
 ---
 id: objects-cards
 category: objects
-title: Cartões de símbolo e de direção
+title: Cartões de material e de direção
 level_id:
 ---
 
-Cartões configuram os blocos. Eles vêm da gaveta de cartões, não da gaveta de blocos.
+Cartões configuram os circuitos. Eles vêm da gaveta de cartões, não da gaveta de circuitos.
 
-Cartão de símbolo: encaixa no bloco de escrita (o que carimbar) e no bloco de condição (o que comparar). Peças: engrenagem, porca, parafuso, branco.
+Cartão de material: encaixa no bloco de materiais (qual material colocar/remover) e no bloco de condição (o que comparar). Peças: engrenagem, porca, parafuso e vazio.
 
 Cartão de direção: encaixa no bloco de movimento. Esquerda ou direita. Um bloco, um passo, uma direção.
 
-Sem o cartão certo, o bloco fica incompleto e o circuito não faz o que você espera. Não dá para usar um cartão de direção no encaixe de símbolo.
+Sem o cartão certo, o bloco fica incompleto e o circuito não faz o que você espera. Não dá para usar um cartão de direção no encaixe de material.

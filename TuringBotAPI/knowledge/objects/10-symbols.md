@@ -1,17 +1,17 @@
 ---
 id: objects-symbols
 category: objects
-title: Símbolos da fábrica
+title: Materiais da fábrica
 level_id:
 ---
 
-As peças da esteira são os símbolos da fita:
+As peças da esteira são os materiais da fita:
 
 - Engrenagem
 - Porca
 - Parafuso
-- Branco (slot vazio, fim da fita)
+- Vazio (slot sem peça da entrada)
 
-O robô não “adivinha” a peça: só o bloco de condição inspeciona. O bloco de escrita troca a peça atual por uma dessas quatro.
+O braço mecânico não “adivinha” a peça: quem inspeciona é o bloco de condição. O bloco de materiais troca a peça atual por um desses quatro materiais.
 
-Branco é o terminador. Em vários níveis você percorre a fita até achar branco para parar o loop ou decidir aceitar.
+Vazio é a referência de fim da entrada. Em vários níveis você percorre a fita até encontrar vazio para encerrar loop ou decidir aceitar.

@@ -1,14 +1,14 @@
 ---
 id: goals-place-gear
 category: goals
-title: Nível Escrever Engrenagem
+title: Nível Posicionar Engrenagem
 level_id: PlaceGear
 ---
 
-Título na fábrica: Escrever Engrenagem.
+Título na fábrica: Posicionar Engrenagem.
 
-Objetivo: use movimento e escrita. Três vezes seguidas, mova o cabeçote para a direita e escreva uma Engrenagem.
+Objetivo: use movimento e manipulação de materiais. Três vezes seguidas, mova o cabeçote para a direita e coloque uma Engrenagem.
 
-Blocos deste nível: movimento e escrita.
+Circuitos deste nível: movimento e manipulação de materiais.
 
-O que conta como feito: nas três células à direita do início, o robô carimba engrenagem. Posicione primeiro, escreva depois — a escrita acontece na célula onde o robô está parado.
+O que conta como feito: nas três posições na esteira à direita do início, o circuito posiciona engrenagem. Posicione primeiro, depois ajuste o material — a alteração acontece na posição atual da esteira.

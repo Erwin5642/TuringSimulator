@@ -11,7 +11,7 @@ from tutor_provider import TutorProvider, TutorProviderUnavailable
 _LOG = logging.getLogger("agent")
 
 MAX_TOOL_ROUNDS = 3
-PERSONA_NAME_DEFAULT = "MarquinhosDoGrau"
+PERSONA_NAME_DEFAULT = "Claudio"
 
 SEARCH_DOCS_TOOL: dict[str, Any] = {
     "function_declarations": [

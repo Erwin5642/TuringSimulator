@@ -1,14 +1,14 @@
 ---
 id: objects-drawers
 category: objects
-title: Gaveta de blocos e gaveta de cartões
+title: Gaveta de circuitos e gaveta de cartões
 level_id:
 ---
 
 Há duas gavetas de peças:
 
-Gaveta de blocos: de lá saem os cinco tipos de bloco de programação — mover, escrever, condição, aceitar e rejeitar. Pegue um bloco e solte na grade da bancada.
+Gaveta de circuitos: de lá saem os cinco tipos de circuitos de programação — mover, manipular materiais, condição, aceitar e rejeitar. Pegue um circuito e solte na grade da bancada.
 
-Gaveta de cartões: de lá saem cartões de símbolo (engrenagem, porca, parafuso, branco) e cartões de direção (esquerda, direita). Encaixe o cartão no bloco que precisa de configuração.
+Gaveta de cartões: de lá saem cartões de material (engrenagem, porca, parafuso, vazio) e cartões de direção (esquerda, direita). Ela fica no braço esquerdo do jogador. Encaixe o cartão no bloco que precisa de configuração.
 
-Os blocos definem o que o robô faz. Os cartões definem o detalhe: para onde mover, o que escrever, o que a condição compara.
+Os circuitos definem o comportamento da lógica. Os cartões definem o detalhe: para onde mover a esteira, qual material colocar/remover e o que a condição compara.

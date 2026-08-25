@@ -12,4 +12,4 @@ O painel da máquina tem os botões de simulação, em texto no mundo:
 - Pausar: segura a reprodução para olhar o passo atual.
 - Rodar: continua depois da pausa.
 
-Esses botões não são blocos da bancada. Apertá-los não escreve na fita. Primeiro monte e ligue o circuito; depois use Começar.
+Esses botões não são circuitos da bancada. Apertá-los não coloca nem remove materiais da fita. Primeiro monte e ligue o circuito; depois use Começar.
