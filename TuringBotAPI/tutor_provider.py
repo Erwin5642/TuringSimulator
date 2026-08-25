@@ -10,6 +10,9 @@ from rag.embeddings import NullEmbedder
 
 _LOG = logging.getLogger("tutor_provider")
 
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_EMBED_MODEL = "models/gemini-embedding-001"
+
 ExecuteTool = Callable[[str, dict[str, Any]], dict[str, Any]]
 
 
@@ -63,7 +66,7 @@ class GeminiTutorProvider:
         api_key: str,
         model_name: str,
         tools: Optional[list[dict[str, Any]]] = None,
-        embed_model: str = "models/text-embedding-004",
+        embed_model: str = DEFAULT_GEMINI_EMBED_MODEL,
     ) -> None:
         if not api_key.strip():
             raise TutorProviderUnavailable("GEMINI_API_KEY is empty.")
@@ -166,9 +169,9 @@ def build_tutor_provider(
     try:
         return GeminiTutorProvider(
             api_key=os.getenv("GEMINI_API_KEY", ""),
-            model_name=os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+            model_name=os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
             tools=tools,
-            embed_model=os.getenv("GEMINI_EMBED_MODEL", "models/text-embedding-004"),
+            embed_model=os.getenv("GEMINI_EMBED_MODEL", DEFAULT_GEMINI_EMBED_MODEL),
         )
     except TutorProviderUnavailable:
         return FallbackTutorProvider()

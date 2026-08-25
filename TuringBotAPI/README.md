@@ -18,6 +18,8 @@ pytest tests/ -q
 
 cp .env.example .env
 # Edit .env: set GEMINI_API_KEY (https://aistudio.google.com/app/apikey)
+# Defaults: GEMINI_MODEL=gemini-2.5-flash
+#           GEMINI_EMBED_MODEL=models/gemini-embedding-001
 
 uvicorn main:app --reload --port 8000
 ```
@@ -36,7 +38,7 @@ Dashboard settings:
 - **Context directory:** `TuringBotAPI`
 - **Port:** `3000` (must match `PORT` in the image)
 - **HTTP probes:** enable, path `/health`
-- **Runtime env vars (Deploy, not Build):** `GEMINI_API_KEY`, optional `GEMINI_MODEL`, `AGENT_NAME`
+- **Runtime env vars (Deploy, not Build):** `GEMINI_API_KEY`, optional `GEMINI_MODEL` (`gemini-2.5-flash`), `GEMINI_EMBED_MODEL` (`models/gemini-embedding-001`), `AGENT_NAME`
 
 Do not bake the Gemini key into the image. Embedding cache writes to `/tmp/embeddings.sqlite` (ephemeral; rebuilt on restart).
 

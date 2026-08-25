@@ -55,7 +55,7 @@ Agent:
 Provider boundary:
 
 - Gemini is constructed only when `GEMINI_API_KEY` is available.
-- Embedding model defaults to `models/text-embedding-004`.
+- Chat model defaults to `gemini-2.5-flash`; embedding model defaults to `models/gemini-embedding-001`.
 - Fallback is for development/demo continuity, not a substitute for Gemini quality.
 
 ## Logging and Observability
