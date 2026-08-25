@@ -21,7 +21,7 @@ High-level flow:
 
 1. Unity boots `BasicScene` and initializes game systems from `TuringBootstrap`.
 2. Player edits/runs a visual Turing program in the Unity scene.
-3. Unity sends session + question traffic to ITS REST endpoints (`/session/new`, `/ask`, `/health`) and receives tutoring responses (`reply` plus optional `audio_url`). Tutor speech is synthesized in Unity with Wit.ai TTS.
+3. Unity sends session + question traffic to ITS REST endpoints (`/session/new`, `/ask`, `/health`) and receives tutoring responses (`reply`). Tutor speech is synthesized in Unity with Wit.ai TTS.
 4. Server searches the knowledge corpus (boosted by `level_id`) and returns a pt-BR tutor reply.
 
 ## Canonical Entry Points

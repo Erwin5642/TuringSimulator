@@ -77,12 +77,11 @@ Student asks the tutor a free-form question (voice STT in Unity).
 **Response:**
 ```json
 {
-  "reply": "Segura o Shaka na mão direita para falar comigo, trainee.",
-  "audio_url": null
+  "reply": "Segura o Shaka na mão direita para falar comigo, trainee."
 }
 ```
 
-`audio_url` is always `null`. Unity synthesizes tutor speech with Wit.ai TTS.
+Unity synthesizes tutor speech with Wit.ai TTS.
 
 The tutor may call `search_docs` up to three times against `knowledge/**/*.md`
 before answering.

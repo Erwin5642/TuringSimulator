@@ -104,8 +104,7 @@ public sealed class AgentActionMapper : MonoBehaviour
 
         var context = TryResolveContext(payload)
             ?? EventContextFactory.Create(nameof(AgentActionMapper), $"rule-{ruleIndex}");
-        TryReadMemberString(payload, "AudioUrl", out var audioUrl);
-        PublishAction(context, text, rule.Animation, audioUrl);
+        PublishAction(context, text, rule.Animation);
     }
 
     bool MatchesFilter(EventActionRule rule, object payload)
@@ -185,13 +184,12 @@ public sealed class AgentActionMapper : MonoBehaviour
     void PublishAction(
         EventContextData context,
         string text,
-        AgentAnimationKind animation,
-        string audioUrl)
+        AgentAnimationKind animation)
     {
         if (_agentActionChannel == null)
             return;
 
-        var payload = new AgentActionRequestedEventData(context, text, animation, audioUrl);
+        var payload = new AgentActionRequestedEventData(context, text, animation);
         _agentActionChannel.Raise(payload, this);
     }
 }

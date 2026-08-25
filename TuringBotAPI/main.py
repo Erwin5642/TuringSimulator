@@ -15,7 +15,6 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -87,7 +86,6 @@ class AskRequest(BaseModel):
 
 class AskResponse(BaseModel):
     reply: str
-    audio_url: Optional[str] = None
 
 
 class SessionNewResponse(BaseModel):
@@ -117,7 +115,7 @@ async def handle_ask(req: AskRequest) -> AskResponse:
             "level_id": req.level_id,
         },
     )
-    return AskResponse(reply=reply, audio_url=None)
+    return AskResponse(reply=reply)
 
 
 @app.post("/session/new", response_model=SessionNewResponse)

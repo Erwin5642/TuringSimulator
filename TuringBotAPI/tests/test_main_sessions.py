@@ -22,7 +22,7 @@ def test_session_new_returns_unique_ids():
     assert first != second
 
 
-def test_ask_offline_returns_ptbr_reply_and_null_audio():
+def test_ask_offline_returns_ptbr_reply():
     with TestClient(app) as client:
         response = client.post(
             "/ask",
@@ -34,7 +34,7 @@ def test_ask_offline_returns_ptbr_reply_and_null_audio():
         )
     assert response.status_code == 200
     body = response.json()
-    assert body["audio_url"] is None
+    assert "audio_url" not in body
     assert body["reply"]
     lowered = body["reply"].lower()
     assert "shaka" in lowered or "mão direita" in lowered or "radio" in lowered or "rádio" in lowered

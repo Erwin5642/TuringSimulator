@@ -18,7 +18,7 @@ Unity's main demo line uses only these three endpoints.
 - `POST /ask`
   - free-form question with `student_id`, `level_id`, `question`
   - agentic RAG: Gemini may call `search_docs` up to three times, then answers
-  - response includes `audio_url` (always `null`; Unity synthesizes speech with Wit TTS)
+  - response is `{reply}`; Unity synthesizes speech with Wit TTS
 - `POST /session/new`
   - allocates a fresh `student_id` (`student_{uuid}`)
   - no BKT or per-student memory is stored
@@ -74,7 +74,7 @@ Features:
 ## AI-Agent Safe Invariants (Server)
 
 - Unity `/ask` JSON stays `snake_case` with `student_id`, `level_id`, `question`.
-- `audio_url` remains `null`; do not start hosting clips without a Unity change.
+- `/ask` returns `reply` only; Unity synthesizes tutor speech with Wit TTS.
 - Player-facing replies and fallbacks stay pt-BR.
 - Knowledge edits happen in `TuringBotAPI/knowledge/`, not in Python skill tables.
 - Keep `level_id` values aligned with Unity `LevelDefinition.levelId`.

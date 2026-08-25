@@ -159,7 +159,7 @@ Main files:
 ### REST (`ITSClient`)
 
 - `/session/new`: allocates a fresh student session id for each new run
-- `/ask`: free-form question (from voice transcription pipeline). Reply JSON includes optional `audio_url` (MVP: always omitted/null; Unity synthesizes speech with Wit TTS and ignores the URL).
+- `/ask`: free-form question (from voice transcription pipeline). Reply JSON is `{reply}`. Unity synthesizes speech with Wit TTS.
 - health check via `/health`
 
 File: `Assets/TuringSimulator/ITS/ITSClient.cs`
@@ -186,7 +186,7 @@ Voice and tutoring path is channel-based:
 - When Wit stops capturing before that commit, `VoiceCaptureStopped` plays a short cue (`Button Pop.wav`) and shows `O microfone parou de ouvir.`
 - Ask lifecycle -> `AskRequested`, `AskResult`, `ThinkingStateChanged`
 - If `/ask` cannot be posted (`ITSClient` missing or server down), `TranscriptionAskFallbackListener` raises a successful `AskResult` whose `Reply` is the STT text, so the tutor repeats exactly what was heard via `AgentTTS` / `tts_witconfig`
-- Agent reaction tuple -> `AgentActionRequestedEventData` (`text`, `animation`, optional `audioUrl`)
+- Agent reaction tuple -> `AgentActionRequestedEventData` (`text`, `animation`)
 
 Main files:
 
@@ -211,10 +211,9 @@ Tutor subtitles stay pt-BR. Spoken audio uses the English `turing_tts` voice unt
 
 ### Agent speech (`AgentTTS` implements `IAgentSpeech`)
 
-Tutor lines are synthesized on-device by Wit.ai TTS (Voice SDK). `AgentTTS.Speak(text, audioUrl)`:
+Tutor lines are synthesized on-device by Wit.ai TTS (Voice SDK). `AgentTTS.Speak(text)`:
 
 - Sends `text` to the scene `TTSSpeaker` (`Speak`, interrupting any current line).
-- Ignores `audioUrl` (ITS still may send `audio_url: null`).
 - Raises `OnSpeechStarted` immediately so subtitles stay up during download, then `OnSpeechFinished` when Wit playback (including split phrases) is idle.
 - On load failure or timeout, raises `OnSpeechError` and still finishes so animation does not hang.
 

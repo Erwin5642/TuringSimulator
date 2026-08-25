@@ -370,26 +370,23 @@ namespace TuringSimulator.GameFlow.Events
             EventContextData context,
             bool success,
             string reply,
-            string error,
-            string audioUrl = null)
+            string error)
         {
             Context = context;
             Success = success;
             Reply = reply ?? string.Empty;
             Error = error ?? string.Empty;
-            AudioUrl = audioUrl ?? string.Empty;
         }
 
         public EventContextData Context { get; }
         public bool Success { get; }
         public string Reply { get; }
         public string Error { get; }
-        public string AudioUrl { get; }
 
         public override string ToString()
         {
             return Success
-                ? $"success reply=\"{Reply}\" audio=\"{AudioUrl}\" ctx={Context}"
+                ? $"success reply=\"{Reply}\" ctx={Context}"
                 : $"failure error=\"{Error}\" ctx={Context}";
         }
     }
@@ -422,21 +419,18 @@ namespace TuringSimulator.GameFlow.Events
         public AgentActionRequestedEventData(
             EventContextData context,
             string text,
-            AgentAnimationKind animation,
-            string audioUrl = null)
+            AgentAnimationKind animation)
         {
             Context = context;
             Text = text ?? string.Empty;
             Animation = animation;
-            AudioUrl = audioUrl ?? string.Empty;
         }
 
         public EventContextData Context { get; }
         public string Text { get; }
         public AgentAnimationKind Animation { get; }
-        public string AudioUrl { get; }
 
         public override string ToString() =>
-            $"animation={Animation} text=\"{Text}\" audio=\"{AudioUrl}\" ctx={Context}";
+            $"animation={Animation} text=\"{Text}\" ctx={Context}";
     }
 }

@@ -35,6 +35,6 @@ public sealed class AgentActionExecutor : MonoBehaviour
 
         if (dialogue != null)
             dialogue.ShowSubtitle(eventData.Text);
-        tts?.Speak(eventData.Text, eventData.AudioUrl);
+        tts?.Speak(eventData.Text);
     }
 }

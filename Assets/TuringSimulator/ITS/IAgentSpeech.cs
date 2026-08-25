@@ -12,8 +12,7 @@ public interface IAgentSpeech
     event Action<string> OnSpeechError;
 
     /// <param name="text">Spoken/subtitle text sent to Wit TTS.</param>
-    /// <param name="audioUrl">Ignored. Kept so event payloads can still carry a URL.</param>
-    void Speak(string text, string audioUrl = null);
+    void Speak(string text);
 
     void Stop();
 }

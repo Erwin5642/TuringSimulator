@@ -402,7 +402,7 @@ Assign in Inspector:
 
 Wiring:
 
-- Used by `AgentActionExecutor` (`Speak(text, audioUrl)`; URL is ignored)
+- Used by `AgentActionExecutor` (`Speak(text)`)
 - `AgentAnimator` listens to `OnSpeechFinished`
 - `VoiceDebugHotkeys` on the same object: **L** sample TTS, **T** STT overlay
 

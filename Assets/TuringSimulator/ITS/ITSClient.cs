@@ -149,8 +149,7 @@ public class ITSClient : MonoBehaviour, IAskClient
             _pendingAskCorrelationId,
             success: true,
             reply: reply,
-            error: string.Empty,
-            audioUrl: ResolveAudioUrl(dto?.AudioUrl));
+            error: string.Empty);
         _pendingAskCorrelationId = string.Empty;
     }
 
@@ -268,8 +267,7 @@ public class ITSClient : MonoBehaviour, IAskClient
         string correlationId,
         bool success,
         string reply,
-        string error,
-        string audioUrl = null)
+        string error)
     {
         if (_askResultChannel == null)
             return;
@@ -278,8 +276,7 @@ public class ITSClient : MonoBehaviour, IAskClient
             EventContextFactory.Create(nameof(ITSClient), correlationId),
             success,
             reply,
-            error,
-            audioUrl);
+            error);
         _askResultChannel.Raise(payload, this);
     }
 
@@ -309,23 +306,6 @@ public class ITSClient : MonoBehaviour, IAskClient
         PublishThinkingState(correlationId, false);
         PublishAskResult(correlationId, success: false, reply: string.Empty, error: userFacingMessage);
         _pendingAskCorrelationId = string.Empty;
-    }
-
-    string ResolveAudioUrl(string audioUrl)
-    {
-        if (string.IsNullOrWhiteSpace(audioUrl))
-            return string.Empty;
-
-        var trimmed = audioUrl.Trim();
-        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-            trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            return trimmed;
-
-        var root = (_baseUrl ?? string.Empty).TrimEnd('/');
-        if (string.IsNullOrEmpty(root))
-            return trimmed;
-
-        return $"{root}/{trimmed.TrimStart('/')}";
     }
 
     static string BuildCorrelationId(string prefix) =>

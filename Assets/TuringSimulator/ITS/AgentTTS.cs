@@ -73,13 +73,10 @@ public class AgentTTS : MonoBehaviour, IAgentSpeech
             Instance = null;
     }
 
-    public void Speak(string text, string audioUrl = null)
+    public void Speak(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return;
-
-        if (!string.IsNullOrWhiteSpace(audioUrl))
-            Debug.Log("[AgentTTS] Ignoring audioUrl; speech uses Wit TTS.");
 
         if (_ttsSpeaker == null)
         {
