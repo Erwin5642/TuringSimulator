@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a1c4e7b90d2f4e6a8b1c3d5e7f9024a6
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - _handGestureChannel: {fileID: 11400000, guid: e6e9bf24434810403bd27f9e9c672fe8, type: 2}
+  - _partialTranscriptionChannel: {fileID: 11400000, guid: d97d58bd65b62b7a9afdbdd97705fb82, type: 2}
+  - _voiceCaptureStoppedChannel: {fileID: 11400000, guid: 8d2f0b5c3e69507f9b1d4c6e8a02f315, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

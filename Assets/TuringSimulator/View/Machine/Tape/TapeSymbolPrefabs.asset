@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d5b2f9c3e0a5b7f0c4d6e8f2a1b3c5d, type: 3}
+  m_Name: TapeSymbolPrefabs
+  m_EditorClassIdentifier: TuringSimulator.View.Machine.Tape::TuringSimulator.View.Machine.Tape.TapeSymbolPrefabs
+  gearPrefab: {fileID: 3346483546115874438, guid: 9ecdbca317705cd4fbeeb13d5b98a9e5, type: 3}
+  boltPrefab: {fileID: 5507147035711754360, guid: d2c16246726d47a4cad4574053d26cec, type: 3}
+  nutPrefab: {fileID: 106444693419718843, guid: b20351829bac9db44a851afe3e1dc03d, type: 3}
+  markPrefab: {fileID: 0}
