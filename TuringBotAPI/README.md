@@ -28,6 +28,28 @@ The interactive API docs are at **http://localhost:8000/docs**
 
 ---
 
+## Web tester (contrato da Unity)
+
+Há uma interface web simples em `web-tester/index.html` para testar no navegador
+o mesmo fluxo do cliente Unity:
+
+- `GET /health`
+- `POST /session/new` (com fallback local de `student_id`)
+- `POST /ask` com `student_id`, `level_id`, `question`
+
+Para abrir no navegador:
+
+```bash
+cd TuringBotAPI
+python3 -m http.server 8080
+```
+
+Depois acesse:
+
+- [http://localhost:8080/web-tester/index.html](http://localhost:8080/web-tester/index.html)
+
+---
+
 ## Deploy on Quave ONE
 
 Use the **Custom Dockerfile** preset. This repo is a Unity monorepo; the API lives in `TuringBotAPI/`.

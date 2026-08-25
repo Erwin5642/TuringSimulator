@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ITS Web Tester</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1117;
+      --panel: #171b24;
+      --muted: #9aa3b2;
+      --text: #e6e9ef;
+      --ok: #45d483;
+      --warn: #ffbe55;
+      --err: #ff6b6b;
+      --line: #2a3140;
+      --accent: #6ea8fe;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+    }
+
+    .hint {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px;
+    }
+
+    .col-12 { grid-column: span 12; }
+    .col-8 { grid-column: span 8; }
+    .col-6 { grid-column: span 6; }
+    .col-4 { grid-column: span 4; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 6px;
+      color: var(--muted);
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #0f1420;
+      color: var(--text);
+      padding: 10px;
+      font: inherit;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
+    button {
+      cursor: pointer;
+      background: #1c2638;
+    }
+
+    button:hover { border-color: var(--accent); }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .row-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .row-btns button {
+      width: auto;
+      min-width: 130px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+
+    .ok .dot { background: var(--ok); }
+    .warn .dot { background: var(--warn); }
+    .err .dot { background: var(--err); }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0a0f19;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 0;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .reply {
+      font-size: 15px;
+      line-height: 1.45;
+      min-height: 48px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0a0f19;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ITS Web Tester (Unity Contract)</h1>
+    <p class="hint">
+      Interface simples para testar no navegador o mesmo fluxo do cliente Unity:
+      <code>GET /health</code>, <code>POST /session/new</code>, <code>POST /ask</code>.
+    </p>
+
+    <div class="card">
+      <div class="grid">
+        <div class="col-8">
+          <label for="baseUrl">Base URL da API</label>
+          <input id="baseUrl" value="http://localhost:8000" />
+        </div>
+        <div class="col-4">
+          <label>Status do servidor</label>
+          <div id="serverStatus" class="status warn"><span class="dot"></span><span>desconhecido</span></div>
+        </div>
+        <div class="col-12 row-btns">
+          <button id="btnHealth">Checar /health</button>
+          <button id="btnSession">Nova sessão (/session/new)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="col-6">
+          <label for="studentId">student_id</label>
+          <input id="studentId" placeholder="student_xxx" />
+        </div>
+        <div class="col-6">
+          <label for="levelId">level_id (nível atual)</label>
+          <select id="levelId"></select>
+        </div>
+        <div class="col-12">
+          <label for="question">Mensagem do jogador (question)</label>
+          <textarea id="question" placeholder="Digite a pergunta que iria pelo STT na Unity..."></textarea>
+        </div>
+        <div class="col-12 row-btns">
+          <button id="btnAsk">Enviar /ask</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>Resposta do agente (reply)</label>
+      <div id="reply" class="reply"></div>
+    </div>
+
+    <div class="card">
+      <label>Log técnico</label>
+      <pre id="log" class="mono"></pre>
+    </div>
+  </div>
+
+  <script>
+    const LEVEL_IDS = [
+      "MoveLeftRight",
+      "PlaceGear",
+      "AppendScrew",
+      "ReplaceAllWithNuts",
+      "RejectIfGearExists",
+      "SwapNutsAndScrews",
+      "PatternRepeated",
+      "BalancedPairs",
+      "PatternSomewhere"
+    ];
+
+    const state = {
+      serverAvailable: false,
+      thinking: false
+    };
+
+    const el = {
+      baseUrl: document.getElementById("baseUrl"),
+      serverStatus: document.getElementById("serverStatus"),
+      btnHealth: document.getElementById("btnHealth"),
+      btnSession: document.getElementById("btnSession"),
+      studentId: document.getElementById("studentId"),
+      levelId: document.getElementById("levelId"),
+      question: document.getElementById("question"),
+      btnAsk: document.getElementById("btnAsk"),
+      reply: document.getElementById("reply"),
+      log: document.getElementById("log")
+    };
+
+    function now() {
+      return new Date().toLocaleTimeString("pt-BR");
+    }
+
+    function log(message, payload) {
+      const line = `[${now()}] ${message}`;
+      if (payload === undefined) {
+        el.log.textContent = `${line}\n${el.log.textContent}`;
+        return;
+      }
+      const raw = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
+      el.log.textContent = `${line}\n${raw}\n\n${el.log.textContent}`;
+    }
+
+    function setServerStatus(kind, text) {
+      el.serverStatus.className = `status ${kind}`;
+      el.serverStatus.innerHTML = `<span class="dot"></span><span>${text}</span>`;
+    }
+
+    function setThinking(on) {
+      state.thinking = on;
+      el.btnAsk.disabled = on;
+      if (on) {
+        el.reply.textContent = "Pensando...";
+      }
+    }
+
+    function normalizeBaseUrl() {
+      return el.baseUrl.value.trim().replace(/\/+$/, "");
+    }
+
+    function buildLocalFallbackStudentId() {
+      return `local_${crypto.randomUUID().replace(/-/g, "")}`;
+    }
+
+    async function fetchJson(path, options = {}, timeoutMs = 10000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const url = `${normalizeBaseUrl()}${path}`;
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        const text = await res.text();
+        let json = null;
+        try { json = text ? JSON.parse(text) : null; } catch (_) {}
+        return { ok: res.ok, status: res.status, text, json };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function checkHealth() {
+      log("GET /health");
+      try {
+        const result = await fetchJson("/health", { method: "GET" }, 3000);
+        if (!result.ok || !result.json) {
+          state.serverAvailable = false;
+          setServerStatus("err", "indisponível");
+          log("health falhou", result.text || `status ${result.status}`);
+          return;
+        }
+
+        state.serverAvailable = true;
+        setServerStatus("ok", "disponível");
+        log("health ok", result.json);
+      } catch (error) {
+        state.serverAvailable = false;
+        setServerStatus("err", "indisponível");
+        log("health erro", String(error));
+      }
+    }
+
+    async function newSession() {
+      log("POST /session/new", {});
+      try {
+        const result = await fetchJson(
+          "/session/new",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}"
+          },
+          10000
+        );
+
+        if (!result.ok || !result.json) {
+          const fallback = buildLocalFallbackStudentId();
+          el.studentId.value = fallback;
+          log("session/new falhou; usando fallback local", { fallback, status: result.status, raw: result.text });
+          return;
+        }
+
+        const studentId = result.json.student_id;
+        if (!studentId || !String(studentId).trim()) {
+          const fallback = buildLocalFallbackStudentId();
+          el.studentId.value = fallback;
+          log("session/new vazio; usando fallback local", { fallback, response: result.json });
+          return;
+        }
+
+        state.serverAvailable = true;
+        setServerStatus("ok", "disponível");
+        el.studentId.value = studentId;
+        log("session/new ok", result.json);
+      } catch (error) {
+        const fallback = buildLocalFallbackStudentId();
+        el.studentId.value = fallback;
+        log("session/new erro; usando fallback local", { fallback, error: String(error) });
+      }
+    }
+
+    async function ask() {
+      const question = el.question.value.trim();
+      const studentId = el.studentId.value.trim();
+      const levelId = el.levelId.value;
+
+      if (!question) {
+        el.reply.textContent = "Nao entendi. Tente perguntar de novo.";
+        log("ask bloqueado: question vazia");
+        return;
+      }
+
+      if (!studentId) {
+        el.reply.textContent = "Inicie uma nova sessao no menu antes de conversar comigo.";
+        log("ask bloqueado: student_id ausente");
+        return;
+      }
+
+      if (!state.serverAvailable) {
+        el.reply.textContent = "Servidor indisponível. Faça checagem de saúde e tente novamente.";
+        log("ask bloqueado: serverAvailable=false");
+        return;
+      }
+
+      const payload = {
+        student_id: studentId,
+        level_id: levelId,
+        question
+      };
+
+      setThinking(true);
+      log("POST /ask", payload);
+      try {
+        const result = await fetchJson(
+          "/ask",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          },
+          10000
+        );
+
+        if (!result.ok || !result.json) {
+          el.reply.textContent = "Hmm, parece que perdi o sinal. Tente novamente em um momento.";
+          log("ask falhou", { status: result.status, raw: result.text });
+          return;
+        }
+
+        const reply = result.json.reply ?? result.json.Reply ?? "";
+        if (!String(reply).trim()) {
+          el.reply.textContent = "Nao consegui formular uma resposta agora. Tente reformular sua pergunta.";
+          log("ask sem reply", result.json);
+          return;
+        }
+
+        el.reply.textContent = reply;
+        log("ask ok", result.json);
+      } catch (error) {
+        el.reply.textContent = "Hmm, parece que perdi o sinal. Tente novamente em um momento.";
+        log("ask erro", String(error));
+      } finally {
+        setThinking(false);
+      }
+    }
+
+    function initLevels() {
+      LEVEL_IDS.forEach((id) => {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = id;
+        el.levelId.appendChild(option);
+      });
+      el.levelId.value = "MoveLeftRight";
+    }
+
+    function bindEvents() {
+      el.btnHealth.addEventListener("click", checkHealth);
+      el.btnSession.addEventListener("click", newSession);
+      el.btnAsk.addEventListener("click", ask);
+    }
+
+    function init() {
+      initLevels();
+      bindEvents();
+      setServerStatus("warn", "desconhecido");
+      log("tester inicializado");
+    }
+
+    init();
+  </script>
+</body>
+</html>
