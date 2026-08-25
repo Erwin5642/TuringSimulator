@@ -150,6 +150,13 @@
       border-radius: 8px;
       background: #0a0f19;
     }
+
+    .token-meta {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
   </style>
 </head>
 <body>
@@ -164,7 +171,7 @@
       <div class="grid">
         <div class="col-8">
           <label for="baseUrl">Base URL da API</label>
-          <input id="baseUrl" value="http://localhost:8000" />
+          <input id="baseUrl" value="" />
         </div>
         <div class="col-4">
           <label>Status do servidor</label>
@@ -190,6 +197,7 @@
         <div class="col-12">
           <label for="question">Mensagem do jogador (question)</label>
           <textarea id="question" placeholder="Digite a pergunta que iria pelo STT na Unity..."></textarea>
+          <div class="token-meta">tokens in: <span id="tokensIn">—</span></div>
         </div>
         <div class="col-12 row-btns">
           <button id="btnAsk">Enviar /ask</button>
@@ -200,6 +208,7 @@
     <div class="card">
       <label>Resposta do agente (reply)</label>
       <div id="reply" class="reply"></div>
+      <div class="token-meta">tokens out: <span id="tokensOut">—</span></div>
     </div>
 
     <div class="card">
@@ -236,6 +245,8 @@
       question: document.getElementById("question"),
       btnAsk: document.getElementById("btnAsk"),
       reply: document.getElementById("reply"),
+      tokensIn: document.getElementById("tokensIn"),
+      tokensOut: document.getElementById("tokensOut"),
       log: document.getElementById("log")
     };
 
@@ -258,12 +269,37 @@
       el.serverStatus.innerHTML = `<span class="dot"></span><span>${text}</span>`;
     }
 
+    function formatTokenCount(value) {
+      if (value === null || value === undefined || value === "") {
+        return "—";
+      }
+      const n = Number(value);
+      return Number.isFinite(n) ? String(n) : "—";
+    }
+
+    function setTokenCounts(tokensIn, tokensOut) {
+      el.tokensIn.textContent = formatTokenCount(tokensIn);
+      el.tokensOut.textContent = formatTokenCount(tokensOut);
+    }
+
     function setThinking(on) {
       state.thinking = on;
       el.btnAsk.disabled = on;
       if (on) {
         el.reply.textContent = "Pensando...";
+        setTokenCounts(null, null);
       }
+    }
+
+    function defaultApiBaseUrl() {
+      const loc = window.location;
+      if (loc.protocol === "file:" || !loc.hostname) {
+        return "http://localhost:8000";
+      }
+      if (loc.port === "8080") {
+        return `${loc.protocol}//${loc.hostname}:8000`;
+      }
+      return loc.origin;
     }
 
     function normalizeBaseUrl() {
@@ -356,18 +392,21 @@
 
       if (!question) {
         el.reply.textContent = "Nao entendi. Tente perguntar de novo.";
+        setTokenCounts(null, null);
         log("ask bloqueado: question vazia");
         return;
       }
 
       if (!studentId) {
         el.reply.textContent = "Inicie uma nova sessao no menu antes de conversar comigo.";
+        setTokenCounts(null, null);
         log("ask bloqueado: student_id ausente");
         return;
       }
 
       if (!state.serverAvailable) {
         el.reply.textContent = "Servidor indisponível. Faça checagem de saúde e tente novamente.";
+        setTokenCounts(null, null);
         log("ask bloqueado: serverAvailable=false");
         return;
       }
@@ -393,6 +432,7 @@
 
         if (!result.ok || !result.json) {
           el.reply.textContent = "Hmm, parece que perdi o sinal. Tente novamente em um momento.";
+          setTokenCounts(null, null);
           log("ask falhou", { status: result.status, raw: result.text });
           return;
         }
@@ -400,14 +440,23 @@
         const reply = result.json.reply ?? result.json.Reply ?? "";
         if (!String(reply).trim()) {
           el.reply.textContent = "Nao consegui formular uma resposta agora. Tente reformular sua pergunta.";
+          setTokenCounts(null, null);
           log("ask sem reply", result.json);
           return;
         }
 
+        const tokensIn = result.json.tokens_in ?? result.json.tokensIn ?? result.json.TokensIn;
+        const tokensOut = result.json.tokens_out ?? result.json.tokensOut ?? result.json.TokensOut;
         el.reply.textContent = reply;
-        log("ask ok", result.json);
+        setTokenCounts(tokensIn, tokensOut);
+        log("ask ok", {
+          reply,
+          tokens_in: tokensIn,
+          tokens_out: tokensOut
+        });
       } catch (error) {
         el.reply.textContent = "Hmm, parece que perdi o sinal. Tente novamente em um momento.";
+        setTokenCounts(null, null);
         log("ask erro", String(error));
       } finally {
         setThinking(false);
@@ -433,6 +482,7 @@
     function init() {
       initLevels();
       bindEvents();
+      el.baseUrl.value = defaultApiBaseUrl();
       setServerStatus("warn", "desconhecido");
       log("tester inicializado");
     }

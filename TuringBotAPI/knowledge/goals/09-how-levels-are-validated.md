@@ -9,4 +9,4 @@ Cada nível tem um teste principal e mais quatro cenários de fita. São cinco f
 
 O circuito que você montou roda em todos os cenários. Passar em um só não fecha o nível. O programa precisa se comportar certo em fitas curtas, longas e nos casos-limite.
 
-Quando o circuito chega em Aceitar ou Rejeitar, a corrida daquele cenário termina. Se o programa não para, o cenário falha.
+Quando o sinal chega em Aceitar, a entrada foi aprovada. Se chega em Rejeitar, a entrada falhou. Se a energia fica sem saída, o programa só encerra — a peça não vai para módulo nenhum. Esse encerramento não é Aceitar; a máquina conta como rejeitar. Se o programa não para, o cenário falha.

@@ -38,6 +38,8 @@ def test_ask_offline_returns_ptbr_reply():
     assert body["reply"]
     lowered = body["reply"].lower()
     assert "shaka" in lowered or "mão direita" in lowered or "radio" in lowered or "rádio" in lowered
+    assert body["tokens_in"] > 0
+    assert body["tokens_out"] > 0
 
 
 def test_ask_rejects_empty_question():
@@ -58,3 +60,15 @@ def test_removed_endpoints_are_gone():
         assert client.post("/event", json={}).status_code == 404
         assert client.post("/hint", json={}).status_code == 404
         assert client.get("/state/student_x").status_code == 404
+
+
+def test_web_tester_is_served():
+    with TestClient(app) as client:
+        page = client.get("/web-tester/index.html")
+        root = client.get("/", follow_redirects=False)
+    assert page.status_code == 200
+    assert "ITS Web Tester" in page.text
+    assert "tokens in" in page.text
+    assert "tokens out" in page.text
+    assert root.status_code == 307
+    assert root.headers["location"] == "/web-tester/"

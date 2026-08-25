@@ -24,7 +24,8 @@ cp .env.example .env
 uvicorn main:app --reload --port 8000
 ```
 
-The interactive API docs are at **http://localhost:8000/docs**
+The interactive API docs are at **http://localhost:8000/docs**. The web tester is
+served by the same process at **http://localhost:8000/web-tester/**.
 
 ---
 
@@ -37,16 +38,14 @@ o mesmo fluxo do cliente Unity:
 - `POST /session/new` (com fallback local de `student_id`)
 - `POST /ask` com `student_id`, `level_id`, `question`
 
-Para abrir no navegador:
+O FastAPI serve essa página em `/web-tester/` (e `/` redireciona para lá). Com
+uvicorn local, acesse:
 
-```bash
-cd TuringBotAPI
-python3 -m http.server 8080
-```
-
-Depois acesse:
-
-- [http://localhost:8080/web-tester/index.html](http://localhost:8080/web-tester/index.html)
+- [http://localhost:8000/web-tester/](http://localhost:8000/web-tester/)
+  
+A Base URL da API é preenchida com a origem atual. Se você abrir o HTML por um
+servidor estático na porta `8080` (`python3 -m http.server 8080`), o tester
+aponta para `http://localhost:8000`.
 
 ---
 
@@ -72,9 +71,14 @@ docker build -t turing-bot-api .
 docker run --rm -p 3000:3000 -e GEMINI_API_KEY turing-bot-api
 ```
 
+The image starts both the Unity API and the web tester on `PORT` (default 3000):
+
+- API docs: http://localhost:3000/docs
+- Web tester: http://localhost:3000/web-tester/
+
 The server can start without `GEMINI_API_KEY`. In that case `/health` reports
-`"tutor_provider": "fallback"` and `/ask` answers from keyword search over the
-markdown corpus so the Unity scene remains testable.
+`"tutor_provider": "fallback"` and `/ask` answers with a short player-facing
+pt-BR clipboard (not the raw knowledge dump) so the Unity scene remains testable.
 
 ---
 
@@ -101,11 +105,15 @@ Student asks the tutor a free-form question (voice STT in Unity).
 **Response:**
 ```json
 {
-  "reply": "Segura o Shaka na mão direita para falar comigo, trainee."
+  "reply": "Tá tranquilo, tá favorável na mão direita para falar comigo, trainee.",
+  "tokens_in": 1842,
+  "tokens_out": 28
 }
 ```
 
-Unity synthesizes tutor speech with Wit.ai TTS.
+Unity uses `reply` and synthesizes tutor speech with Wit.ai TTS. `tokens_in` /
+`tokens_out` are for the web tester and logs (Gemini usage when available,
+otherwise an estimate from question and reply length).
 
 The tutor may call `search_docs` up to three times against `knowledge/**/*.md`
 before answering.
@@ -149,7 +157,8 @@ TuringBotAPI/
 ├── tutor_provider.py    Gemini / fallback provider
 ├── rag/                 markdown loader, SQLite cache, in-memory search
 ├── knowledge/           RAG corpus (pt-BR)
-├── Dockerfile           Quave ONE / container image
+├── Dockerfile           Quave ONE / container image (API + web tester)
+├── web-tester/          browser tester served at `/web-tester/`
 ├── .dockerignore
 ├── requirements.txt
 ├── .env.example

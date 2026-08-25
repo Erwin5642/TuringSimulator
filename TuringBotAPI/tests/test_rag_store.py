@@ -33,7 +33,7 @@ body
 
 def test_keyword_search_finds_speak_and_condition():
     store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
-    speak = store.search("shaka falar microfone")
+    speak = store.search("tranquilo microfone mindinho")
     assert speak
     assert speak[0].document.id == "gameplay-speak"
 
@@ -87,7 +87,7 @@ def test_sqlite_cache_skips_reembed(tmp_path):
 def test_vector_search_ranks_matching_doc(tmp_path):
     class AxisEmbedder:
         def embed_document(self, text: str) -> list[float]:
-            if "mindinho" in text.lower():
+            if "temporizador" in text.lower():
                 return [1.0, 0.0]
             return [0.0, 1.0]
 

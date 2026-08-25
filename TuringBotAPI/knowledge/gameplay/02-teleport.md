@@ -10,7 +10,7 @@ A fábrica é um espaço em realidade virtual. Para se mover pelo chão, use tel
 Como teletransportar:
 
 Fluxo com as mãos (hand tracking):
-- Faça com a mão direita o gesto de ativar teleporte (polegar e indicador estendidos, outros dedos fechados) para abrir a mira.
+- Com a mão direita, faça o gesto do Homem-Aranha, mas encolha o mindinho (polegar e indicador estendidos, os outros dedos fechados). Isso abre a mira no chão.
 - Aponte o raio para uma área válida no chão da fábrica.
 - Confirme o destino com o gesto de seleção (pinça/fechamento da mão) sobre o alvo válido.
 - Para cancelar, abra a mão para sair do modo de teleporte.

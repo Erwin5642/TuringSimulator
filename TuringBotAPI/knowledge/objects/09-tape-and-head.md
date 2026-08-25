@@ -1,12 +1,12 @@
 ---
 id: objects-tape-and-head
 category: objects
-title: Esteira, fita e braço mecânico
+title: Esteira e braço mecânico
 level_id:
 ---
 
-A esteira é a fita da Máquina de Turing. Cada slot é uma posição na esteira (e corresponde a uma célula na fita). O braço mecânico (cabeçote) atua em uma posição na esteira por vez.
+O braço mecânico atua em uma posição da esteira por vez. Ele não lê a esteira inteira de uma vez.
 
-O braço mecânico só lê, coloca e remove material na posição que está debaixo dele. Para acessar outra posição na esteira, o circuito desloca a esteira.
+O braço só lê, coloca e remove material na posição que está debaixo dele. Para o braço atuar em outra posição, o bloco de movimento desloca a esteira inteira — não o material isolado e não o braço.
 
-A fita é infinita e, fora da entrada do nível, está preenchida com material vazio. Esse vazio não é “nada inútil”: é a referência para saber onde a entrada termina e para controlar loops com segurança.
+Fora da entrada do nível, a esteira segue preenchida com material vazio. Esse vazio não é inútil: é ausência de peça, pode marcar o fim da entrada e serve para controlar loops.

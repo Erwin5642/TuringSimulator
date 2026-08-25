@@ -159,7 +159,7 @@ Main files:
 ### REST (`ITSClient`)
 
 - `/session/new`: allocates a fresh student session id for each new run
-- `/ask`: free-form question (from voice transcription pipeline). Reply JSON is `{reply}`. Unity synthesizes speech with Wit TTS.
+- `/ask`: free-form question (from voice transcription pipeline). Reply JSON includes `{reply, tokens_in, tokens_out}`. Unity uses `reply` and synthesizes speech with Wit TTS; token fields are for the web tester.
 - health check via `/health`
 
 File: `Assets/TuringSimulator/ITS/ITSClient.cs`

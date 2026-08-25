@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from typing import Any, Callable, Optional, Protocol
 
 from rag.embeddings import NullEmbedder
@@ -14,6 +15,13 @@ DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_GEMINI_EMBED_MODEL = "models/gemini-embedding-001"
 
 ExecuteTool = Callable[[str, dict[str, Any]], dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    text: str
+    tokens_in: int = 0
+    tokens_out: int = 0
 
 
 class TutorProviderUnavailable(RuntimeError):
@@ -38,7 +46,7 @@ class TutorProvider(Protocol):
         user: str,
         execute_tool: ExecuteTool,
         max_rounds: int = 3,
-    ) -> str:
+    ) -> GenerationResult:
         ...
 
 
@@ -54,7 +62,7 @@ class FallbackTutorProvider(NullEmbedder):
         user: str,
         execute_tool: ExecuteTool,
         max_rounds: int = 3,
-    ) -> str:
+    ) -> GenerationResult:
         raise TutorProviderUnavailable(
             "No remote tutor provider is configured for ask."
         )
@@ -118,7 +126,7 @@ class GeminiTutorProvider:
         user: str,
         execute_tool: ExecuteTool,
         max_rounds: int = 3,
-    ) -> str:
+    ) -> GenerationResult:
         contents: list[Any] = [
             {"role": "user", "parts": [{"text": f"{system}\n\n{user}"}]},
         ]
@@ -126,6 +134,7 @@ class GeminiTutorProvider:
             contents,
             tool_config={"function_calling_config": {"mode": "auto"}},
         )
+        tokens_in, tokens_out = _token_usage(response)
 
         rounds = 0
         while rounds < max_rounds:
@@ -133,7 +142,11 @@ class GeminiTutorProvider:
             if not calls:
                 text = _response_text(response)
                 if text:
-                    return text
+                    return GenerationResult(
+                        text=text,
+                        tokens_in=tokens_in,
+                        tokens_out=tokens_out,
+                    )
                 break
 
             model_content = response.candidates[0].content
@@ -156,10 +169,17 @@ class GeminiTutorProvider:
                 contents,
                 tool_config={"function_calling_config": {"mode": mode}},
             )
+            prompt_n, cand_n = _token_usage(response)
+            tokens_in += prompt_n
+            tokens_out += cand_n
 
         text = _response_text(response)
         if text:
-            return text
+            return GenerationResult(
+                text=text,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+            )
         raise TutorProviderUnavailable("Gemini returned no text after tool calls.")
 
 
@@ -172,7 +192,7 @@ def build_tutor_provider(
             model_name=os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
             tools=tools,
             embed_model=os.getenv("GEMINI_EMBED_MODEL", DEFAULT_GEMINI_EMBED_MODEL),
-        )
+            )
     except TutorProviderUnavailable:
         return FallbackTutorProvider()
 
@@ -201,6 +221,21 @@ def _args_dict(raw: Any) -> dict[str, Any]:
         return {str(k): v for k, v in dict(raw).items()}
     except Exception:
         return {}
+
+
+def _token_usage(response: Any) -> tuple[int, int]:
+    meta = getattr(response, "usage_metadata", None)
+    if meta is None and isinstance(response, dict):
+        meta = response.get("usage_metadata")
+    if meta is None:
+        return 0, 0
+    if isinstance(meta, dict):
+        prompt = meta.get("prompt_token_count") or 0
+        candidates = meta.get("candidates_token_count") or 0
+    else:
+        prompt = getattr(meta, "prompt_token_count", 0) or 0
+        candidates = getattr(meta, "candidates_token_count", 0) or 0
+    return int(prompt), int(candidates)
 
 
 def _response_text(response: Any) -> str:

@@ -23,7 +23,7 @@
 ### C. Intelligent Tutoring System (ITS) & Python Integration
 * **Remote Brain:** A Python FastAPI server answers `/ask` with an agentic RAG loop over markdown docs in `TuringBotAPI/knowledge/`.
 * **REST:** Unity posts `/session/new`, `/ask`, and `/health`. `/ask` body is `student_id`, `level_id`, `question` (snake_case Newtonsoft / `ItsRestJson`). Reply is `reply`; Unity does Wit TTS.
-* **Retrieval:** Gemini may call `search_docs` up to three times. Offline fallback uses keyword search and a deterministic pt-BR reply.
+* **Retrieval:** Gemini may call `search_docs` up to three times. Common greetings skip retrieval. Offline fallback uses keyword search and a short player-facing pt-BR clipboard (not the raw corpus dump).
 * **Level identity:** `LevelDefinition.levelId` must align with `TuringBotAPI/knowledge/goals/` and `LevelID`.
 * **Bootstrap ITS wiring:** `TuringBootstrap` ensures `ITSClient`, `SkillTracker`, `AgentTTS`, and `AgentDialogue` exist so REST tutoring can initialize. The server no longer serves `/ws/live`, `/event`, or `/hint`.
 

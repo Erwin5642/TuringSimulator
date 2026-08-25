@@ -19,6 +19,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 load_dotenv()
@@ -86,6 +88,8 @@ class AskRequest(BaseModel):
 
 class AskResponse(BaseModel):
     reply: str
+    tokens_in: int = 0
+    tokens_out: int = 0
 
 
 class SessionNewResponse(BaseModel):
@@ -98,7 +102,7 @@ async def handle_ask(req: AskRequest) -> AskResponse:
         raise HTTPException(status_code=422, detail="Question cannot be empty.")
 
     t0 = time.perf_counter()
-    reply = await answer_question(
+    result = await answer_question(
         store=app.state.store,
         provider=app.state.provider,
         level_id=req.level_id,
@@ -107,15 +111,23 @@ async def handle_ask(req: AskRequest) -> AskResponse:
     )
     ms = (time.perf_counter() - t0) * 1000.0
     _LOG.info(
-        "rest_ask_done latency_ms=%.2f",
+        "rest_ask_done latency_ms=%.2f tokens_in=%d tokens_out=%d",
         ms,
+        result.tokens_in,
+        result.tokens_out,
         extra={
             "latency_ms": round(ms, 2),
             "student_id": req.student_id,
             "level_id": req.level_id,
+            "tokens_in": result.tokens_in,
+            "tokens_out": result.tokens_out,
         },
     )
-    return AskResponse(reply=reply)
+    return AskResponse(
+        reply=result.text,
+        tokens_in=result.tokens_in,
+        tokens_out=result.tokens_out,
+    )
 
 
 @app.post("/session/new", response_model=SessionNewResponse)
@@ -138,3 +150,19 @@ async def health() -> dict:
         "tutor_provider": provider_name,
         "documents": len(store.documents) if store is not None else 0,
     }
+
+
+_WEB_TESTER_DIR = _ROOT / "web-tester"
+
+
+@app.get("/", include_in_schema=False)
+async def web_tester_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/web-tester/")
+
+
+if _WEB_TESTER_DIR.is_dir():
+    app.mount(
+        "/web-tester",
+        StaticFiles(directory=_WEB_TESTER_DIR, html=True),
+        name="web-tester",
+    )
