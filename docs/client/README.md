@@ -17,7 +17,7 @@ Primary boot path:
    - `InitializeObjects()`: builds `ModelInstaller`
    - `CreateObjects()`: builds `ViewInstaller` using **scene bindings first**, prefab fallback second
    - `PrepareGameObjects()`: builds `ControllerInstaller` using **scene bindings first**, prefab fallback second
-   - `BeginGame()`: calls `GameFlowController.Start()`
+   - `BeginGame()`: requests `/session/new` through the Inspector-bound `ITSClient` / `SkillTracker`, then calls `GameFlowController.Start()`
 
 Key file: `Assets/TuringSimulator/GameFlow/TuringBootstrap.cs`
 
@@ -32,7 +32,7 @@ Key file: `Assets/TuringSimulator/GameFlow/TuringBootstrap.cs`
 - `ViewInstaller`:
   - Preferentially uses scene-bound references for `machine`, `tape`, `halt`, `levelUI`
   - Falls back to prefab instantiation only if scene bindings are missing
-  - `ITapeVisual.Initialize()` uses the existing `TapeCellView` pool under `cellsRoot`, then `MachineViewer` drives `SetTape` / `MoveHead` / `ShowWrite`
+  - `ITapeVisual.Initialize()` uses the existing `TapeCellView` pool under `cellsRoot`, then `MachineViewer` drives `SetTape` / `ShowRead` / `ShowWrite` / `MoveHead`
 - `ControllerInstaller`:
   - Creates `ProgramEditController`, `PlaybackController`, `StepViewApplier`, `GameFlowController`
   - Preferentially uses scene-bound `PlayerInputCatcher` (XR/editor wiring)
@@ -53,6 +53,12 @@ Files:
 - `Initialize()` keeps the prefab `TapeCellView` pool (about 10 cells). A new cell is cloned only when the head leaves that range.
 - Blank cells stay inactive. `ShowWrite` activates the head cell for a physical symbol and deactivates it for blank.
 - Symbol prefabs spawn as children of each `TapeCellView`. `SetTape` / `Reset` restore the original `cellsRoot` position and the initial pool.
+- `MachineViewer` drives each step as read → write → move. `ShowRead` receives the current cell symbol and the symbol about to be written.
+- Optional `TapeStepFeedback` (assigned on `ConveyorTapeVisual.stepFeedback`) plays a match/mismatch clip on read, and write/delete particles when a physical symbol is placed, replaced, or cleared. Unassigned clips/particles are skipped. Hold times default to 0.4s so the cues are visible.
+- Optional `TapeMovedEventChannel`, `TapeReadEventChannel`, and `TapeWriteEventChannel` are raised at the start and end of those visual beats (`Started` / `Finished`). `Reset` finishes an in-flight cue so a loop cannot stick. `Tape/MoveAudio` uses `EventChannelActionListener` on move (`Phase` = `Started` → `AudioSource.Play()` plus `PlayOneShot(Click01)`, `Finished` → `Stop()`). Read/write listeners can filter `IsMatch` (`True`/`False`) or `Effect` (`Write`/`Delete`). Loop and clip for move live on the dedicated `MoveAudio` `AudioSource`, not on the read one-shot source.
+- `View/VictoryConfetti` uses the same listener on `LevelOutcome` (`Outcome` = `Victory` → `ParticleSystem.Play()`).
+
+Selecting an event-channel asset in the Inspector shows a read-only payload member list (`MatchProperty` names plus enum/bool `MatchValue` options). The same box appears on `EventChannelActionListener` bindings and `AgentActionMapper` rules after you assign `SourceChannel`. It is generated from the channel's `TPayload` (`EventPayloadSchema`) and is not editable.
 
 Editor debug (`TapeDebugHotkeys` on the Tape prefab, Play Mode):
 
@@ -62,6 +68,12 @@ Editor debug (`TapeDebugHotkeys` on the Tape prefab, Play Mode):
 Files:
 
 - `Assets/TuringSimulator/View/Machine/Tape/ConveyorTapeVisual.cs`
+- `Assets/TuringSimulator/GameFlow/Events/EventChannelActionListener.cs`
+- `Assets/TuringSimulator/GameFlow/Events/EventPayloadFilter.cs`
+- `Assets/TuringSimulator/GameFlow/Events/EventPayloadSchema.cs`
+- `Assets/TuringSimulator/GameFlow/Events/TapeReadEventChannel.cs`
+- `Assets/TuringSimulator/GameFlow/Events/TapeWriteEventChannel.cs`
+- `Assets/TuringSimulator/View/Machine/Tape/TapeStepFeedback.cs`
 - `Assets/TuringSimulator/View/Machine/Tape/TapeDebugHotkeys.cs`
 
 ## Game State and Flow
@@ -108,6 +120,7 @@ Primary editing path:
 - Off-start wire changes are filtered via `IProgramBlockConnectivity` (union-find); disconnects rebuild the forest from current edges.
 - Compiles via `GraphToProgramCompiler` into `IProgramEditController`. Compile failure keeps the previous program.
 - `ProgramChangedEventData.TransitionCount` is the real transition-table size (`IProgram.TransitionCount`).
+- During a run, the wire on the live energy path uses that socket's `previewColor` (same tint as a drag preview); idle links stay on `connectedColor`. `ProgramWorkbench` maps TM states back to blocks and lights the start wire at run start, then the output wire of each playback transition. Abort / return to editing restores idle colors.
 
 Halt rules (`SimulationEngine`):
 
@@ -150,14 +163,15 @@ Main files:
 
 - `Assets/TuringSimulator/Core/Level/LevelDefinition.cs`
 - `Assets/TuringSimulator/Core/Level/LevelDatabase.cs`
-- `Assets/Prefabs/Levels/LevelDatabase.asset`
-- `Assets/Prefabs/Levels/Level */Level * Definition.asset`
-- `Assets/Prefabs/Levels/Level */Level * Test*.asset` / `* Main Test.asset`
+- `Assets/Levels/LevelDatabase.asset`
+- `Assets/Levels/Level */Level * Definition.asset`
+- `Assets/Levels/Level */Level * Test*.asset` / `* Main Test.asset`
 
 ## ITS Integration from Client
 
 ### REST (`ITSClient`)
 
+- Inspector field `_apiUrl` defaults to `https://turing.erwinlabs.dev` (no trailing slash)
 - `/session/new`: allocates a fresh student session id for each new run
 - `/ask`: free-form question (from voice transcription pipeline). Reply JSON includes `{reply, tokens_in, tokens_out}`. Unity uses `reply` and synthesizes speech with Wit TTS; token fields are for the web tester.
 - health check via `/health`
@@ -183,9 +197,10 @@ Voice and tutoring path is channel-based:
 - Hold Shaka (right hand) -> `HandGesturePerformed` -> `HandGestureMicListener` -> `MicToggleRequested` (`Start` / `Stop`)
 - STT lifecycle -> `ListeningStateChanged`, `PartialTranscription`, `TranscriptionReady`
 - `TranscriptionReady` is raised only after `_silenceCommitSeconds` (default 15) of no new STT, or when Shaka / T stops. The text is the latest Meta Voice string (not concatenated).
-- When Wit stops capturing before that commit, `VoiceCaptureStopped` plays a short cue (`Button Pop.wav`) and shows `O microfone parou de ouvir.`
+- When Wit stops capturing before that commit, `VoiceCaptureStopped` plays a short cue (`Button Pop.wav`) and `PalmVoiceCaptionView` appends UI-only `Cambio` on the right palm. `AgentDialogue` does not show a stop hint.
+- Player STT is shown only on the palm caption (`PalmVoiceCaptionView`). The agent bubble shows tutor replies from `/ask`, not the player's words.
 - Ask lifecycle -> `AskRequested`, `AskResult`, `ThinkingStateChanged`
-- If `/ask` cannot be posted (`ITSClient` missing or server down), `TranscriptionAskFallbackListener` raises a successful `AskResult` whose `Reply` is the STT text, so the tutor repeats exactly what was heard via `AgentTTS` / `tts_witconfig`
+- `TranscriptionReady` is always posted through `ITSClient` `/ask`. If the ITS API is unreachable, `ITSClient` raises a successful `AskResult` whose `Reply` is `O rádio não ta muito bom.` (same shape as a server reply). `TranscriptionAskFallbackListener` only raises that radio reply when no ITS client is present.
 - Agent reaction tuple -> `AgentActionRequestedEventData` (`text`, `animation`)
 
 Main files:
@@ -193,6 +208,7 @@ Main files:
 - `Assets/TuringSimulator/Controller/Hands/HandGestureMicListener.cs`
 - `Assets/TuringSimulator/ITS/VoiceAskControllerInput.cs`
 - `Assets/TuringSimulator/ITS/VoiceInputHandler.cs`
+- `Assets/TuringSimulator/ITS/PalmVoiceCaptionView.cs`
 - `Assets/TuringSimulator/ITS/TranscriptionAskFallbackListener.cs`
 - `Assets/TuringSimulator/ITS/AgentActionMapper.cs`
 - `Assets/TuringSimulator/ITS/AgentActionExecutor.cs`
@@ -214,7 +230,7 @@ Tutor subtitles stay pt-BR. Spoken audio uses the English `turing_tts` voice unt
 Tutor lines are synthesized on-device by Wit.ai TTS (Voice SDK). `AgentTTS.Speak(text)`:
 
 - Sends `text` to the scene `TTSSpeaker` (`Speak`, interrupting any current line).
-- Raises `OnSpeechStarted` immediately so subtitles stay up during download, then `OnSpeechFinished` when Wit playback (including split phrases) is idle.
+- Raises `OnSpeechStarted` immediately so subtitles stay up during download, then `OnSpeechFinished` when Wit playback (including split phrases) is idle. Talking stays on until the agent subtitle dismisses, then `AgentAnimator` goes to Idle.
 - On load failure or timeout, raises `OnSpeechError` and still finishes so animation does not hang.
 
 Scene objects: `TTS/TTSWitService` (config = `Assets/WitAI/tts_witconfig.asset`, app `turing_tts` / English) and `TTS/TTSSpeaker` (preset `WIT$REBECCA`). `AgentTTS.Speak` also records `AgentSpeechStarted` on the event trace with the spoken line.
@@ -222,7 +238,7 @@ Scene objects: `TTS/TTSWitService` (config = `Assets/WitAI/tts_witconfig.asset`,
 Editor debug (`VoiceDebugHotkeys` on `AgentTTS`, Play Mode):
 
 - **L** — speak a predefined Portuguese sample and show it in the subtitle bubble (audio still uses English `turing_tts`).
-- **T** — toggle STT and show partial/final text on an overlay (`VoiceInputHandler` + `AppVoiceExperience` with `stt_witconfig`).
+- **T** — toggle STT and show partial/final text on the editor overlay and the palm caption. It does not write the player's words into the agent bubble.
 
 Files:
 

@@ -4,14 +4,14 @@
   "status": "rascunho_pendente_aprovacao",
   "regra_aprovacao": "Se resposta_aprovada estiver vazia, a resposta_claudio foi aprovada. Preencha resposta_aprovada só quando quiser substituir o texto do Claudio.",
   "itens": [
-    {
+      {
       "id": "o-01",
       "categoria": "objetos",
       "level_id": "MoveLeftRight",
-      "pergunta": "A bancada é a esteira?",
-      "resposta_claudio": "Não, trainee. A bancada é onde você monta os circuitos de instrução e pega as peças, enquanto a esteira é por onde o material passa para o braço mecânico executar o trabalho na fábrica.",
+      "pergunta": "Como funcionam as portas dos circuitos?",
+      "resposta_claudio": "Toda instrução tem uma porta de entrada, que recebe o sinal, e uma ou duas portas de saída, que passam o sinal adiante. O fio sempre vai de uma saída para uma entrada, e é isso que define a ordem em que o circuito executa as instruções na bancada. Cada tipo de bloco tem suas regras de portas — por exemplo, a tomada de energia só tem saída, e blocos como aceitar ou rejeitar só têm entrada. Me avisa qual bloco você está tentando ligar na sua bancada para a gente ajustar o próximo fio.",
       "resposta_aprovada": "",
-      "observacao": "NÃO. Bancada = grade do circuito. Esteira = fita, à parte, sob o braço. Se misturar, preencha resposta_aprovada."
+      "observacao": "Entrada recebe, saída passa. Fio sempre saída→entrada. Condição tem duas saídas; Aceitar/Rejeitar só entrada."
     },
     {
       "id": "o-02",
@@ -35,10 +35,10 @@
       "id": "o-04",
       "categoria": "objetos",
       "level_id": "MoveLeftRight",
-      "pergunta": "Como funcionam as portas dos circuitos?",
-      "resposta_claudio": "Toda instrução tem uma porta de entrada, que recebe o sinal, e uma ou duas portas de saída, que passam o sinal adiante. O fio sempre vai de uma saída para uma entrada, e é isso que define a ordem em que o circuito executa as instruções na bancada. Cada tipo de bloco tem suas regras de portas — por exemplo, a tomada de energia só tem saída, e blocos como aceitar ou rejeitar só têm entrada. Me avisa qual bloco você está tentando ligar na sua bancada para a gente ajustar o próximo fio.",
+      "pergunta": "A bancada é a esteira?",
+      "resposta_claudio": "Não, trainee. A bancada é onde você monta os circuitos de instrução e pega as peças, enquanto a esteira é por onde o material passa para o braço mecânico executar o trabalho na fábrica.",
       "resposta_aprovada": "",
-      "observacao": "Entrada recebe, saída passa. Fio sempre saída→entrada. Condição tem duas saídas; Aceitar/Rejeitar só entrada."
+      "observacao": "NÃO. Bancada = grade do circuito. Esteira = fita, à parte, sob o braço. Se misturar, preencha resposta_aprovada."
     },
     {
       "id": "o-05",

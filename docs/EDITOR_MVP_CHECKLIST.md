@@ -37,7 +37,8 @@ TTS
 - `Gameplay/PlayerInput`: `PlayerInputCatcher`
 - `Gameplay/CardDrawer`: `CardDrawerBehaviour`
 - `View/MachineView`: object implementing `IMachineView` (typically `MachineViewer`)
-- `View/TapeView`: object implementing `ITapeVisual` (typically `ConveyorTapeVisual`) + `TapeDebugHotkeys`
+- `View/TapeView`: object implementing `ITapeVisual` (typically `ConveyorTapeVisual`) + `TapeDebugHotkeys` + optional `TapeStepFeedback` + child `MoveAudio` (`EventChannelActionListener`)
+- `View/VictoryConfetti`: `EventChannelActionListener` on `LevelOutcome` / `Victory` → `ParticleSystem.Play()`
 - `View/HaltIndicator`: object implementing `IHaltStatusIndicator` (typically `HaltStatusColorIndicator`)
 - `UI/LevelUI`: `LevelUI`
 
@@ -57,8 +58,7 @@ TTS
 
 ## Play-mode smoke pass
 
-1. Start API:
-   - `uvicorn main:app --reload --port 8000`
+1. Confirm `ITSClient` **Api Url** is `https://turing.erwinlabs.dev`.
 2. Open `BasicScene`.
 3. Run `Validate Scene` on `MvpSceneWiringValidator`.
 4. Run `Validate Event Channels` on `EventChannelWiringValidator`.

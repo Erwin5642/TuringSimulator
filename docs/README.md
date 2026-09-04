@@ -21,7 +21,7 @@ High-level flow:
 
 1. Unity boots `BasicScene` and initializes game systems from `TuringBootstrap`.
 2. Player edits/runs a visual Turing program in the Unity scene.
-3. Unity sends session + question traffic to ITS REST endpoints (`/session/new`, `/ask`, `/health`) and receives tutoring responses (`reply`). Tutor speech is synthesized in Unity with Wit.ai TTS.
+3. Unity sends session + question traffic to the hosted ITS REST API at `https://turing.erwinlabs.dev` (`/session/new`, `/ask`, `/health`) and receives tutoring responses (`reply`). Tutor speech is synthesized in Unity with Wit.ai TTS.
 4. Server searches the knowledge corpus (boosted by `level_id`) and returns a pt-BR tutor reply.
 
 ## Canonical Entry Points
@@ -43,8 +43,9 @@ High-level flow:
   channel wiring for gameplay and tutor reactions.
 - Wit STT and TTS use **separate** apps: `stt_witconfig` (`turing_stt`, Portuguese)
   on `AppVoiceExperience`, and `tts_witconfig` (`turing_tts`, English) on `TTSWit`.
-  Hold Shaka to listen; release to finalize transcription. If `/ask` cannot be
-  posted, the tutor repeats the STT text through Wit TTS.
+  Hold Shaka to listen; release to finalize transcription. Voice goes through
+  `ITSClient` `/ask`. If the ITS API is unreachable, the tutor speaks
+  `O rádio não ta muito bom.` as if that reply came from the server.
 - MVP scene wiring is editor-first: the visible workbench, drawer, tutor UI,
   and bootstrap references should be assigned in `BasicScene`, with
   `MvpSceneWiringValidator` available as an Inspector checklist.

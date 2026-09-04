@@ -4,6 +4,8 @@ This document lists the event channels that must be wired for a full playable de
 
 Scope: current Unity client runtime (`GameFlow`, `ITS`, `GameFlow/Events`).
 
+Inspector: each channel asset, plus `EventChannelActionListener` bindings and `AgentActionMapper` rules, shows that payload as read-only docs (`MatchProperty` names and enum/bool `MatchValue`s) via `EventPayloadSchema`.
+
 ## 1) Required Channel Assets
 
 Create one ScriptableObject asset for each channel class:
@@ -28,6 +30,9 @@ Create one ScriptableObject asset for each channel class:
 18. `AgentActionRequestedEventChannel`
 19. `HandGesturePerformedEventChannel` (optional; hands-only gesture → agent rules)
 20. `VoiceCaptureStoppedEventChannel` (optional; Wit capture-stopped cue)
+21. `TapeMovedEventChannel` (optional; tape slide Started/Finished for move audio/VFX)
+22. `TapeReadEventChannel` (optional; read beat Started/Finished; filter `IsMatch`)
+23. `TapeWriteEventChannel` (optional; write/delete beat Started/Finished; filter `Effect`)
 
 ## 2) Event Chain for Full Demo
 
@@ -61,7 +66,28 @@ Create one ScriptableObject asset for each channel class:
 - `PlaybackStep`
   - Raised by: `ControllerInstaller` (each playback step result)
   - Trigger in play mode: run/play/step controls
-  - Consumed by: `ControllerInstaller` (detect halt path)
+  - Consumed by: `ControllerInstaller` (detect halt path; refresh execution wire colors after step/backward)
+  - Side effect: `StepViewApplier.OnStepApplying` (before the tape animation) calls `ProgramWorkbench.HighlightTransition`, switching that wire from `connectedColor` to `previewColor`
+
+- `TapeMoved`
+  - Raised by: `ConveyorTapeVisual` at the start and end of a real slide (`Stay` does not raise)
+  - Trigger in play mode: playback or debug arrow keys move the tape
+  - Consumed by: `EventChannelActionListener` on `Tape/MoveAudio` (`Phase` = `Started` → `AudioSource.Play()` and `PlayOneShot(Click01)`, `Finished` → `Stop()`)
+  - Do not use `PlaybackStep` or `SimulationStepProduced` for this cue — those are not lockstep with the slide
+
+- `TapeRead`
+  - Raised by: `ConveyorTapeVisual` at the start and end of a read beat (`ShowRead`)
+  - Trigger in play mode: playback read, or debug write after the machine has already shown a read
+  - Payload: `Phase` (`Started` / `Finished`), `ReadSymbol`, `WriteSymbol`, `IsMatch` (`True` when read equals upcoming write)
+  - Consumed by: `EventChannelActionListener` (e.g. `IsMatch` = `True` → match clip `Play()`)
+  - `TapeStepFeedback` still waits the read hold so playback stays lockstep; the channel is fire-and-forget
+
+- `TapeWrite`
+  - Raised by: `ConveyorTapeVisual` at the start and end of a write or delete (`ShowWrite` no-ops do not raise)
+  - Trigger in play mode: playback write, or debug **W** then a symbol
+  - Payload: `Phase` (`Started` / `Finished`), `Effect` (`Write` / `Delete`), `Symbol`
+  - Consumed by: `EventChannelActionListener` (e.g. `Effect` = `Write` → particles `Play()`)
+  - `TapeStepFeedback` still waits the write hold; the channel is fire-and-forget
 
 - `SimulationStepProduced`
   - Raised by: `GameFlowController` (subscribed to `SimulationRunner.OnStepProduced`)
@@ -82,7 +108,7 @@ Create one ScriptableObject asset for each channel class:
 - `LevelOutcome`
   - Raised by: `GameFlowController` (on `Victory()`/`Defeat()`)
   - Trigger in play mode: validation pass/fail
-  - Consumed by: `AgentActionMapper` rules (for agent reactions)
+  - Consumed by: `AgentActionMapper` rules (for agent reactions) and `EventChannelActionListener` on `VictoryConfetti` (`Outcome` = `Victory` → `ParticleSystem.Play()`)
 
 ### Voice Ask + agent action flow
 
@@ -95,24 +121,24 @@ Create one ScriptableObject asset for each channel class:
 - `ListeningStateChanged`
   - Raised by: `VoiceInputHandler` when a Shaka/T listen session starts or commits
   - Trigger in play mode: mic session opens/closes (stays on across Wit pauses)
-  - Consumed by: `AgentVoiceFeedbackListener` (UI listening indicator)
+  - Consumed by: `AgentVoiceFeedbackListener` (mic indicator) and `PalmVoiceCaptionView` (show player STT on the hand)
 
 - `PartialTranscription`
   - Raised by: `VoiceInputHandler` (partial STT chunks)
   - Payload: `partial="..."` with the live Wit string (channel `Raise` records the event-trace row)
   - Trigger in play mode: speak while mic is active
-  - Consumed by: `AgentVoiceFeedbackListener` (partial caption text)
+  - Consumed by: `PalmVoiceCaptionView` (player STT on the hand). The agent bubble does not show this text.
 
 - `TranscriptionReady`
   - Raised by: `VoiceInputHandler` after `_silenceCommitSeconds` of no new STT, or when the player stops Shaka / T
   - Payload: `text="..."` with the latest Meta Voice STT string (not joined across utterances)
   - Trigger in play mode: wait 15s after the last word, or release Shaka / second T. A Wit pause alone does not raise this.
-  - Consumed by: `ITSClient` (creates ask request when `/ask` is available) and `TranscriptionAskFallbackListener` (echoes STT as `AskResult` when `/ask` cannot be posted)
+  - Consumed by: `ITSClient` (always POSTs `/ask`) and `TranscriptionAskFallbackListener` (radio fallback `AskResult` only when no ITS client is present)
 
 - `VoiceCaptureStopped`
   - Raised by: `VoiceInputHandler` when Wit `OnStoppedListening` fires while the Shaka/T session is still open
   - Trigger in play mode: speak, then wait until Meta Voice stops capturing (before T / Shaka release)
-  - Consumed by: `VoiceHearingStoppedCue` (plays `Button Pop.wav` and shows `O microfone parou de ouvir.`)
+  - Consumed by: `VoiceHearingStoppedCue` (plays `Button Pop.wav`; does not use the agent bubble) and `PalmVoiceCaptionView` (UI-only `Cambio` on the right palm)
 
 - `AskRequested`
   - Raised by: `ITSClient` (before POST `/ask`)
@@ -121,9 +147,9 @@ Create one ScriptableObject asset for each channel class:
   - Consumed by: `AgentActionMapper` (`Thinking`, empty text)
 
 - `AskResult`
-  - Raised by: `ITSClient` (success/failure response)
+  - Raised by: `ITSClient` (server `/ask` reply, or radio fallback when the API is unreachable)
   - Payload: `success reply="..."`
-  - Trigger in play mode: `/ask` returns or fails
+  - Trigger in play mode: `/ask` returns or cannot reach the host
   - Consumed by: `AgentActionMapper` (`MatchProperty: Success` / `True` → `Talking`, `TextProperty: Reply`)
 
 - `ThinkingStateChanged`
@@ -180,6 +206,19 @@ Event-trace text: keep `PartialTranscription` / `TranscriptionReady` / `AskReque
 - `VoiceHearingStoppedCue`
   - assign `VoiceCaptureStoppedEventChannel`, `AudioSource`, `Button Pop.wav`, and `AgentDialogue`
 
+- `TapeView` / `MoveAudio` (`EventChannelActionListener`)
+  - assign `TapeMovedEventChannel` (`Assets/TuringSimulator/Events/TapeMovedChannel.asset`)
+  - Binding 1: `MatchProperty` `Phase`, `MatchValue` `Started` → `AudioSource.Play()`
+  - Binding 2: same filter → `AudioSource.PlayOneShot(Click01.wav)`
+  - Binding 3: `MatchProperty` `Phase`, `MatchValue` `Finished` → `AudioSource.Stop()`
+  - assign the move clip and tick **Loop** on the dedicated `MoveAudio` `AudioSource` (not the Tape read source)
+  - on `ConveyorTapeVisual`, also assign `TapeReadChannel` and `TapeWriteChannel` for read/write FX bindings (`IsMatch` / `Effect`)
+
+- `VictoryConfetti` (`EventChannelActionListener`)
+  - assign `LevelOutcomeEventChannel`
+  - `MatchProperty` `Outcome`, `MatchValue` `Victory` → nested `ParticleSystem.Play()`
+  - keep **Play On Awake** off on the particle system
+
 - `ITSClient`
   - assign:
     - `TranscriptionReadyEventChannel`
@@ -189,7 +228,7 @@ Event-trace text: keep `PartialTranscription` / `TranscriptionReady` / `AskReque
 
 - `TranscriptionAskFallbackListener`
   - assign `TranscriptionReadyEventChannel` and `AskResultEventChannel`
-  - assign `ITSClient` when present (so echo only runs when `/ask` cannot be posted)
+  - assign `ITSClient` when present (so the listener stays idle; `ITSClient` owns `/ask` and the radio fallback)
 
 - `AgentActionMapper`
   - assign `AgentActionRequestedEventChannel`
@@ -201,15 +240,18 @@ Event-trace text: keep `PartialTranscription` / `TranscriptionReady` / `AskReque
   - on `AgentTTS`, assign `TTS Speaker` to the scene `TTSSpeaker`
 
 - `AgentAnimator`
-  - assign `AgentActionRequestedEventChannel`
+  - assign `AgentActionRequestedEventChannel` and `AgentDialogue`
   - configure animator parameter names (`Idle`, `Thinking`, `Talking`, `Celebrate` trigger)
+  - talking stays on until the agent subtitle dismisses, then Idle
 
 - `AgentVoiceFeedbackListener`
   - assign:
     - `ListeningStateChangedEventChannel`
-    - `PartialTranscriptionEventChannel`
     - `ThinkingStateChangedEventChannel`
   - assign `AgentDialogue` (or use singleton fallback)
+
+- `PalmVoiceCaptionView`
+  - assign `HandGesturePerformedEventChannel`, `ListeningStateChangedEventChannel`, `PartialTranscriptionEventChannel`, `VoiceCaptureStoppedEventChannel`
 
 - `AgentDialogue`
   - set `_useLegacyDirectWiring = false` for pure event-driven mode
@@ -232,6 +274,17 @@ In `AgentActionMapper`, add rule:
 In `AgentAnimator`:
 
 - set `_celebrateTrigger` to your animator trigger name (example: `Commemoration`)
+
+## 4c) Example Binding (Victory → Confetti Play)
+
+On `View/VictoryConfetti` (`EventChannelActionListener`), add binding:
+
+- `SourceChannel`: `LevelOutcomeEventChannel`
+- `MatchProperty`: `Outcome`
+- `MatchValue`: `Victory`
+- `OnMatched`: nested `ParticleSystem` → `Play()`
+
+Same pattern on `Tape/MoveAudio` for rumble: `TapeMoved` + `Phase`/`Started` → `Play()`, `Phase`/`Finished` → `Stop()`. Filter matching is shared with `AgentActionMapper` via `EventPayloadFilter`.
 
 ## 4b) Example Rule (Hand gesture -> agent action)
 
@@ -264,7 +317,7 @@ Shaka is mic input, not a tutor mapper rule. Hold-to-talk:
 1. Right Hand: second `StaticHandGesture` + `HandGestureChannelPublisher` with pose `Shaka.asset` and `_gestureId = Shaka`
 2. `HandGestureMicListener` maps `Performed` → `MicToggleRequested` `Start` and `Ended` → `Stop` (two-hand hold count)
 3. `VoiceInputHandler` drives `AppVoiceExperience` (`stt_witconfig` / `turing_stt` / PT). The committed text is the latest Wit string; a listen session can wait for silence or Shaka/T stop before raising `TranscriptionReady`.
-4. `TranscriptionReady` (after 15s silence or Shaka/T stop) → `ITSClient` `/ask` → mapper `AskResult` → `AgentTTS` (`tts_witconfig` / `turing_tts` / EN). If `/ask` cannot be posted, `TranscriptionAskFallbackListener` raises `AskResult` with `Reply` = STT text instead.
+4. `TranscriptionReady` (after 15s silence or Shaka/T stop) → `ITSClient` `/ask` → mapper `AskResult` → `AgentTTS` (`tts_witconfig` / `turing_tts` / EN). If the ITS API is unreachable, `ITSClient` raises `AskResult` with `Reply` = `O rádio não ta muito bom.` as if it came from the server.
 
 Do not wire `StaticHandGesture` UnityEvents to `VoiceInputHandler.StartListening` / `StopListening`.
 

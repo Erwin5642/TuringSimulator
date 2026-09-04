@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="2000" height="2000" viewBox="0 0 2000 2000" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="2000" height="2000" fill="#151516" />
+<text x="30" y="34" font-size="19" font-weight="600" fill="#f2f2f3">Fluxograma do Loop Agentic (RAG) — TuringBotAPI</text>
+<text x="30" y="56" font-size="12.5" fill="#c7c7cd">Requisição /ask, chamadas de ferramenta (search_docs), busca vetorial/lexical, embeddings e fallback offline — agent.py, tutor_provider.py, rag/store.py.</text>
+<defs><marker id="mArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#a3a3ad" /></marker><marker id="mYes" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#5ad18a" /></marker><marker id="mNo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#e0616b" /></marker><marker id="mLoop" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#5aa9ff" /></marker><marker id="mDash" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#c9a15a" /></marker></defs>
+<rect x="640" y="78" width="1110" height="190" rx="10" fill="#1c1c2a" stroke="#3a3560" stroke-width="1.2" stroke-dasharray="5 4" />
+<text x="660" y="98" font-size="12" font-weight="600" fill="#c7c7cd">Inicialização do servidor (executa uma única vez, no boot)</text>
+<rect x="680.0" y="123.0" width="300" height="70" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="830" y="146.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">Carrega corpus Markdown</text>
+<text x="830" y="161.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">e calcula hash sha256 do</text>
+<text x="830" y="176.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">conteúdo de cada documento</text>
+<polygon points="1150,120.5 1265.0,168 1150,215.5 1035.0,168" fill="#2a2440" stroke="#5b4f8a" stroke-width="1.4" />
+<text x="1150" y="157.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">cache SQLite tem</text>
+<text x="1150" y="171.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">entrada válida</text>
+<text x="1150" y="185.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">(doc_id + hash)?</text>
+<rect x="1045.0" y="63.0" width="210" height="46" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1150" y="89.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">reaproveita vetor do cache</text>
+<rect x="1310.0" y="133.0" width="260" height="70" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1440" y="156.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">embed_document(texto)</text>
+<text x="1440" y="171.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">via Gemini embeddings →</text>
+<text x="1440" y="186.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">grava vetor no cache SQLite</text>
+<rect x="990.0" y="226.0" width="320" height="40" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1150" y="249.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">indexa vetores em memória (self._vectors, por doc_id)</text>
+<polyline points="980,158 1035,168" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1150,120 1150,109" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="1184.4" y="108.8" width="31.158" height="18.3" fill="#151516" />
+<text x="1200" y="121.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">sim</text>
+<polyline points="1265,168 1310,168" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="1274.4" y="146.8" width="31.158" height="18.3" fill="#151516" />
+<text x="1290" y="159.6" text-anchor="middle" font-size="10.3" fill="#e0616b">não</text>
+<polyline points="1150,109 1150,198" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1440,203 1440,246 1310,246" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<rect x="215.0" y="307.0" width="330" height="66" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="380" y="337.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">Requisição POST /ask recebida</text>
+<text x="380" y="354.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">student_id, level_id, question</text>
+<polygon points="380,415.0 510.0,460 380,505.0 250.0,460" fill="#2a2440" stroke="#5b4f8a" stroke-width="1.4" />
+<text x="380" y="456.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">question.strip()</text>
+<text x="380" y="470.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">vazia?</text>
+<rect x="-5.0" y="432.0" width="190" height="56" rx="28.0" fill="#3a2130" stroke="#3f7a5c" stroke-width="1.3" />
+<text x="90" y="456.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">erro 400</text>
+<text x="90" y="470.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">(ValueError)</text>
+<polygon points="380,560.0 520.0,610 380,660.0 240.0,610" fill="#2a2440" stroke="#5b4f8a" stroke-width="1.4" />
+<text x="380" y="606.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">is_greeting(question)?</text>
+<text x="380" y="620.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">(regex de saudação)</text>
+<rect x="-15.0" y="577.0" width="210" height="66" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="90" y="607.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">greeting_reply(question)</text>
+<text x="90" y="624.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">resposta fixa, sem busca</text>
+<rect x="215.0" y="727.0" width="330" height="66" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="380" y="757.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">Monta system prompt</text>
+<text x="380" y="774.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">persona + level_id (build_system_prompt)</text>
+<rect x="215.0" y="841.0" width="330" height="78" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="380" y="877.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">provider.generate_with_tools()</text>
+<text x="380" y="888.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">Gemini generate_content_async</text>
+<text x="380" y="900.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">tool_config: function_calling mode=auto</text>
+<polygon points="380,957.5 530.0,1010 380,1062.5 230.0,1010" fill="#2a2440" stroke="#5b4f8a" stroke-width="1.4" />
+<text x="380" y="999.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">resposta contém</text>
+<text x="380" y="1013.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">function_call</text>
+<text x="380" y="1027.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">('search_docs')?</text>
+<rect x="215.0" y="1130.0" width="330" height="60" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="380" y="1163.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">Extrai texto final (response.text)</text>
+<polygon points="380,1222.5 530.0,1280 380,1337.5 230.0,1280" fill="#2a2440" stroke="#5b4f8a" stroke-width="1.4" />
+<text x="380" y="1269.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">texto vazio OU</text>
+<text x="380" y="1283.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">TutorProviderUnavailable /</text>
+<text x="380" y="1297.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">Exception?</text>
+<rect x="215.0" y="1407.0" width="330" height="66" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="380" y="1437.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">GenerationResult(texto,</text>
+<text x="380" y="1454.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">tokens_in, tokens_out)</text>
+<rect x="190.0" y="1561.0" width="380" height="78" rx="39.0" fill="#1f3a2e" stroke="#3f7a5c" stroke-width="1.3" />
+<text x="380" y="1603.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">Resposta final ao cliente</text>
+<rect x="211.2" y="1612.8" width="337.68600000000004" height="18.3" fill="#151516" />
+<text x="380" y="1625.6" text-anchor="middle" font-size="10.3" fill="#8f8f97">reply, tokens_in, tokens_out (retorno de POST /ask)</text>
+<polyline points="380,373 380,415" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="250,460 185,460" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="278.0" y="438.9" width="43.93" height="18.3" fill="#151516" />
+<text x="300" y="451.6" text-anchor="middle" font-size="10.3" fill="#e0616b">vazia</text>
+<polyline points="380,505 380,560" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="420.0" y="520.9" width="30" height="18.3" fill="#151516" />
+<text x="435" y="533.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">ok</text>
+<polyline points="240,610 195,610" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="284.4" y="588.9" width="31.158" height="18.3" fill="#151516" />
+<text x="300" y="601.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">sim</text>
+<polyline points="380,660 380,727" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="419.4" y="680.9" width="31.158" height="18.3" fill="#151516" />
+<text x="435" y="693.6" text-anchor="middle" font-size="10.3" fill="#e0616b">não</text>
+<polyline points="380,793 380,841" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="380,919 380,957" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="380,1063 380,1130" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="424.4" y="1086.8" width="31.158" height="18.3" fill="#151516" />
+<text x="440" y="1099.6" text-anchor="middle" font-size="10.3" fill="#e0616b">não</text>
+<polyline points="380,1190 380,1222" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="380,1338 380,1407" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="424.4" y="1362.8" width="31.158" height="18.3" fill="#151516" />
+<text x="440" y="1375.6" text-anchor="middle" font-size="10.3" fill="#e0616b">não</text>
+<polyline points="380,1473 380,1560" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="90,643 90,1600 190,1600" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="61.6" y="890.9" width="56.702000000000005" height="18.3" fill="#151516" />
+<text x="90" y="903.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">sem RAG</text>
+<rect x="1060.0" y="975.0" width="340" height="70" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1230" y="1007.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">execute_tool('search_docs', args)</text>
+<text x="1230" y="1024.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">chamado a partir do function_call do Gemini</text>
+<polygon points="1230,1090.0 1380.0,1140 1230,1190.0 1080.0,1140" fill="#2a2440" stroke="#5b4f8a" stroke-width="1.4" />
+<text x="1230" y="1136.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">rounds ≥</text>
+<text x="1230" y="1150.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">MAX_TOOL_ROUNDS (3)?</text>
+<rect x="1440.0" y="1110.0" width="240" height="60" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1560" y="1136.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">{error: limite atingido,</text>
+<text x="1560" y="1151.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">chunks: []}</text>
+<rect x="1060.0" y="1230.0" width="340" height="60" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1230" y="1257.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">rounds += 1 · store.search(query,</text>
+<text x="1230" y="1274.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">category, level_id) — filtra pool por categoria</text>
+<rect x="1060.0" y="1330.0" width="340" height="60" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1230" y="1357.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">embed_query(query)</text>
+<text x="1230" y="1374.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">Gemini embeddings, ou nulo (offline)</text>
+<polygon points="1230,1425.0 1390.0,1480 1230,1535.0 1070.0,1480" fill="#2a2440" stroke="#5b4f8a" stroke-width="1.4" />
+<text x="1230" y="1469.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">vetores pré-computados</text>
+<text x="1230" y="1483.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">disponíveis p/ todo o pool</text>
+<text x="1230" y="1497.8" text-anchor="middle" font-size="11.8" font-weight="600" fill="#f2f2f3">filtrado?</text>
+<rect x="870.0" y="1573.0" width="280" height="74" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1010" y="1600.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">Busca vetorial:</text>
+<text x="1010" y="1615.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">cosine_similarity(query, doc)</text>
+<text x="1010" y="1632.2" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">+ LEVEL_BOOST (+0.12 se nível bate)</text>
+<rect x="1300.0" y="1573.0" width="280" height="74" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1440" y="1600.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">Busca lexical:</text>
+<text x="1440" y="1615.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">overlap de tokens (Jaccard)</text>
+<text x="1440" y="1632.2" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">+ LEVEL_BOOST (+0.12 se nível bate)</text>
+<rect x="1060.0" y="1692.0" width="340" height="56" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1230" y="1716.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">Ordena por score, filtra &gt; 0,</text>
+<text x="1230" y="1731.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">top_k=4 → SearchHits</text>
+<rect x="1060.0" y="1782.0" width="340" height="56" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="1230" y="1806.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">format_hits() → {chunks: [...]}</text>
+<text x="1230" y="1821.4" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">devolvido como function_response</text>
+<polyline points="530,1010 1060,1010" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="779.4" y="988.9" width="31.158" height="18.3" fill="#151516" />
+<text x="795.0" y="1001.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">sim</text>
+<polyline points="1230,1045 1230,1090" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1380,1140 1440,1140" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="1444.4" y="1118.8" width="31.158" height="18.3" fill="#151516" />
+<text x="1460" y="1131.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">sim</text>
+<polyline points="1230,1190 1230,1230" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="1269.4" y="1200.8" width="31.158" height="18.3" fill="#151516" />
+<text x="1285" y="1213.6" text-anchor="middle" font-size="10.3" fill="#e0616b">não</text>
+<polyline points="1230,1290 1230,1330" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1230,1390 1230,1425" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1070,1480 1010,1480 1010,1573" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="1064.4" y="1458.8" width="31.158" height="18.3" fill="#151516" />
+<text x="1080" y="1471.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">sim</text>
+<polyline points="1390,1480 1440,1480 1440,1573" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="1354.4" y="1458.8" width="31.158" height="18.3" fill="#151516" />
+<text x="1370" y="1471.6" text-anchor="middle" font-size="10.3" fill="#e0616b">não</text>
+<polyline points="1010,1647 1010,1692 1230,1692" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1440,1647 1440,1692 1230,1692" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1230,1748 1230,1782" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="1400,1810 1800,1810 1800,880 530,880" fill="none" stroke="#5aa9ff" stroke-width="1.6" marker-end="url(#mLoop)" />
+<polyline points="1680,1140 1800,1140" fill="none" stroke="#5aa9ff" stroke-width="1.6" marker-end="url(#mLoop)" />
+<rect x="1717.4" y="1550.8" width="165.264" height="18.3" fill="#151516" />
+<text x="1800" y="1563.6" text-anchor="middle" font-size="10.3" fill="#5aa9ff">anexa function_response,</text>
+<rect x="1723.8" y="1570.8" width="152.49200000000002" height="18.3" fill="#151516" />
+<text x="1800" y="1583.6" text-anchor="middle" font-size="10.3" fill="#5aa9ff">rounds+1, chama Gemini</text>
+<rect x="1726.9" y="1590.8" width="146.106" height="18.3" fill="#151516" />
+<text x="1800" y="1603.6" text-anchor="middle" font-size="10.3" fill="#5aa9ff">de novo (mode=none se</text>
+<rect x="1755.7" y="1610.8" width="88.632" height="18.3" fill="#151516" />
+<text x="1800" y="1623.6" text-anchor="middle" font-size="10.3" fill="#5aa9ff">rounds == 3)</text>
+<polyline points="1150,268 1150,288 1900,288 1900,1440 1425,1440" fill="none" stroke="#c9a15a" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#mDash)" />
+<rect x="1872.3" y="891.0" width="55.4" height="18" fill="#151516" />
+<text x="1900" y="903.5" text-anchor="middle" font-size="10" fill="#c9a15a">vetores</text>
+<rect x="1850.6" y="911.0" width="98.8" height="18" fill="#151516" />
+<text x="1900" y="923.5" text-anchor="middle" font-size="10" fill="#c9a15a">pré-computados</text>
+<rect x="1856.8" y="931.0" width="86.4" height="18" fill="#151516" />
+<text x="1900" y="943.5" text-anchor="middle" font-size="10" fill="#c9a15a">(1x no boot)</text>
+<rect x="650.0" y="1127.0" width="300" height="66" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="800" y="1157.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">search_docs(store, question, level_id)</text>
+<text x="800" y="1174.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">chamada única, fora do loop de tools</text>
+<rect x="650.0" y="1261.0" width="300" height="78" rx="9" fill="#262629" stroke="#4a4a52" stroke-width="1.3" />
+<text x="800" y="1297.9" text-anchor="middle" font-size="12.3" font-weight="600" fill="#f2f2f3">fallback_reply(hits):</text>
+<text x="800" y="1308.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">monta resposta offline com frases</text>
+<text x="800" y="1320.7" text-anchor="middle" font-size="10" font-weight="400" fill="#8f8f97">“do jogador” extraídas de até 2 hits</text>
+<polyline points="530,1280 650,1280 650,1127" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="458.2" y="1258.8" width="203.58" height="18.3" fill="#151516" />
+<text x="560" y="1271.6" text-anchor="middle" font-size="10.3" fill="#5ad18a">sim (sem provedor / sem texto)</text>
+<polyline points="800,1193 800,1261" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<polyline points="800,1339 800,1600 570,1600" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<rect x="30" y="30" width="1" height="1" fill="none" />
+<polyline points="30,1940 68,1940" fill="none" stroke="#a3a3ad" stroke-width="1.6" marker-end="url(#mArrow)" />
+<rect x="97.0" y="1932.2" width="126.08" height="19.5" fill="#151516" />
+<text x="160" y="1946.0" text-anchor="middle" font-size="11.5" fill="#c7c7cd">fluxo sequencial</text>
+<polyline points="320,1940 358,1940" fill="none" stroke="#5ad18a" stroke-width="1.6" marker-end="url(#mYes)" />
+<rect x="388.4" y="1932.2" width="83.3" height="19.5" fill="#151516" />
+<text x="430" y="1946.0" text-anchor="middle" font-size="11.5" fill="#c7c7cd">ramo “sim”</text>
+<polyline points="560,1940 598,1940" fill="none" stroke="#e0616b" stroke-width="1.6" marker-end="url(#mNo)" />
+<rect x="628.4" y="1932.2" width="83.3" height="19.5" fill="#151516" />
+<text x="670" y="1946.0" text-anchor="middle" font-size="11.5" fill="#c7c7cd">ramo “não”</text>
+<polyline points="800,1940 838,1940" fill="none" stroke="#5aa9ff" stroke-width="1.6" marker-end="url(#mLoop)" />
+<rect x="852.0" y="1932.2" width="175.99" height="19.5" fill="#151516" />
+<text x="940" y="1946.0" text-anchor="middle" font-size="11.5" fill="#c7c7cd">loop de volta ao Gemini</text>
+<polyline points="1160,1940 1198,1940" fill="none" stroke="#c9a15a" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#mDash)" />
+<rect x="1227.7" y="1932.2" width="204.51" height="19.5" fill="#151516" />
+<text x="1330" y="1946.0" text-anchor="middle" font-size="11.5" fill="#c7c7cd">dados pré-computados (boot)</text>
+<text x="30" y="1976" font-size="10.5" fill="#8f8f97">Fonte: TuringBotAPI/agent.py, TuringBotAPI/tutor_provider.py, TuringBotAPI/rag/store.py (estado atual do repositório).</text>
+</svg>

@@ -39,6 +39,7 @@ Gameplay
 View
   MachineView
   TapeView
+  VictoryConfetti
   HaltIndicator
 UI
   LevelUI
@@ -84,7 +85,7 @@ Runtime links created by bootstrap:
 
 - Installs `ModelInstaller`, `ViewInstaller`, `ControllerInstaller`
 - Starts `GameFlowController` (`Start()`)
-- Requests/rehydrates `student_id` through `ITSClient` + `SkillTracker`
+- Requests/rehydrates `student_id` through the Inspector-bound `ITSClient` + `SkillTracker` (not `SkillTracker.Instance`, which may still be unset during `Awake`)
 
 ### `MvpSceneWiringValidator` (`MvpSceneWiringValidator`)
 
@@ -122,6 +123,10 @@ Assign all 18 channels:
 - `AskRequested`, `AskResult`, `ThinkingStateChanged`
 - `AgentActionRequested`
 
+Optional:
+
+- `HandGesturePerformed`, `VoiceCaptureStopped`, `TapeMoved`, `TapeRead`, `TapeWrite`
+
 Use context menu: `Validate Event Channels`.
 
 ## 3) Gameplay Editing Objects
@@ -145,6 +150,8 @@ Wiring:
 - Wired start → entry from `startOutputPort.ConnectedPeer.Owner.BlockId`; compile reachable directed subgraph
 - Skips recompile when `ProgramGraphFingerprint` is unchanged; off-start wires gated by `IProgramBlockConnectivity`
 - Calls `_edit.ReplaceProgramBuilder(...)` after `GraphToProgramCompiler` (keeps previous program on compile failure)
+- Stores the compiled state→block-id map so a run can light the live wire
+- During playback, `IProgramExecutionHighlight` switches the live energy wire to that socket's `previewColor`; idle wires stay on `connectedColor`
 - Drives `ProgramChanged` flow through `ControllerInstaller`
 
 ### `PlayerInput` (`PlayerInputCatcher`)
@@ -204,18 +211,68 @@ Assign in Inspector:
 
 - `cellsRoot` containing the initial `TapeCellView` pool
 - each `TapeCellView.symbolPrefabs`
+- `stepFeedback` → `TapeStepFeedback` on the same Tape (optional until you want read/write cues)
+- `tapeMovedChannel` → `Assets/TuringSimulator/Events/TapeMovedChannel.asset`
+- `tapeReadChannel` → `Assets/TuringSimulator/Events/TapeReadChannel.asset`
+- `tapeWriteChannel` → `Assets/TuringSimulator/Events/TapeWriteChannel.asset`
+
+Child `MoveAudio` (`EventChannelActionListener` + dedicated `AudioSource`) Inspector slots:
+
+Assigning `SourceChannel` shows a read-only payload member list (copy names into `MatchProperty` / `MatchValue`).
+
+- Binding **Start move**: `TapeMovedChannel`, `MatchProperty` `Phase`, `MatchValue` `Started`, `OnMatched` → that `AudioSource.Play()`
+- Binding **Move click**: same channel and filter → `AudioSource.PlayOneShot(Click01.wav)` (short mechanical click; the loop clip stays `Factories1`)
+- Binding **Stop move**: same channel, `MatchValue` `Finished`, `OnMatched` → `AudioSource.Stop()`
+- On the `AudioSource`: assign the move clip, tick **Loop**, leave **Play On Awake** off. Do not `Stop()` the Tape root source used by `TapeStepFeedback`.
+
+Read/write `EventChannelActionListener` examples (same Tape or a child FX object):
+
+- `TapeReadChannel`, `MatchProperty` `IsMatch`, `MatchValue` `True` → match clip `Play()`
+- `TapeReadChannel`, `IsMatch` = `False` → mismatch clip `Play()`
+- `TapeWriteChannel`, `MatchProperty` `Effect`, `MatchValue` `Write` → write particles `Play()`
+- `TapeWriteChannel`, `Effect` = `Delete` → delete particles `Play()`
+
+Do not bind `Play()` for a clip or particle system that `TapeStepFeedback` already plays, or the cue fires twice. Use the channel for *new* FX, or clear the matching `TapeStepFeedback` slot.
+
+`TapeStepFeedback` Inspector slots:
+
+- `Read Match Clip` — positive sound when the read symbol equals the symbol that will be written
+- `Read Mismatch Clip` — negative sound when they differ
+- `Write Particles` — particle system used when a physical symbol is written or replaced
+- `Delete Particles` — particle system used when a physical symbol is cleared to blank
+- `Read Hold Seconds` / `Write Effect Seconds` — how long playback waits on those beats (default 0.4)
 
 Behavior:
 
 - Symbol prefabs spawn as children of the owning `TapeCellView` (not of `cellsRoot`)
 - Blank cells stay inactive; `ShowWrite` activates the head cell for a physical symbol and deactivates it for blank
 - `SetTape` / `Reset` restore `cellsRoot` to its original local position, discard grown cells, and relayout the pool around the initial head
+- `ShowRead` / `ShowWrite` call `TapeStepFeedback` at the head cell (holds the playback beat) and raise `TapeRead` / `TapeWrite` Started then Finished for generic listeners
+- `MoveHead` raises `TapeMoved` Started then Finished; `MoveAudio` plays/stops the dedicated move source
 
 Wiring:
 
 - Assigned as `viewSceneBindings.tape`
 - Receives state updates from `MachineViewer`
 - `TapeDebugHotkeys` on the same object: **Left/Right** move the tape, **W** then **0/1/2/3** writes blank/gear/nut/screw
+
+### `VictoryConfetti` (`EventChannelActionListener`)
+
+Purpose: play confetti particles when the player wins.
+
+Prefab: `Assets/Prefabs/View/VictoryConfetti.prefab` (nested Blaster Confetti + listener).
+
+Assign in Inspector:
+
+- `SourceChannel` → `Assets/TuringSimulator/Events/LevelOutcomeChannel.asset`
+- `MatchProperty` `Outcome`, `MatchValue` `Victory`
+- `OnMatched` → nested `ParticleSystem.Play()` (Play On Awake off)
+
+Place under `View` in `BasicScene`. Spatial spawn is the object's transform.
+
+Wiring:
+
+- `GameFlowController` still raises `LevelOutcome`; this object only consumes Victory
 
 ### `HaltIndicator` (`HaltStatusColorIndicator`)
 
@@ -253,7 +310,7 @@ Purpose: REST client for `/session/new`, `/ask`, `/health`.
 
 Assign in Inspector:
 
-- `_baseUrl`
+- `_apiUrl` (default `https://turing.erwinlabs.dev`)
 - `_transcriptionReadyChannel`
 - `_askRequestedChannel`
 - `_askResultChannel`
@@ -262,13 +319,13 @@ Assign in Inspector:
 Wiring:
 
 - Subscribes to `TranscriptionReady`
-- Publishes `AskRequested`, `AskResult`, `ThinkingStateChanged` when `/ask` can be posted
-- If the ITS server is unreachable, skips `/ask` so `TranscriptionAskFallbackListener` can echo the STT text
+- Publishes `AskRequested`, then POSTs `/ask`, then `AskResult` / `ThinkingStateChanged`
+- If the ITS API is unreachable, still raises a successful `AskResult` whose `Reply` is `O rádio não ta muito bom.`
 - Provides session allocation to bootstrap/controller flow
 
 ### `TranscriptionAskFallbackListener` (`TranscriptionAskFallbackListener`)
 
-Purpose: when `/ask` cannot be posted, speak and subtitle the finalized STT text as the tutor reply.
+Purpose: when no ITS client is present to post `/ask`, speak the radio fallback as the tutor reply.
 
 Assign in Inspector:
 
@@ -279,8 +336,9 @@ Assign in Inspector:
 Wiring:
 
 - Subscribes to `TranscriptionReady`
-- If `IAskClient.CanPostAsk` is false and the transcription is non-empty, publishes `AskResult` `Success=true` / `Reply=<STT text>`
+- If no ITS client is present and the transcription is non-empty, publishes `AskResult` `Success=true` / `Reply=O rádio não ta muito bom.`
 - `AgentActionMapper` AskResult rule then drives `AgentActionExecutor` → `AgentTTS`
+- When `ITSClient` is present, it owns `/ask` and the unreachable fallback; this listener does nothing
 
 ### `SkillTracker` (`SkillTracker`)
 
@@ -317,15 +375,14 @@ Wiring:
 
 ### `VoiceHearingStoppedCue` (`VoiceHearingStoppedCue`)
 
-Purpose: audio + subtitle hint when Meta Voice stops hearing.
+Purpose: audio cue when Meta Voice stops hearing. Player-facing stop text is `Cambio` on the right palm (`PalmVoiceCaptionView`), not the agent bubble.
 
 Assign in Inspector:
 
 - `_voiceCaptureStoppedChannel` → `VoiceCaptureStoppedChannel`
 - `_audioSource` on the same `Voice` object
 - `_clip` → `Button Pop.wav`
-- `_agentDialogue`
-- `_hintText` → `O microfone parou de ouvir.`
+- `_agentDialogue` (mic indicator off only; no subtitle)
 
 ### `HandGestureMicListener` (`HandGestureMicListener`)
 
@@ -388,8 +445,8 @@ Assign in Inspector:
 
 Wiring:
 
-- Updated by `AgentVoiceFeedbackListener` (event-driven UI state)
-- Used by `AgentActionExecutor` to display subtitles
+- Updated by `AgentVoiceFeedbackListener` (listening/thinking UI)
+- Used by `AgentActionExecutor` to display tutor replies only (player STT stays on the palm caption)
 
 ### `AgentTTS` (`AgentTTS`, implements `IAgentSpeech`)
 
@@ -426,7 +483,7 @@ Assign in Inspector:
 
 - `_agentActionChannel`
 - `_rules[]` entries:
-  - `SourceChannel`
+  - `SourceChannel` (Inspector then lists payload members read-only)
   - optional `MatchProperty` + `MatchValue`
   - `TextMode` + text source
   - `Animation`
@@ -488,6 +545,7 @@ Assign in Inspector:
 
 - Animator component with expected params
 - `_agentActionChannel`
+- `_agentDialogue`
 - bool names: `_idleBool`, `_thinkingBool`, `_talkingBool`
 - trigger name: `_celebrateTrigger` (example `Commemoration`)
 
@@ -495,17 +553,39 @@ Wiring:
 
 - Subscribes to `AgentActionRequested`
 - Applies animation state machine parameters
+- Stays in Talking while the agent subtitle is visible; goes Idle when the bubble dismisses
 
 ### `AgentVoiceFeedbackListener` (`AgentVoiceFeedbackListener`)
 
-Purpose: bridges voice/thinking channels into `AgentDialogue` UI.
+Purpose: bridges listening/thinking channels into `AgentDialogue` UI. Does not display player STT.
 
 Assign in Inspector:
 
 - `_listeningStateChannel`
-- `_partialTranscriptionChannel`
 - `_thinkingStateChannel`
 - `_agentDialogue`
+
+Wiring:
+
+- Subscribes to those channels
+- Calls `AgentDialogue.SetListeningState` and `SetThinkingState`
+
+### `PalmVoiceCaptionView` (`PalmVoiceCaptionView`)
+
+Purpose: player STT on the right-hand palm text. Not shown on the agent bubble.
+
+Assign in Inspector:
+
+- `_label`
+- `_handGestureChannel`
+- `_listeningStateChannel`
+- `_partialTranscriptionChannel`
+- `_voiceCaptureStoppedChannel`
+
+Wiring:
+
+- Visible while Shaka is held or a T/mic listen session is open
+- Live STT on `PartialTranscription`; UI-only `Cambio` on capture-stopped
 
 Wiring:
 
