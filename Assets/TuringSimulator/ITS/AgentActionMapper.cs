@@ -28,9 +28,9 @@ public sealed class AgentActionMapper : MonoBehaviour
         public ScriptableObject SourceChannel;
 
         [Header("Trigger Filter (optional)")]
-        [Tooltip("If set, reads this payload property/field and compares it to MatchValue.")]
+        [Tooltip("If set, reads this payload property/field and compares it to MatchValue. Names and values are listed on the assigned channel.")]
         public string MatchProperty;
-        [Tooltip("Case-insensitive string compare against property value.")]
+        [Tooltip("Case-insensitive string compare against property value (enum/bool names are listed on the channel).")]
         public string MatchValue;
 
         [Header("Action")]
@@ -109,17 +109,13 @@ public sealed class AgentActionMapper : MonoBehaviour
 
     bool MatchesFilter(EventActionRule rule, object payload)
     {
-        if (string.IsNullOrWhiteSpace(rule.MatchProperty))
+        if (EventPayloadFilter.Matches(payload, rule.MatchProperty, rule.MatchValue, out var memberReadable))
             return true;
 
-        if (!TryReadMemberString(payload, rule.MatchProperty, out var value))
-        {
-            if (_logRuleMismatches)
-                Debug.LogWarning($"[AgentActionMapper] Rule '{rule.Name}' could not read match member '{rule.MatchProperty}'.", this);
-            return false;
-        }
+        if (!memberReadable && _logRuleMismatches)
+            Debug.LogWarning($"[AgentActionMapper] Rule '{rule.Name}' could not read match member '{rule.MatchProperty}'.", this);
 
-        return string.Equals(value, rule.MatchValue ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        return false;
     }
 
     string ResolveText(EventActionRule rule, object payload)
@@ -129,41 +125,13 @@ public sealed class AgentActionMapper : MonoBehaviour
             case ActionTextMode.Static:
                 return rule.StaticText ?? string.Empty;
             case ActionTextMode.PayloadProperty:
-                return TryReadMemberString(payload, rule.TextProperty, out var value) ? value : string.Empty;
+                return EventPayloadFilter.TryReadMemberString(payload, rule.TextProperty, out var value) ? value : string.Empty;
             case ActionTextMode.PayloadToString:
                 return payload?.ToString() ?? string.Empty;
             case ActionTextMode.Empty:
             default:
                 return string.Empty;
         }
-    }
-
-    static bool TryReadMemberString(object payload, string memberName, out string value)
-    {
-        value = string.Empty;
-        if (payload == null || string.IsNullOrWhiteSpace(memberName))
-            return false;
-
-        var payloadType = payload.GetType();
-        var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase;
-
-        var property = payloadType.GetProperty(memberName, flags);
-        if (property != null)
-        {
-            var propertyValue = property.GetValue(payload);
-            value = propertyValue?.ToString() ?? string.Empty;
-            return true;
-        }
-
-        var field = payloadType.GetField(memberName, flags);
-        if (field != null)
-        {
-            var fieldValue = field.GetValue(payload);
-            value = fieldValue?.ToString() ?? string.Empty;
-            return true;
-        }
-
-        return false;
     }
 
     static EventContextData? TryResolveContext(object payload)

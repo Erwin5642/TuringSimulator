@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.Serialization;
 
 [DefaultExecutionOrder(-200)]
 public class ITSClient : MonoBehaviour, IAskClient
@@ -18,7 +19,9 @@ public class ITSClient : MonoBehaviour, IAskClient
     public static ITSClient Instance { get; private set; }
 
     [Header("Server")]
-    [SerializeField] private string _baseUrl = "http://localhost:8000";
+    [Tooltip("ITS REST API URL (scheme + host, no trailing slash).")]
+    [FormerlySerializedAs("_baseUrl")]
+    [SerializeField] private string _apiUrl = "https://turing.erwinlabs.dev";
     [SerializeField] private float _timeoutSeconds = 10f;
 
     [Header("Event Channels (event-driven wiring)")]
@@ -73,12 +76,6 @@ public class ITSClient : MonoBehaviour, IAskClient
 
     void Ask(string studentId, string levelId, string question, string correlationId)
     {
-        if (!_serverAvailable)
-        {
-            EchoTranscription(correlationId, question);
-            return;
-        }
-
         _pendingAskCorrelationId = correlationId;
         _isAwaitingAskResult = true;
         PublishThinkingState(correlationId, true);
@@ -100,6 +97,7 @@ public class ITSClient : MonoBehaviour, IAskClient
             if (!success)
             {
                 var fallback = BuildLocalFallbackStudentId();
+                Debug.LogWarning($"[ITSClient] /session/new failed; using local student_id={fallback}");
                 OnSessionCreated?.Invoke(fallback);
                 onComplete(fallback);
                 return;
@@ -109,13 +107,14 @@ public class ITSClient : MonoBehaviour, IAskClient
             if (string.IsNullOrWhiteSpace(dto?.StudentId))
             {
                 var fallback = BuildLocalFallbackStudentId();
-                Debug.LogWarning("[ITSClient] /session/new returned empty student_id; using local fallback.");
+                Debug.LogWarning($"[ITSClient] /session/new returned empty student_id; using local student_id={fallback}");
                 OnSessionCreated?.Invoke(fallback);
                 onComplete(fallback);
                 return;
             }
 
             _serverAvailable = true;
+            Debug.Log($"[ITSClient] /session/new student_id={dto.StudentId}");
             OnSessionCreated?.Invoke(dto.StudentId);
             onComplete(dto.StudentId);
         }));
@@ -142,6 +141,7 @@ public class ITSClient : MonoBehaviour, IAskClient
             return;
         }
 
+        _serverAvailable = true;
         _isAwaitingAskResult = false;
         OnAskReply?.Invoke(reply);
         PublishThinkingState(_pendingAskCorrelationId, false);
@@ -155,7 +155,8 @@ public class ITSClient : MonoBehaviour, IAskClient
 
     IEnumerator Post(string path, string json, Action<string, bool> callback)
     {
-        var url = _baseUrl + path;
+        var url = _apiUrl + path;
+        Debug.Log($"[ITSClient] POST {url}");
         var bytes = Encoding.UTF8.GetBytes(json);
 
         using var req = new UnityWebRequest(url, "POST");
@@ -174,23 +175,16 @@ public class ITSClient : MonoBehaviour, IAskClient
         {
             Debug.LogWarning($"[ITSClient] {path} failed: {req.error}");
             if (string.Equals(path, "/ask", StringComparison.Ordinal))
-            {
-                PublishAskFailure(
-                    _pendingAskCorrelationId,
-                    req.error,
-                    "Hmm, parece que perdi o sinal. Tente novamente em um momento.");
-            }
+                PublishUnreachableServerReply(_pendingAskCorrelationId);
             else
-            {
                 OnServerError?.Invoke(req.error);
-            }
             callback(null, false);
         }
     }
 
     IEnumerator CheckServerHealth()
     {
-        using var req = UnityWebRequest.Get(_baseUrl + "/health");
+        using var req = UnityWebRequest.Get(_apiUrl + "/health");
         req.timeout = 3;
         yield return req.SendWebRequest();
 
@@ -199,7 +193,7 @@ public class ITSClient : MonoBehaviour, IAskClient
         if (_serverAvailable)
             Debug.Log("[ITSClient] Server reachable.");
         else
-            Debug.LogWarning("[ITSClient] Server not reachable — Ask disabled until available.");
+            Debug.LogWarning("[ITSClient] Server not reachable — /ask will use radio fallback until available.");
     }
 
     static string BuildLocalFallbackStudentId() =>
@@ -218,13 +212,11 @@ public class ITSClient : MonoBehaviour, IAskClient
             return;
         }
 
-        if (!CanPostAsk)
-            return;
-
         var tracker = SkillTracker.Instance;
         var studentId = tracker != null && tracker.HasActiveSession ? tracker.StudentId : string.Empty;
         if (string.IsNullOrWhiteSpace(studentId))
         {
+            Debug.LogWarning("[ITSClient] /ask skipped; no active student session.");
             PublishAskFailure(
                 eventData.Context.CorrelationId,
                 "Missing active student session.",
@@ -242,12 +234,16 @@ public class ITSClient : MonoBehaviour, IAskClient
         Ask(studentId, levelId, text, correlationId);
     }
 
-    void EchoTranscription(string correlationId, string text)
+    void PublishUnreachableServerReply(string correlationId)
     {
-        OnAskReply?.Invoke(text);
+        _serverAvailable = false;
+        var reply = TranscriptionAskFallback.UnreachableReply;
+        _isAwaitingAskResult = false;
+        OnAskReply?.Invoke(reply);
         PublishThinkingState(correlationId, false);
-        PublishAskResult(correlationId, success: true, reply: text, error: string.Empty);
-        Debug.Log($"[ITSClient] /ask skipped; echoing STT via TTS chars={text.Length}.");
+        PublishAskResult(correlationId, success: true, reply: reply, error: string.Empty);
+        _pendingAskCorrelationId = string.Empty;
+        Debug.Log("[ITSClient] /ask unreachable; using radio fallback reply.");
     }
 
     void PublishAskRequested(string correlationId, string studentId, string levelId, string question)

@@ -1,14 +1,17 @@
 /// <summary>
-/// Decides when a finalized STT utterance should be echoed as the tutor reply
-/// instead of posting <c>/ask</c>.
+/// Radio-style tutor reply used when voice cannot reach the ITS API.
+/// Raised as a successful <c>AskResult</c> so the agent treats it like a server reply.
 /// </summary>
 public static class TranscriptionAskFallback
 {
-    public static bool ShouldEcho(string transcription, bool canPostAsk)
-    {
-        return !canPostAsk && !string.IsNullOrWhiteSpace(transcription);
-    }
+    public const string UnreachableReply = "O rádio não ta muito bom.";
 
-    public static string ResolveEchoText(string transcription) =>
-        transcription?.Trim() ?? string.Empty;
+    /// <summary>
+    /// True when there is no ITS client to post <c>/ask</c>, so a local AskResult
+    /// must stand in for the server.
+    /// </summary>
+    public static bool ShouldPublishLocalFallback(string transcription, bool itsClientPresent)
+    {
+        return !itsClientPresent && !string.IsNullOrWhiteSpace(transcription);
+    }
 }

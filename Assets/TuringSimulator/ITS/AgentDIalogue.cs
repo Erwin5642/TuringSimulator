@@ -28,6 +28,9 @@ public class AgentDialogue : MonoBehaviour
 
     public event Action OnThinkingStarted;
     public event Action OnThinkingFinished;
+    public event Action OnSubtitleDismissed;
+
+    public bool IsSubtitleVisible => _bubbleRoot != null && _bubbleRoot.activeSelf;
 
     private Coroutine _typewriterRoutine;
     private Coroutine _dismissRoutine;
@@ -122,6 +125,8 @@ public class AgentDialogue : MonoBehaviour
     public void ShowSubtitle(string message)
     {
         if (_bubbleRoot == null || _bubbleText == null)
+            return;
+        if (string.IsNullOrWhiteSpace(message))
             return;
 
         if (_typewriterRoutine != null)
@@ -229,7 +234,23 @@ public class AgentDialogue : MonoBehaviour
     private IEnumerator DismissAfterDelay()
     {
         yield return new WaitForSeconds(_autoDismissAfter);
+        HideSubtitle();
+    }
+
+    void HideSubtitle()
+    {
+        if (_typewriterRoutine != null)
+        {
+            StopCoroutine(_typewriterRoutine);
+            _typewriterRoutine = null;
+        }
+
+        _dismissRoutine = null;
+
+        var wasVisible = IsSubtitleVisible;
         SetActiveIfAssigned(_bubbleRoot, false);
+        if (wasVisible)
+            OnSubtitleDismissed?.Invoke();
     }
 
     // UnityEngine.Object fake-null is not C# null, so ?. still calls SetActive and throws.

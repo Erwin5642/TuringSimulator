@@ -3,7 +3,7 @@ using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
 /// <summary>
-/// Shows live STT on the right-palm TextMeshPro only while Shaka is held.
+/// Shows live STT on the right-palm TextMeshPro while Shaka is held or T listening is on.
 /// Appends a UI-only "Cambio" when Wit capture stops; that cue is not sent to ITS.
 /// </summary>
 public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
@@ -13,6 +13,7 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
 
     [Header("Event Channels")]
     [SerializeField] private HandGesturePerformedEventChannel _handGestureChannel;
+    [SerializeField] private ListeningStateChangedEventChannel _listeningStateChannel;
     [SerializeField] private PartialTranscriptionEventChannel _partialTranscriptionChannel;
     [SerializeField] private VoiceCaptureStoppedEventChannel _voiceCaptureStoppedChannel;
 
@@ -24,6 +25,8 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
 
     bool _visible;
     bool _captureStopped;
+    bool _gestureHeld;
+    bool _listening;
     string _recordedText = string.Empty;
 
     void Awake()
@@ -37,6 +40,8 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
     {
         if (_handGestureChannel != null)
             _handGestureChannel.OnRaised += HandleGesture;
+        if (_listeningStateChannel != null)
+            _listeningStateChannel.OnRaised += HandleListening;
         if (_partialTranscriptionChannel != null)
             _partialTranscriptionChannel.OnRaised += HandlePartial;
         if (_voiceCaptureStoppedChannel != null)
@@ -47,6 +52,8 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
     {
         if (_handGestureChannel != null)
             _handGestureChannel.OnRaised -= HandleGesture;
+        if (_listeningStateChannel != null)
+            _listeningStateChannel.OnRaised -= HandleListening;
         if (_partialTranscriptionChannel != null)
             _partialTranscriptionChannel.OnRaised -= HandlePartial;
         if (_voiceCaptureStoppedChannel != null)
@@ -63,10 +70,14 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
                 out var show))
             return;
 
-        if (show)
-            Show();
-        else
-            Hide();
+        _gestureHeld = show;
+        SyncVisibility();
+    }
+
+    public void HandleListening(ListeningStateChangedEventData eventData)
+    {
+        _listening = eventData.IsListening;
+        SyncVisibility();
     }
 
     public void HandlePartial(PartialTranscriptionEventData eventData)
@@ -91,6 +102,20 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
         ApplyText(PalmVoiceCaption.AppendStoppedCue(_recordedText, _stoppedCue));
     }
 
+    void SyncVisibility()
+    {
+        var shouldShow = PalmVoiceCaption.ShouldShowCaption(_gestureHeld, _listening);
+        if (shouldShow)
+        {
+            if (!_visible)
+                Show();
+            return;
+        }
+
+        if (_visible)
+            Hide();
+    }
+
     void Show()
     {
         _visible = true;
@@ -104,6 +129,8 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
     {
         _visible = false;
         _captureStopped = false;
+        _gestureHeld = false;
+        _listening = false;
         _recordedText = string.Empty;
         ApplyText(string.Empty);
         SetLabelEnabled(false);
@@ -128,6 +155,8 @@ public sealed class PalmVoiceCaptionView : MonoBehaviour, IPalmVoiceCaptionView
             Debug.LogWarning($"{name}: assign a TMP_Text for the palm caption.", this);
         if (_handGestureChannel == null)
             Debug.LogWarning($"{name}: assign HandGesturePerformedEventChannel.", this);
+        if (_listeningStateChannel == null)
+            Debug.LogWarning($"{name}: assign ListeningStateChangedEventChannel.", this);
         if (_partialTranscriptionChannel == null)
             Debug.LogWarning($"{name}: assign PartialTranscriptionEventChannel.", this);
         if (_voiceCaptureStoppedChannel == null)

@@ -3,7 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Plays a short cue when Wit stops capturing audio while the ask session
-/// is still waiting for Shaka/T to send.
+/// is still waiting for Shaka/T to send. The player-facing stop text is
+/// UI-only <c>Cambio</c> on the right palm, not the agent bubble.
 /// </summary>
 [RequireComponent(typeof(AudioSource))]
 public sealed class VoiceHearingStoppedCue : MonoBehaviour
@@ -12,7 +13,6 @@ public sealed class VoiceHearingStoppedCue : MonoBehaviour
     [SerializeField] private AudioSource _audioSource;
     [SerializeField] private AudioClip _clip;
     [SerializeField] private AgentDialogue _agentDialogue;
-    [SerializeField] [TextArea] private string _hintText = "O microfone parou de ouvir.";
 
     void Awake()
     {
@@ -44,8 +44,6 @@ public sealed class VoiceHearingStoppedCue : MonoBehaviour
 
         var dialogue = _agentDialogue != null ? _agentDialogue : AgentDialogue.Instance;
         dialogue?.SetListeningState(false);
-        if (!string.IsNullOrWhiteSpace(_hintText))
-            dialogue?.ShowSubtitle(_hintText.Trim());
     }
 
 #if UNITY_EDITOR

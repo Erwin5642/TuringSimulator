@@ -15,7 +15,7 @@
 //
 // COMMIT RULE:
 //   Text is the latest string Meta Voice emitted (no joining). TranscriptionReady
-//   (ITS /ask or echo TTS) fires only after _silenceCommitSeconds of no new
+//   (ITS /ask) fires only after _silenceCommitSeconds of no new
 //   STT, or when the player stops Shaka / T.
 
 using System;
@@ -167,7 +167,7 @@ public class VoiceInputHandler : MonoBehaviour
 
     /// <summary>
     /// Stop listening manually (e.g. player releases Shaka / second T)
-    /// and send the latest Wit STT to ITS / echo TTS.
+    /// and send the latest Wit STT to ITS /ask.
     /// </summary>
     public void StopListening()
     {

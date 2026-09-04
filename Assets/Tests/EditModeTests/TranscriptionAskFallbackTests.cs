@@ -5,28 +5,38 @@ namespace EditModeTests
     public class TranscriptionAskFallbackTests
     {
         [Test]
-        public void ShouldEcho_WhenAskCannotBePosted_AndTextPresent()
+        public void ShouldPublishLocalFallback_WhenNoItsClient_AndTextPresent()
         {
-            Assert.That(TranscriptionAskFallback.ShouldEcho("olá", canPostAsk: false), Is.True);
+            Assert.That(
+                TranscriptionAskFallback.ShouldPublishLocalFallback("olá", itsClientPresent: false),
+                Is.True);
         }
 
         [Test]
-        public void ShouldEcho_WhenAskCanBePosted_IsFalse()
+        public void ShouldPublishLocalFallback_WhenItsClientPresent_IsFalse()
         {
-            Assert.That(TranscriptionAskFallback.ShouldEcho("olá", canPostAsk: true), Is.False);
+            Assert.That(
+                TranscriptionAskFallback.ShouldPublishLocalFallback("olá", itsClientPresent: true),
+                Is.False);
         }
 
         [Test]
-        public void ShouldEcho_WhenTextEmpty_IsFalse()
+        public void ShouldPublishLocalFallback_WhenTextEmpty_IsFalse()
         {
-            Assert.That(TranscriptionAskFallback.ShouldEcho("  ", canPostAsk: false), Is.False);
-            Assert.That(TranscriptionAskFallback.ShouldEcho(null, canPostAsk: false), Is.False);
+            Assert.That(
+                TranscriptionAskFallback.ShouldPublishLocalFallback("  ", itsClientPresent: false),
+                Is.False);
+            Assert.That(
+                TranscriptionAskFallback.ShouldPublishLocalFallback(null, itsClientPresent: false),
+                Is.False);
         }
 
         [Test]
-        public void ResolveEchoText_Trims()
+        public void UnreachableReply_IsRadioFallback()
         {
-            Assert.That(TranscriptionAskFallback.ResolveEchoText("  oi  "), Is.EqualTo("oi"));
+            Assert.That(
+                TranscriptionAskFallback.UnreachableReply,
+                Is.EqualTo("O rádio não ta muito bom."));
         }
     }
 }

@@ -2,8 +2,8 @@ using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
 /// <summary>
-/// When <c>/ask</c> cannot be posted, raises a successful AskResult whose reply
-/// is the STT text so the mapper/TTS speak exactly what was heard.
+/// When no ITS client is present to post <c>/ask</c>, raises a successful AskResult
+/// whose reply is the radio fallback so the mapper/TTS still speak.
 /// </summary>
 public sealed class TranscriptionAskFallbackListener : MonoBehaviour
 {
@@ -25,8 +25,8 @@ public sealed class TranscriptionAskFallbackListener : MonoBehaviour
 
     void HandleTranscriptionReady(TranscriptionReadyEventData eventData)
     {
-        var canPostAsk = ResolveAskClient()?.CanPostAsk ?? false;
-        if (!TranscriptionAskFallback.ShouldEcho(eventData.Text, canPostAsk))
+        var itsClientPresent = ResolveAskClient() != null;
+        if (!TranscriptionAskFallback.ShouldPublishLocalFallback(eventData.Text, itsClientPresent))
             return;
 
         if (_askResultChannel == null)
@@ -35,14 +35,14 @@ public sealed class TranscriptionAskFallbackListener : MonoBehaviour
             return;
         }
 
-        var text = TranscriptionAskFallback.ResolveEchoText(eventData.Text);
+        var reply = TranscriptionAskFallback.UnreachableReply;
         var payload = new AskResultEventData(
             eventData.Context,
             success: true,
-            reply: text,
+            reply: reply,
             error: string.Empty);
         _askResultChannel.Raise(payload, this);
-        Debug.Log($"[TranscriptionAskFallbackListener] Echoing STT via TTS chars={text.Length}.");
+        Debug.Log("[TranscriptionAskFallbackListener] No ITS client; using radio fallback reply.");
     }
 
     IAskClient ResolveAskClient()

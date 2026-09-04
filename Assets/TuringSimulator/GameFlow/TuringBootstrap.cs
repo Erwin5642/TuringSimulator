@@ -134,47 +134,63 @@ namespace TuringSimulator.GameFlow
 
         private async Task BeginGame()
         {
-            if (SkillTracker.Instance != null)
-            {
-                var sessionId = SkillTracker.Instance.StudentId;
-                if (SceneReloadSessionState.TryConsumeStudent(out var preservedStudentId))
-                    sessionId = preservedStudentId;
-
-                if (string.IsNullOrWhiteSpace(sessionId) && ITSClient.Instance != null)
-                    sessionId = await ITSClient.Instance.RequestNewSessionAsync();
-
-                SkillTracker.Instance.BeginSession(sessionId);
-            }
-
+            await EnsureActiveSession();
             _controllerInstaller.GameFlowController.Start();
         }
 
         public async void StartFromMainMenu()
         {
-            if (SkillTracker.Instance == null || ITSClient.Instance == null)
+            if (skillTracker == null || itsClient == null)
             {
                 Debug.LogWarning("[Bootstrap] Cannot start session from menu: missing ITS components.");
                 return;
             }
 
-            var studentId = await ITSClient.Instance.RequestNewSessionAsync();
-            SkillTracker.Instance.BeginSession(studentId);
+            var studentId = await itsClient.RequestNewSessionAsync();
+            skillTracker.BeginSession(studentId);
             _controllerInstaller?.GameFlowController.Start();
         }
 
         public void ReturnToMainMenu()
         {
             _controllerInstaller?.GameFlowController.ReturnToMenu();
-            SkillTracker.Instance?.ClearSession();
+            skillTracker?.ClearSession();
         }
 
         public void PrepareForSceneReload()
         {
-            SceneReloadSessionState.PreserveStudent(SkillTracker.Instance?.StudentId);
+            SceneReloadSessionState.PreserveStudent(skillTracker != null ? skillTracker.StudentId : null);
             _modelInstaller?.Simulation.Cancel();
 
             dontDestroyRoot = false;
             Destroy(gameObject);
+        }
+
+        private async Task EnsureActiveSession()
+        {
+            if (skillTracker == null)
+            {
+                Debug.LogWarning("[Bootstrap] SkillTracker missing; skipping /session/new.");
+                return;
+            }
+
+            var sessionId = skillTracker.StudentId;
+            if (SceneReloadSessionState.TryConsumeStudent(out var preservedStudentId))
+                sessionId = preservedStudentId;
+
+            if (string.IsNullOrWhiteSpace(sessionId))
+            {
+                if (itsClient == null)
+                {
+                    Debug.LogWarning("[Bootstrap] ITSClient missing; cannot request /session/new.");
+                    skillTracker.BeginSession(string.Empty);
+                    return;
+                }
+
+                sessionId = await itsClient.RequestNewSessionAsync();
+            }
+
+            skillTracker.BeginSession(sessionId);
         }
 
         private void OnDestroy()

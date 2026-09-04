@@ -45,6 +45,14 @@ namespace EditModeTests
         }
 
         [Test]
+        public void ShouldShowCaption_WhenListeningOrGestureHeld()
+        {
+            Assert.That(PalmVoiceCaption.ShouldShowCaption(gestureHeld: true, listening: false), Is.True);
+            Assert.That(PalmVoiceCaption.ShouldShowCaption(gestureHeld: false, listening: true), Is.True);
+            Assert.That(PalmVoiceCaption.ShouldShowCaption(gestureHeld: false, listening: false), Is.False);
+        }
+
+        [Test]
         public void FormatLive_TrimsRecordedText()
         {
             Assert.That(PalmVoiceCaption.FormatLive("  olá mundo  "), Is.EqualTo("olá mundo"));

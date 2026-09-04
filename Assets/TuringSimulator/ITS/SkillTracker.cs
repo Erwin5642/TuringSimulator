@@ -6,6 +6,7 @@ using UnityEngine;
 /// Slim session identity holder for the main voice Ask demo.
 /// Keeps student and level context for /ask payloads.
 /// </summary>
+[DefaultExecutionOrder(-150)]
 public class SkillTracker : MonoBehaviour
 {
     public static SkillTracker Instance { get; private set; }

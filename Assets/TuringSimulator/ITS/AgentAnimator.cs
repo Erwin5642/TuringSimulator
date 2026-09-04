@@ -13,6 +13,9 @@ public sealed class AgentAnimator : MonoBehaviour
     [SerializeField] private string _talkingBool = "Talking";
     [SerializeField] private string _celebrateTrigger = "Celebrate";
 
+    [Header("Subtitle")]
+    [SerializeField] private AgentDialogue _agentDialogue;
+
     private Animator _animator;
     private int _idleHash;
     private int _thinkingHash;
@@ -32,6 +35,10 @@ public sealed class AgentAnimator : MonoBehaviour
 
         if (AgentTTS.Instance != null)
             AgentTTS.Instance.OnSpeechFinished += HandleSpeechFinished;
+
+        var dialogue = ResolveDialogue();
+        if (dialogue != null)
+            dialogue.OnSubtitleDismissed += HandleSubtitleDismissed;
     }
 
     void OnDisable()
@@ -41,6 +48,10 @@ public sealed class AgentAnimator : MonoBehaviour
 
         if (AgentTTS.Instance != null)
             AgentTTS.Instance.OnSpeechFinished -= HandleSpeechFinished;
+
+        var dialogue = ResolveDialogue();
+        if (dialogue != null)
+            dialogue.OnSubtitleDismissed -= HandleSubtitleDismissed;
     }
 
     void HandleActionRequested(AgentActionRequestedEventData eventData)
@@ -71,11 +82,31 @@ public sealed class AgentAnimator : MonoBehaviour
 
     void HandleSpeechFinished()
     {
+        var dialogue = ResolveDialogue();
+        if (dialogue != null && dialogue.IsSubtitleVisible)
+            return;
+
+        GoIdle();
+    }
+
+    void HandleSubtitleDismissed()
+    {
+        if (_animator != null && _animator.GetBool(_thinkingHash))
+            return;
+
+        GoIdle();
+    }
+
+    void GoIdle()
+    {
         if (_animator == null)
             return;
 
-        _animator.SetBool(_talkingHash, false);
+        SetFlags(idle: true, thinking: false, talking: false);
     }
+
+    AgentDialogue ResolveDialogue() =>
+        _agentDialogue != null ? _agentDialogue : AgentDialogue.Instance;
 
     void SetFlags(bool idle, bool thinking, bool talking)
     {

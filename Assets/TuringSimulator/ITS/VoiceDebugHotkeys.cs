@@ -229,9 +229,6 @@ public sealed class VoiceDebugHotkeys : MonoBehaviour
         _sttPartial = string.Empty;
         _listening = false;
         ShowOverlay($"STT (T): {_sttFinal}");
-        var dialogue = _agentDialogue != null ? _agentDialogue : AgentDialogue.Instance;
-        if (dialogue != null && !string.IsNullOrWhiteSpace(_sttFinal))
-            dialogue.ShowSubtitle(_sttFinal);
     }
 
     private void HandleSpeechError(string error)

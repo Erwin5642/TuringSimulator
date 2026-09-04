@@ -26,6 +26,9 @@ public static class PalmVoiceCaption
         return true;
     }
 
+    public static bool ShouldShowCaption(bool gestureHeld, bool listening) =>
+        gestureHeld || listening;
+
     public static string FormatLive(string recordedText) =>
         recordedText?.Trim() ?? string.Empty;
 
