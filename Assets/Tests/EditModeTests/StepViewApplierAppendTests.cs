@@ -24,6 +24,41 @@ namespace EditModeTests
         }
 
         [Test]
+        public async Task TryGetLastAppliedStep_AfterForward_ReturnsAppliedDiff()
+        {
+            var applier = new StepViewApplier(new ImmediateMachineView());
+            var diff = new StepResult(new StepDiff(Symbol.Blank, Symbol.Gear, 0, 0, 0, 1, 0));
+            applier.AppendStep(diff);
+
+            Assert.That(applier.TryGetLastAppliedStep(out _), Is.False);
+
+            await applier.TryStepForward();
+
+            Assert.That(applier.TryGetLastAppliedStep(out var applied), Is.True);
+            Assert.That(applied.AsDiff().PreviousState, Is.EqualTo(0));
+            Assert.That(applied.AsDiff().NextState, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task OnStepApplying_FiresBeforeViewCompletes()
+        {
+            var view = new GateMachineView();
+            var applier = new StepViewApplier(view);
+            var diff = new StepResult(new StepDiff(Symbol.Blank, Symbol.Gear, 0, 0, 0, 1, 0));
+            applier.AppendStep(diff);
+
+            StepResult? applying = null;
+            applier.OnStepApplying += step => applying = step;
+
+            var forward = applier.TryStepForward();
+            Assert.That(applying.HasValue, Is.True);
+            Assert.That(applying.Value.AsDiff().NextState, Is.EqualTo(1));
+
+            view.Release();
+            await forward;
+        }
+
+        [Test]
         public async Task Reset_DuringForward_DropsInFlightStep()
         {
             var view = new GateMachineView();

@@ -3,7 +3,14 @@ using UnityEngine;
 
 namespace TuringSimulator.GameFlow.Events
 {
-    public abstract class EventChannelSO<TPayload> : ScriptableObject, IEventChannel<TPayload>, IUntypedEventChannel
+    /// <summary>
+    /// Non-generic base so the Editor can show payload docs for every channel asset.
+    /// </summary>
+    public abstract class EventChannelSO : ScriptableObject
+    {
+    }
+
+    public abstract class EventChannelSO<TPayload> : EventChannelSO, IEventChannel<TPayload>, IUntypedEventChannel
     {
         [Header("Debug Trace")]
         [SerializeField] private bool _traceEvents = true;

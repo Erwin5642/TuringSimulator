@@ -9,9 +9,22 @@ namespace TuringSimulator.Controller
     /// <summary>Compiles a directed block graph (with cycles) into a transition table.</summary>
     public static class GraphToProgramCompiler
     {
+        static readonly IReadOnlyDictionary<int, string> EmptyBlockIdByState =
+            new Dictionary<int, string>();
+
         public static bool TryCompile(ProgramGraphSnapshot snap, out TableProgramBuilder builder, out string error)
         {
+            return TryCompile(snap, out builder, out _, out error);
+        }
+
+        public static bool TryCompile(
+            ProgramGraphSnapshot snap,
+            out TableProgramBuilder builder,
+            out IReadOnlyDictionary<int, string> blockIdByState,
+            out string error)
+        {
             builder = null;
+            blockIdByState = EmptyBlockIdByState;
             var nodeById = new Dictionary<string, ProgramGraphNodeData>(StringComparer.Ordinal);
             foreach (var n in snap.Nodes)
             {
@@ -90,6 +103,10 @@ namespace TuringSimulator.Controller
             var stateOf = new Dictionary<string, int>(StringComparer.Ordinal);
             for (var i = 0; i < ordered.Count; i++)
                 stateOf[ordered[i]] = i;
+
+            var compiledBlockIdByState = new Dictionary<int, string>(stateOf.Count);
+            foreach (var pair in stateOf)
+                compiledBlockIdByState[pair.Value] = pair.Key;
 
             var programBuilder = new TableProgramBuilder(0);
             builder = programBuilder;
@@ -211,6 +228,7 @@ namespace TuringSimulator.Controller
                 }
             }
 
+            blockIdByState = compiledBlockIdByState;
             error = null;
             return true;
         }

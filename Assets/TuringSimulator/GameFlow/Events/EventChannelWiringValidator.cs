@@ -31,6 +31,9 @@ namespace TuringSimulator.GameFlow.Events
 
         [Header("Optional channels")]
         [SerializeField] private HandGesturePerformedEventChannel _handGesturePerformedChannel;
+        [SerializeField] private TapeMovedEventChannel _tapeMovedChannel;
+        [SerializeField] private TapeReadEventChannel _tapeReadChannel;
+        [SerializeField] private TapeWriteEventChannel _tapeWriteChannel;
 
         [Header("Validation")]
         [SerializeField] private bool _logWarningsOnStart = true;

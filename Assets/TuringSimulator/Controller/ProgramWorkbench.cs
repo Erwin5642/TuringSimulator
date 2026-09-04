@@ -9,7 +9,7 @@ namespace TuringSimulator.Controller
     /// Holds serialized references to all XR blocks/cards and mirrors <see cref="IProgramEditController"/> lock state.
     /// Recompiles only when the start-rooted program graph fingerprint changes.
     /// </summary>
-    public sealed class ProgramWorkbench : MonoBehaviour, IProgramEditingUi
+    public sealed class ProgramWorkbench : MonoBehaviour, IProgramEditingUi, IProgramExecutionHighlight
     {
         public static ProgramWorkbench Instance { get; private set; }
 
@@ -28,8 +28,10 @@ namespace TuringSimulator.Controller
         readonly List<GameObject> _spawnedCardRoots = new();
         readonly List<GameObject> _spawnedBlockRoots = new();
         readonly IProgramBlockConnectivity _connectivity = new ProgramBlockConnectivity();
+        readonly List<WireSocketBehaviour> _executionActiveSockets = new();
 
         IProgramEditController _edit;
+        IReadOnlyDictionary<int, string> _blockIdByState;
 
         float _debounceUntil = -1f;
         string _lastFingerprint;
@@ -297,7 +299,7 @@ namespace TuringSimulator.Controller
             if (string.Equals(fingerprint, _lastFingerprint, StringComparison.Ordinal))
                 return;
 
-            if (!GraphToProgramCompiler.TryCompile(snap, out var builder, out var err))
+            if (!GraphToProgramCompiler.TryCompile(snap, out var builder, out var blockIdByState, out var err))
             {
                 Debug.LogWarning(
                     $"[ProgramWorkbench] Compile failed (keeping previous program): {err}");
@@ -305,7 +307,95 @@ namespace TuringSimulator.Controller
             }
 
             _edit.ReplaceProgramBuilder(builder);
+            _blockIdByState = blockIdByState;
             _lastFingerprint = fingerprint;
+        }
+
+        public void HighlightStartWire()
+        {
+            if (startOutputPort == null || startOutputPort.ConnectedPeer == null)
+            {
+                ClearExecutionHighlight();
+                return;
+            }
+
+            SetExecutionSockets(startOutputPort);
+        }
+
+        public void HighlightTransition(int previousState, int nextState)
+        {
+            if (!ExecutionWireHighlight.TryGetTransitionBlocks(
+                    _blockIdByState,
+                    previousState,
+                    nextState,
+                    out var fromBlockId,
+                    out var toBlockId))
+            {
+                ClearExecutionHighlight();
+                return;
+            }
+
+            var sockets = CollectTransitionSockets(fromBlockId, toBlockId);
+            if (sockets.Count == 0)
+            {
+                ClearExecutionHighlight();
+                return;
+            }
+
+            SetExecutionSockets(sockets);
+        }
+
+        public void ClearExecutionHighlight()
+        {
+            for (var i = 0; i < _executionActiveSockets.Count; i++)
+            {
+                if (_executionActiveSockets[i] != null)
+                    _executionActiveSockets[i].SetExecutionActive(false);
+            }
+
+            _executionActiveSockets.Clear();
+        }
+
+        void SetExecutionSockets(params WireSocketBehaviour[] sockets)
+        {
+            SetExecutionSockets((IReadOnlyList<WireSocketBehaviour>)sockets);
+        }
+
+        void SetExecutionSockets(IReadOnlyList<WireSocketBehaviour> sockets)
+        {
+            ClearExecutionHighlight();
+            for (var i = 0; i < sockets.Count; i++)
+            {
+                var socket = sockets[i];
+                if (socket == null)
+                    continue;
+                socket.SetExecutionActive(true);
+                _executionActiveSockets.Add(socket);
+            }
+        }
+
+        List<WireSocketBehaviour> CollectTransitionSockets(string fromBlockId, string toBlockId)
+        {
+            var result = new List<WireSocketBehaviour>();
+            var allBlocks = CollectAllBlocks();
+            for (var i = 0; i < allBlocks.Count; i++)
+            {
+                var block = allBlocks[i];
+                if (block == null || !string.Equals(block.BlockId, fromBlockId, StringComparison.Ordinal))
+                    continue;
+
+                foreach (var socket in block.EnumerateOutputSockets())
+                {
+                    var peerOwner = socket?.ConnectedPeer?.Owner;
+                    if (peerOwner == null)
+                        continue;
+                    if (!string.Equals(peerOwner.BlockId, toBlockId, StringComparison.Ordinal))
+                        continue;
+                    result.Add(socket);
+                }
+            }
+
+            return result;
         }
 
         void ApplyHaltIfChanged()
@@ -315,6 +405,8 @@ namespace TuringSimulator.Controller
 
             _edit.Clear();
             _lastFingerprint = ProgramGraphFingerprint.HaltFingerprint;
+            _blockIdByState = null;
+            ClearExecutionHighlight();
             Debug.Log(
                 "[ProgramWorkbench] Start port unwired (or entry missing). Program set to halt.");
         }

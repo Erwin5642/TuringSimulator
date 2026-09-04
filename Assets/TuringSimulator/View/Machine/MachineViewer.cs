@@ -43,7 +43,7 @@ namespace TuringSimulator.View.Machine
                 case ResultKind.Diff:
                     var diff = step.AsDiff();
 
-                    yield return _tape.ShowRead();
+                    yield return _tape.ShowRead(diff.SymbolBefore, diff.SymbolAfter);
 
                     yield return _tape.ShowWrite(diff.SymbolAfter);
 
@@ -73,7 +73,7 @@ namespace TuringSimulator.View.Machine
 
                     yield return _tape.ShowWrite(diff.SymbolAfter);
 
-                    yield return _tape.ShowRead();
+                    yield return _tape.ShowRead(diff.SymbolBefore, diff.SymbolAfter);
 
                     break;
             }

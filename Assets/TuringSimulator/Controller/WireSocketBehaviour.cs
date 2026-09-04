@@ -41,7 +41,13 @@ namespace TuringSimulator.Controller
         IXRSelectInteractor _dragInteractor;
         WireSocketBehaviour _peerBeforeDrag;
         bool _interactionEnabled = true;
+        bool _executionActive;
+        Material _lineMaterialInstance;
         readonly Collider[] _targetBuffer = new Collider[16];
+
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int ColorId = Shader.PropertyToID("_Color");
+        static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
 
         public ProgramBlockBehaviour Owner => _owner;
 
@@ -113,11 +119,24 @@ namespace TuringSimulator.Controller
                 wireRenderer.enabled = false;
         }
 
+        void OnDestroy()
+        {
+            if (_lineMaterialInstance == null)
+                return;
+
+            if (Application.isPlaying)
+                Destroy(_lineMaterialInstance);
+            else
+                DestroyImmediate(_lineMaterialInstance);
+            _lineMaterialInstance = null;
+        }
+
         void LateUpdate()
         {
             if (!IsOutputPort)
                 return;
-            if (!_isDragging && connectedPeer == null && (wireRenderer == null || !wireRenderer.enabled))
+            if (!_isDragging && connectedPeer == null && !_executionActive &&
+                (wireRenderer == null || !wireRenderer.enabled))
                 return;
             RefreshVisualImmediate();
         }
@@ -134,6 +153,18 @@ namespace TuringSimulator.Controller
             _interactionEnabled = enabled;
             // Disabling grab while dragging ends the select; OnSelectExited restores prior wiring.
             RefreshInteractionState();
+        }
+
+        /// <summary>
+        /// Connected wires use <see cref="previewColor"/> while energy is on this link (same tint as a drag preview).
+        /// </summary>
+        public void SetExecutionActive(bool active)
+        {
+            if (_executionActive == active)
+                return;
+
+            _executionActive = active;
+            RefreshVisualImmediate();
         }
 
         void OnValidate()
@@ -387,7 +418,7 @@ namespace TuringSimulator.Controller
             var start = transform.position;
             if (_isDragging)
             {
-                RenderWire(start, ResolveDragEndpoint(), previewColor);
+                RenderWire(start, ResolveDragEndpoint(), previewColor, emissive: true);
                 return;
             }
 
@@ -398,14 +429,19 @@ namespace TuringSimulator.Controller
                 return;
             }
 
-            RenderWire(start, connectedPeer.transform.position, connectedColor);
+            if (_executionActive)
+            {
+                RenderWire(start, connectedPeer.transform.position, previewColor, emissive: true);
+                return;
+            }
+
+            RenderWire(start, connectedPeer.transform.position, connectedColor, emissive: false);
         }
 
-        void RenderWire(Vector3 start, Vector3 end, Color color)
+        void RenderWire(Vector3 start, Vector3 end, Color color, bool emissive)
         {
             wireRenderer.enabled = true;
-            wireRenderer.startColor = color;
-            wireRenderer.endColor = color;
+            ApplyLineColor(color, emissive);
 
             var dir = end - start;
             var len = dir.magnitude;
@@ -436,6 +472,45 @@ namespace TuringSimulator.Controller
             wireRenderer.positionCount = 2;
             wireRenderer.SetPosition(0, start);
             wireRenderer.SetPosition(1, end);
+        }
+
+        void ApplyLineColor(Color color, bool emissive)
+        {
+            wireRenderer.startColor = color;
+            wireRenderer.endColor = color;
+
+            EnsureLineMaterialInstance();
+            if (_lineMaterialInstance == null)
+                return;
+
+            if (_lineMaterialInstance.HasProperty(BaseColorId))
+                _lineMaterialInstance.SetColor(BaseColorId, color);
+            if (_lineMaterialInstance.HasProperty(ColorId))
+                _lineMaterialInstance.SetColor(ColorId, color);
+
+            if (!_lineMaterialInstance.HasProperty(EmissionColorId))
+                return;
+
+            if (emissive)
+            {
+                _lineMaterialInstance.EnableKeyword("_EMISSION");
+                _lineMaterialInstance.SetColor(EmissionColorId, color);
+            }
+            else
+            {
+                _lineMaterialInstance.DisableKeyword("_EMISSION");
+                _lineMaterialInstance.SetColor(EmissionColorId, Color.black);
+            }
+        }
+
+        void EnsureLineMaterialInstance()
+        {
+            if (_lineMaterialInstance != null || wireRenderer == null)
+                return;
+            if (wireRenderer.sharedMaterial == null)
+                return;
+
+            _lineMaterialInstance = wireRenderer.material;
         }
 
         static Vector3 EvaluateQuadraticBezier(Vector3 p0, Vector3 p1, Vector3 p2, float t)

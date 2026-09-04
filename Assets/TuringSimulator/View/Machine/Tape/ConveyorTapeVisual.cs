@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using TuringSimulator.Core.Types;
+using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
 namespace TuringSimulator.View.Machine.Tape
@@ -16,6 +17,23 @@ namespace TuringSimulator.View.Machine.Tape
         [SerializeField] private float cellSpacing = 1f;
         [SerializeField] private float moveDuration = 0.25f;
 
+        [Header("Feedback")]
+        [SerializeField]
+        [Tooltip("Optional. Assign TapeStepFeedback for read sounds and write/delete particles.")]
+        private MonoBehaviour stepFeedback;
+
+        [SerializeField]
+        [Tooltip("Optional. Raised when the tape starts and finishes sliding. EventChannelActionListener can Play/Stop move audio here.")]
+        private TapeMovedEventChannel tapeMovedChannel;
+
+        [SerializeField]
+        [Tooltip("Optional. Raised at the start and end of a read beat. Filter IsMatch True/False for match vs mismatch cues.")]
+        private TapeReadEventChannel tapeReadChannel;
+
+        [SerializeField]
+        [Tooltip("Optional. Raised at the start and end of a write/delete beat. Filter Effect Write or Delete.")]
+        private TapeWriteEventChannel tapeWriteChannel;
+
         private readonly List<TapeCellView> _pool = new();
         private readonly List<TapeCellView> _cells = new();
         private readonly List<TapeCellView> _grown = new();
@@ -23,6 +41,15 @@ namespace TuringSimulator.View.Machine.Tape
         private Vector3 _cellsRootOrigin;
         private int _originHeadIndex;
         private int _firstTapeIndex;
+        private ITapeStepFeedback _resolvedFeedback;
+        private bool _feedbackResolved;
+        private bool _moveCueActive;
+        private bool _readCueActive;
+        private bool _writeCueActive;
+        private Symbol _activeReadSymbol;
+        private Symbol _activeUpcomingWriteSymbol;
+        private TapeWriteKind _activeWriteKind;
+        private Symbol _activeWrittenSymbol;
 
         public int HeadIndex { get; private set; }
 
@@ -65,14 +92,29 @@ namespace TuringSimulator.View.Machine.Tape
 
             int nextHead = HeadIndex + (int)direction;
             EnsureCellForTapeIndex(nextHead);
-            yield return MoveCellRoot(offset);
 
-            HeadIndex = nextHead;
+            RaiseTapeMoved(TapeMovePhase.Started, direction);
+            _moveCueActive = true;
+            try
+            {
+                yield return MoveCellRoot(offset);
+                HeadIndex = nextHead;
+            }
+            finally
+            {
+                if (_moveCueActive)
+                {
+                    _moveCueActive = false;
+                    RaiseTapeMoved(TapeMovePhase.Finished, direction);
+                }
+            }
+
             Debug.Log($"[ConveyorTape] Tape moved to {direction}");
         }
 
         public IEnumerator ShowWrite(Symbol symbol)
         {
+            var before = _tape.TryGetValue(HeadIndex, out var existing) ? existing : Symbol.Blank;
             _tape[HeadIndex] = symbol;
             EnsureCellForTapeIndex(HeadIndex);
             if (ConveyorTapeWindow.TryGetCellIndex(
@@ -82,16 +124,56 @@ namespace TuringSimulator.View.Machine.Tape
             }
 
             Debug.Log($"[ConveyorTape] Symbol {symbol} written at tape index {HeadIndex}");
-            yield return null;
+
+            var effect = TapeStepFeedbackRules.ResolveWriteEffect(before, symbol);
+            if (!TryMapWriteKind(effect, out var kind))
+            {
+                yield return null;
+                yield break;
+            }
+
+            RaiseTapeWrite(TapeWritePhase.Started, kind, symbol);
+            _writeCueActive = true;
+            _activeWriteKind = kind;
+            _activeWrittenSymbol = symbol;
+            try
+            {
+                var feedback = ResolveFeedback();
+                if (feedback != null)
+                    yield return feedback.PlayWrite(effect, HeadCellWorldPosition());
+                else
+                    yield return null;
+            }
+            finally
+            {
+                FinishWriteCueIfActive();
+            }
         }
 
-        public IEnumerator ShowRead()
+        public IEnumerator ShowRead(Symbol readSymbol, Symbol writeSymbol)
         {
-            yield break;
+            EnsureCellForTapeIndex(HeadIndex);
+            RaiseTapeRead(TapeReadPhase.Started, readSymbol, writeSymbol);
+            _readCueActive = true;
+            _activeReadSymbol = readSymbol;
+            _activeUpcomingWriteSymbol = writeSymbol;
+            try
+            {
+                var feedback = ResolveFeedback();
+                if (feedback != null)
+                    yield return feedback.PlayRead(readSymbol, writeSymbol, HeadCellWorldPosition());
+            }
+            finally
+            {
+                FinishReadCueIfActive();
+            }
         }
 
         public void Reset()
         {
+            FinishMoveCueIfActive();
+            FinishReadCueIfActive();
+            FinishWriteCueIfActive();
             HeadIndex = 0;
             _tape.Clear();
             RestorePool();
@@ -218,10 +300,128 @@ namespace TuringSimulator.View.Machine.Tape
             cellsRoot.localPosition = end;
         }
 
+        private void RaiseTapeMoved(TapeMovePhase phase, MoveDirection direction)
+        {
+            if (tapeMovedChannel == null)
+                return;
+
+            tapeMovedChannel.Raise(
+                new TapeMovedEventData(
+                    EventContextFactory.Create(nameof(ConveyorTapeVisual), HeadIndex.ToString()),
+                    phase,
+                    direction,
+                    HeadCellWorldPosition()),
+                this);
+        }
+
+        private void RaiseTapeRead(TapeReadPhase phase, Symbol readSymbol, Symbol writeSymbol)
+        {
+            if (tapeReadChannel == null)
+                return;
+
+            tapeReadChannel.Raise(
+                new TapeReadEventData(
+                    EventContextFactory.Create(nameof(ConveyorTapeVisual), HeadIndex.ToString()),
+                    phase,
+                    readSymbol,
+                    writeSymbol,
+                    TapeStepFeedbackRules.IsReadMatch(readSymbol, writeSymbol),
+                    HeadCellWorldPosition()),
+                this);
+        }
+
+        private void RaiseTapeWrite(TapeWritePhase phase, TapeWriteKind effect, Symbol symbol)
+        {
+            if (tapeWriteChannel == null)
+                return;
+
+            tapeWriteChannel.Raise(
+                new TapeWriteEventData(
+                    EventContextFactory.Create(nameof(ConveyorTapeVisual), HeadIndex.ToString()),
+                    phase,
+                    effect,
+                    symbol,
+                    HeadCellWorldPosition()),
+                this);
+        }
+
+        private static bool TryMapWriteKind(TapeWriteEffectKind effect, out TapeWriteKind kind)
+        {
+            switch (effect)
+            {
+                case TapeWriteEffectKind.Write:
+                    kind = TapeWriteKind.Write;
+                    return true;
+                case TapeWriteEffectKind.Delete:
+                    kind = TapeWriteKind.Delete;
+                    return true;
+                default:
+                    kind = default;
+                    return false;
+            }
+        }
+
+        private void FinishMoveCueIfActive()
+        {
+            if (!_moveCueActive)
+                return;
+
+            _moveCueActive = false;
+            RaiseTapeMoved(TapeMovePhase.Finished, MoveDirection.Stay);
+        }
+
+        private void FinishReadCueIfActive()
+        {
+            if (!_readCueActive)
+                return;
+
+            _readCueActive = false;
+            RaiseTapeRead(TapeReadPhase.Finished, _activeReadSymbol, _activeUpcomingWriteSymbol);
+        }
+
+        private void FinishWriteCueIfActive()
+        {
+            if (!_writeCueActive)
+                return;
+
+            _writeCueActive = false;
+            RaiseTapeWrite(TapeWritePhase.Finished, _activeWriteKind, _activeWrittenSymbol);
+        }
+
+        private ITapeStepFeedback ResolveFeedback()
+        {
+            if (_feedbackResolved)
+                return _resolvedFeedback;
+
+            _feedbackResolved = true;
+            _resolvedFeedback = stepFeedback as ITapeStepFeedback;
+            if (_resolvedFeedback == null)
+                _resolvedFeedback = GetComponent<TapeStepFeedback>();
+            return _resolvedFeedback;
+        }
+
+        private Vector3 HeadCellWorldPosition()
+        {
+            if (ConveyorTapeWindow.TryGetCellIndex(
+                    _firstTapeIndex, HeadIndex, _cells.Count, out int cellIndex))
+                return _cells[cellIndex].transform.position;
+
+            return cellsRoot != null ? cellsRoot.position : transform.position;
+        }
+
         private void OnValidate()
         {
+            if (stepFeedback == null)
+            {
+                var found = GetComponent<TapeStepFeedback>();
+                if (found != null)
+                    stepFeedback = found;
+            }
+
             if (cellsRoot == null)
                 Debug.LogWarning($"{name}: missing Cell Root.", this);
+            if (stepFeedback != null && stepFeedback is not ITapeStepFeedback)
+                Debug.LogWarning($"{name}: Step Feedback must implement {nameof(ITapeStepFeedback)}.", this);
         }
     }
 }

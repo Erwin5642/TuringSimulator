@@ -26,11 +26,14 @@ namespace EditModeTests
             };
             var snap = new ProgramGraphSnapshot(nodes, edges, "w");
 
-            Assert.That(GraphToProgramCompiler.TryCompile(snap, out var builder, out var err), Is.True, err);
+            Assert.That(GraphToProgramCompiler.TryCompile(snap, out var builder, out var blockIdByState, out var err), Is.True, err);
             var program = builder.Build();
 
             Assert.That(program.StartState, Is.EqualTo(0));
             Assert.That(program.IsFinalState(2), Is.True);
+            Assert.That(blockIdByState[0], Is.EqualTo("w"));
+            Assert.That(blockIdByState[1], Is.EqualTo("m"));
+            Assert.That(blockIdByState[2], Is.EqualTo("a"));
 
             // BFS order: w=0, m=1, a=2 — Write emits full row to state 1 with symbol Gear.
             Assert.That(program.TryGetTransition(0, Symbol.Blank, out var tw), Is.True);

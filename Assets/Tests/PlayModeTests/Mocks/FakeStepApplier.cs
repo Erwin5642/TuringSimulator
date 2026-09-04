@@ -54,5 +54,17 @@ namespace Tests.PlayModeTests.Mocks
         {
             _steps.Add(step);
         }
+
+        public bool TryGetLastAppliedStep(out StepResult step)
+        {
+            if (_currentIndex < 0 || _currentIndex >= _steps.Count)
+            {
+                step = default;
+                return false;
+            }
+
+            step = _steps[_currentIndex];
+            return true;
+        }
     }
 }

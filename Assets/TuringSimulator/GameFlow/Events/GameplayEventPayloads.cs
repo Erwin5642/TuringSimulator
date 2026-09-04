@@ -2,6 +2,7 @@ using TuringSimulator.Core.Level;
 using TuringSimulator.Core.Program;
 using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.Core.Types;
+using UnityEngine;
 
 namespace TuringSimulator.GameFlow.Events
 {
@@ -340,6 +341,108 @@ namespace TuringSimulator.GameFlow.Events
         public string HeardText { get; }
 
         public override string ToString() => $"captureStopped heard=\"{HeardText}\" ctx={Context}";
+    }
+
+    public enum TapeMovePhase
+    {
+        Started = 0,
+        Finished = 1,
+    }
+
+    public readonly struct TapeMovedEventData
+    {
+        public TapeMovedEventData(
+            EventContextData context,
+            TapeMovePhase phase,
+            MoveDirection direction,
+            Vector3 worldPosition)
+        {
+            Context = context;
+            Phase = phase;
+            Direction = direction;
+            WorldPosition = worldPosition;
+        }
+
+        public EventContextData Context { get; }
+        public TapeMovePhase Phase { get; }
+        public MoveDirection Direction { get; }
+        public Vector3 WorldPosition { get; }
+
+        public override string ToString() =>
+            $"phase={Phase} dir={Direction} pos={WorldPosition} ctx={Context}";
+    }
+
+    public enum TapeReadPhase
+    {
+        Started = 0,
+        Finished = 1,
+    }
+
+    public readonly struct TapeReadEventData
+    {
+        public TapeReadEventData(
+            EventContextData context,
+            TapeReadPhase phase,
+            Symbol readSymbol,
+            Symbol writeSymbol,
+            bool isMatch,
+            Vector3 worldPosition)
+        {
+            Context = context;
+            Phase = phase;
+            ReadSymbol = readSymbol;
+            WriteSymbol = writeSymbol;
+            IsMatch = isMatch;
+            WorldPosition = worldPosition;
+        }
+
+        public EventContextData Context { get; }
+        public TapeReadPhase Phase { get; }
+        public Symbol ReadSymbol { get; }
+        public Symbol WriteSymbol { get; }
+        public bool IsMatch { get; }
+        public Vector3 WorldPosition { get; }
+
+        public override string ToString() =>
+            $"phase={Phase} read={ReadSymbol} write={WriteSymbol} match={IsMatch} pos={WorldPosition} ctx={Context}";
+    }
+
+    public enum TapeWritePhase
+    {
+        Started = 0,
+        Finished = 1,
+    }
+
+    public enum TapeWriteKind
+    {
+        Write = 0,
+        Delete = 1,
+    }
+
+    public readonly struct TapeWriteEventData
+    {
+        public TapeWriteEventData(
+            EventContextData context,
+            TapeWritePhase phase,
+            TapeWriteKind effect,
+            Symbol symbol,
+            Vector3 worldPosition)
+        {
+            Context = context;
+            Phase = phase;
+            Effect = effect;
+            Symbol = symbol;
+            WorldPosition = worldPosition;
+        }
+
+        public EventContextData Context { get; }
+        public TapeWritePhase Phase { get; }
+        public TapeWriteKind Effect { get; }
+        public Symbol Symbol { get; }
+        public Vector3 WorldPosition { get; }
+
+        public override string ToString() =>
+            $"phase={Phase} effect={Effect} symbol={Symbol} pos={WorldPosition} ctx={Context}";
     }
 
     public readonly struct AskRequestedEventData

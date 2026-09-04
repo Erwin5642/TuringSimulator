@@ -2,6 +2,7 @@ using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
 using TuringSimulator.Core.Types;
+using TuringSimulator.GameFlow.Events;
 using TuringSimulator.View.Machine.Tape;
 using UnityEngine;
 
@@ -76,6 +77,86 @@ namespace EditModeTests
         }
 
         [Test]
+        public void MoveHead_RaisesTapeMovedStartedAndFinished()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            var channel = ScriptableObject.CreateInstance<TapeMovedEventChannel>();
+            var phases = new System.Collections.Generic.List<TapeMovePhase>();
+            channel.OnRaised += data => phases.Add(data.Phase);
+            SetField(setup.Visual, "tapeMovedChannel", channel);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Gear }, headIndex: 0);
+
+            Drain(setup.Visual.MoveHead(MoveDirection.Right));
+            Drain(setup.Visual.MoveHead(MoveDirection.Stay));
+
+            Assert.That(phases, Is.EqualTo(new[]
+            {
+                TapeMovePhase.Started,
+                TapeMovePhase.Finished,
+            }));
+
+            Object.DestroyImmediate(channel);
+            setup.Destroy();
+        }
+
+        [Test]
+        public void ShowRead_RaisesTapeReadStartedAndFinished()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            var channel = ScriptableObject.CreateInstance<TapeReadEventChannel>();
+            var phases = new System.Collections.Generic.List<TapeReadPhase>();
+            var matches = new System.Collections.Generic.List<bool>();
+            channel.OnRaised += data =>
+            {
+                phases.Add(data.Phase);
+                matches.Add(data.IsMatch);
+            };
+            SetField(setup.Visual, "tapeReadChannel", channel);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Gear }, headIndex: 0);
+
+            Drain(setup.Visual.ShowRead(Symbol.Gear, Symbol.Nut));
+
+            Assert.That(phases, Is.EqualTo(new[]
+            {
+                TapeReadPhase.Started,
+                TapeReadPhase.Finished,
+            }));
+            Assert.That(matches, Is.EqualTo(new[] { false, false }));
+
+            Object.DestroyImmediate(channel);
+            setup.Destroy();
+        }
+
+        [Test]
+        public void ShowWrite_RaisesTapeWriteOnWriteAndDelete_NotOnNoOp()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            var channel = ScriptableObject.CreateInstance<TapeWriteEventChannel>();
+            var raised = new System.Collections.Generic.List<(TapeWritePhase Phase, TapeWriteKind Effect)>();
+            channel.OnRaised += data => raised.Add((data.Phase, data.Effect));
+            SetField(setup.Visual, "tapeWriteChannel", channel);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Blank }, headIndex: 0);
+
+            Drain(setup.Visual.ShowWrite(Symbol.Gear));
+            Drain(setup.Visual.ShowWrite(Symbol.Gear));
+            Drain(setup.Visual.ShowWrite(Symbol.Blank));
+
+            Assert.That(raised, Is.EqualTo(new[]
+            {
+                (TapeWritePhase.Started, TapeWriteKind.Write),
+                (TapeWritePhase.Finished, TapeWriteKind.Write),
+                (TapeWritePhase.Started, TapeWriteKind.Delete),
+                (TapeWritePhase.Finished, TapeWriteKind.Delete),
+            }));
+
+            Object.DestroyImmediate(channel);
+            setup.Destroy();
+        }
+
+        [Test]
         public void ShowWrite_ActivatesTheHeadCell_AndBlankDeactivatesIt()
         {
             var setup = CreateVisual(templateCells: 5);
@@ -93,6 +174,47 @@ namespace EditModeTests
             Drain(setup.Visual.ShowWrite(Symbol.Blank));
             Assert.That(cells[2].gameObject.activeSelf, Is.False);
             Assert.That(cells[2].transform.childCount, Is.EqualTo(0));
+
+            setup.Destroy();
+        }
+
+        [Test]
+        public void ShowRead_ForwardsSymbolsToFeedback()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            var feedback = setup.Tape.AddComponent<RecordingTapeStepFeedback>();
+            SetField(setup.Visual, "stepFeedback", feedback);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Gear }, headIndex: 0);
+
+            Drain(setup.Visual.ShowRead(Symbol.Gear, Symbol.Gear));
+
+            Assert.That(feedback.Reads.Count, Is.EqualTo(1));
+            Assert.That(feedback.Reads[0].Read, Is.EqualTo(Symbol.Gear));
+            Assert.That(feedback.Reads[0].Write, Is.EqualTo(Symbol.Gear));
+            Assert.That(feedback.Writes, Is.Empty);
+
+            setup.Destroy();
+        }
+
+        [Test]
+        public void ShowWrite_RequestsWriteAndDeleteEffects()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            var feedback = setup.Tape.AddComponent<RecordingTapeStepFeedback>();
+            SetField(setup.Visual, "stepFeedback", feedback);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Blank }, headIndex: 0);
+
+            Drain(setup.Visual.ShowWrite(Symbol.Gear));
+            Drain(setup.Visual.ShowWrite(Symbol.Gear));
+            Drain(setup.Visual.ShowWrite(Symbol.Blank));
+
+            Assert.That(feedback.Writes, Is.EqualTo(new[]
+            {
+                TapeWriteEffectKind.Write,
+                TapeWriteEffectKind.Delete,
+            }));
 
             setup.Destroy();
         }
@@ -193,6 +315,26 @@ namespace EditModeTests
                 Object.DestroyImmediate(Tape);
                 Object.DestroyImmediate(Catalog);
                 Object.DestroyImmediate(GearPrefab);
+            }
+        }
+
+        private sealed class RecordingTapeStepFeedback : MonoBehaviour, ITapeStepFeedback
+        {
+            public readonly System.Collections.Generic.List<(Symbol Read, Symbol Write)> Reads = new();
+            public readonly System.Collections.Generic.List<TapeWriteEffectKind> Writes = new();
+
+            public IEnumerator PlayRead(Symbol readSymbol, Symbol writeSymbol, Vector3 worldPosition)
+            {
+                _ = worldPosition;
+                Reads.Add((readSymbol, writeSymbol));
+                yield break;
+            }
+
+            public IEnumerator PlayWrite(TapeWriteEffectKind kind, Vector3 worldPosition)
+            {
+                _ = worldPosition;
+                Writes.Add(kind);
+                yield break;
             }
         }
     }

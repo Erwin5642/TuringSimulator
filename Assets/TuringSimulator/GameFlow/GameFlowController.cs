@@ -69,6 +69,7 @@ namespace TuringSimulator.GameFlow
 
             _controller.Playback.Disable();
             _controller.ProgramEdit.Enable();
+            _controller.Workbench?.ClearExecutionHighlight();
 
             ApplyInitialProgram();
         }
@@ -112,6 +113,7 @@ namespace TuringSimulator.GameFlow
 
                 _controller.ProgramEdit.Disable();
                 PublishRunStarted();
+                _controller.Workbench?.HighlightStartWire();
 
                 if (_model.CurrentProgram == null || _model.CurrentTape == null)
                 {
@@ -247,6 +249,7 @@ namespace TuringSimulator.GameFlow
             _controller.StepApplier.Reset();
             _model.LevelLoader.LoadCurrent();
             _controller.ProgramEdit.Enable();
+            _controller.Workbench?.ClearExecutionHighlight();
             ApplyInitialProgram();
             if (!_stateMachine.TryTransition(GameState.Editing))
                 Debug.LogWarning("[GameFlow] Could not return to Editing after reset.");
@@ -313,6 +316,7 @@ namespace TuringSimulator.GameFlow
 
             _controller.Playback.Disable();
             _controller.ProgramEdit.Enable();
+            _controller.Workbench?.ClearExecutionHighlight();
 
             ApplyInitialProgram();
         }
@@ -338,6 +342,7 @@ namespace TuringSimulator.GameFlow
             _model.LevelLoader.LoadCurrent();
             _controller.Playback.Disable();
             _controller.ProgramEdit.Enable();
+            _controller.Workbench?.ClearExecutionHighlight();
             ApplyInitialProgram();
             if (!_stateMachine.TryTransition(GameState.Editing))
                 Debug.LogWarning("[GameFlow] Could not return to Editing after Defeat.");
@@ -354,6 +359,7 @@ namespace TuringSimulator.GameFlow
             _controller.StepApplier.Reset();
             _controller.Playback.Disable();
             _controller.ProgramEdit.Disable();
+            _controller.Workbench?.ClearExecutionHighlight();
             _busy = false;
 
             if (!_stateMachine.TryTransition(GameState.Menu))

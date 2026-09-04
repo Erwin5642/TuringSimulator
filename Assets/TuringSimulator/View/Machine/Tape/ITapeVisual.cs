@@ -15,7 +15,7 @@ namespace TuringSimulator.View.Machine.Tape
         void SetTape(IReadOnlyList<Symbol> symbols, int headIndex);
         IEnumerator MoveHead(MoveDirection direction);
         IEnumerator ShowWrite(Symbol symbol);
-        IEnumerator ShowRead();
+        IEnumerator ShowRead(Symbol readSymbol, Symbol writeSymbol);
 
         void Reset();
     }

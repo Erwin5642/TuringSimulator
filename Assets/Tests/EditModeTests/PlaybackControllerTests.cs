@@ -110,6 +110,19 @@ namespace EditModeTests
                 _steps.Add(step);
             }
 
+            public bool TryGetLastAppliedStep(out StepResult step)
+            {
+                var i = CurrentStepIndex - 1;
+                if (i < 0 || i >= _steps.Count)
+                {
+                    step = default;
+                    return false;
+                }
+
+                step = _steps[i];
+                return true;
+            }
+
             public void Reset()
             {
                 CurrentStepIndex = 0;

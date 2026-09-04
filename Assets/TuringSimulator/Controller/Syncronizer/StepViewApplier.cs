@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using TuringSimulator.Core.Simulation.Step;
 using TuringSimulator.View.Machine;
@@ -15,6 +16,10 @@ namespace TuringSimulator.Controller.Syncronizer
 
         private readonly List<StepResult> _steps = new();
         private readonly IMachineView _view;
+
+        /// <summary>Raised with the step about to be animated forward (before the view await).</summary>
+        public event Action<StepResult> OnStepApplying;
+
         public StepViewApplier(IMachineView view)
         {
             _view = view;
@@ -37,7 +42,7 @@ namespace TuringSimulator.Controller.Syncronizer
                 var step = _steps[CurrentStepIndex];
                 
                 Debug.Log("[StepApplier] Waiting for view");
-                
+                OnStepApplying?.Invoke(step);
                 await _view.UpdateStepForward(step);
 
                 if (generation != _generation)
@@ -114,6 +119,19 @@ namespace TuringSimulator.Controller.Syncronizer
         public void AppendStep(StepResult step)
         {
             _steps.Add(step);
+        }
+
+        public bool TryGetLastAppliedStep(out StepResult step)
+        {
+            var i = CurrentStepIndex - 1;
+            if (i < 0 || i >= _steps.Count)
+            {
+                step = default;
+                return false;
+            }
+
+            step = _steps[i];
+            return true;
         }
     }
 }

@@ -13,6 +13,9 @@ namespace TuringSimulator.Controller.Syncronizer
         void LoadSteps(IReadOnlyList<StepResult> steps);
         void AppendStep(StepResult step);
 
+        /// <summary>The step whose forward animation is currently on screen, if any.</summary>
+        bool TryGetLastAppliedStep(out StepResult step);
+
         void Reset();
     }
 }

@@ -167,6 +167,7 @@ namespace TuringSimulator.GameFlow
 
             ProgramEdit.OnProgramChanged += PublishProgramChanged;
             Playback.OnStep += PublishPlaybackStep;
+            StepApplier.OnStepApplying += HandleStepApplying;
             _model.Levels.OnLevelChanged += PublishLevelLoaded;
 
             if (_runRequestedChannel != null)
@@ -253,8 +254,19 @@ namespace TuringSimulator.GameFlow
             ApplyPlaybackStep(eventData);
         }
 
+        void HandleStepApplying(StepResult step)
+        {
+            if (_workbench == null || step.IsHalt)
+                return;
+
+            var diff = step.AsDiff();
+            _workbench.HighlightTransition(diff.PreviousState, diff.NextState);
+        }
+
         void ApplyPlaybackStep(PlaybackStepEventData eventData)
         {
+            RefreshExecutionHighlight();
+
             if (eventData.ResultKind != ResultKind.Halt)
                 return;
 
@@ -275,6 +287,24 @@ namespace TuringSimulator.GameFlow
         void HandleHaltReachedEvent(HaltReachedEventData _)
         {
             _haltReachedRuntimeHandler.Handle();
+        }
+
+        void RefreshExecutionHighlight()
+        {
+            if (_workbench == null)
+                return;
+
+            if (!StepApplier.TryGetLastAppliedStep(out var step))
+            {
+                _workbench.HighlightStartWire();
+                return;
+            }
+
+            if (step.IsHalt)
+                return;
+
+            var diff = step.AsDiff();
+            _workbench.HighlightTransition(diff.PreviousState, diff.NextState);
         }
 
         void PublishLevelLoaded(LevelDefinition level)
