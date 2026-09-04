@@ -9,8 +9,8 @@ Use this skill when a request involves level creation, level IDs, progression or
 ## Where a level is defined
 
 - Unity runtime shape: `Assets/TuringSimulator/Core/Level/LevelDefinition.cs`
-- Unity level assets: `Assets/Prefabs/Levels/Level */Level * Definition.asset`
-- Unity progression list: `Assets/Prefabs/Levels/LevelDatabase.asset`
+- Unity level assets: `Assets/Levels/Level */Level * Definition.asset`
+- Unity progression list: `Assets/Levels/LevelDatabase.asset`
 - Server goal docs: `TuringBotAPI/knowledge/goals/*.md` (`level_id` frontmatter)
 - Unity constants: `Assets/TuringSimulator/ITS/ITSModel.cs` (`LevelID` class)
 

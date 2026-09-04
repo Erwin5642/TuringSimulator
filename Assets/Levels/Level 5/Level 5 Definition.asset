@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c86604d78d14dd78e4796fadf38bbc7, type: 3}
+  m_Name: Level 5 Definition
+  m_EditorClassIdentifier: 
+  title: "Troca de S\xEDmbolos"
+  description: "Objetivo: troque cada Porca por Parafuso e cada Parafuso por Porca
+    at\xE9 o branco. N\xE3o altere os demais s\xEDmbolos. No fim Aceite."
+  levelId: SwapNutsAndScrews
+  mainTest: {fileID: 11400000, guid: 284a563e36804b228eb011701ade3c39, type: 2}
+  validationTests:
+  - {fileID: 11400000, guid: 075f2e09f1644fa1b2e5777326e6ea8b, type: 2}
+  - {fileID: 11400000, guid: 2a94b21c062e45f6862000bec8949ba4, type: 2}
+  - {fileID: 11400000, guid: 286c5be1df944f468a9bda8e583b78eb, type: 2}
+  - {fileID: 11400000, guid: e7fce39b3fbe452e90fd9e06b3ae82dd, type: 2}
