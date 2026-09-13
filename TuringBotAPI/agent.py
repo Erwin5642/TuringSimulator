@@ -20,9 +20,12 @@ SEARCH_DOCS_TOOL: dict[str, Any] = {
         {
             "name": "search_docs",
             "description": (
-                "Busca trechos da base da fábrica (gameplay, objects, goals, concepts). "
-                "Chame para dúvida de fábrica: como jogar, objeto, material, execução "
-                "ou objetivo do nível. "
+                "Busca trechos da base da fábrica (gameplay, objects, goals, "
+                "concepts, errors). "
+                "Chame para dúvida de fábrica: como jogar, objeto, material, "
+                "execução ou objetivo do nível. "
+                "Use category errors quando o circuito não começa, não para, "
+                "rejeita, ou altera a esteira no lugar errado. "
                 "Não chame para cumprimento, agradecimento, identidade "
                 "(nome, se é IA, para quem trabalha) nem assunto fora da fábrica."
             ),
@@ -36,7 +39,8 @@ SEARCH_DOCS_TOOL: dict[str, Any] = {
                     "category": {
                         "type": "string",
                         "description": (
-                            "Filtro opcional: persona, gameplay, objects, goals, concepts."
+                            "Filtro opcional: persona, gameplay, objects, goals, "
+                            "concepts, errors."
                         ),
                     },
                 },
