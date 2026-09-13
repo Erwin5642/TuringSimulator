@@ -16,8 +16,8 @@ MonoBehaviour:
   description: "Objetivo: troque cada Porca por Parafuso e cada Parafuso por Porca
     at\xE9 o branco. N\xE3o altere os demais s\xEDmbolos. No fim Aceite."
   levelId: SwapNutsAndScrews
-  mainTest: {fileID: 11400000, guid: 284a563e36804b228eb011701ade3c39, type: 2}
   validationTests:
+  - {fileID: 11400000, guid: 284a563e36804b228eb011701ade3c39, type: 2}
   - {fileID: 11400000, guid: 075f2e09f1644fa1b2e5777326e6ea8b, type: 2}
   - {fileID: 11400000, guid: 2a94b21c062e45f6862000bec8949ba4, type: 2}
   - {fileID: 11400000, guid: 286c5be1df944f468a9bda8e583b78eb, type: 2}

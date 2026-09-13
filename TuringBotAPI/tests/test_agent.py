@@ -70,6 +70,10 @@ def test_persona_calibrates_short_social_replies():
     assert "execução do circuito" in persona
     assert "Não recuse pergunta sobre material ou vazio" in persona
     assert "Não feche com convite" in persona
+    assert "check_tape" in persona
+    assert "check_program" in persona
+    assert "Não diga em qual lote o circuito falhou" in persona
+    assert "Esteira vazia antes de Começar é normal" in persona
 
 
 def test_search_docs_finds_empty_material_and_implicit_reject():
@@ -90,6 +94,24 @@ def test_search_docs_finds_empty_material_and_implicit_reject():
         hit.document.id in {"objects-accept-reject", "objects-wires-ports"}
         for hit in halt
     )
+
+
+def test_search_docs_finds_random_lots_and_socratic_validation():
+    store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
+    hits = search_docs(
+        store,
+        "fábrica escolhe lote ao acaso todos os lotes recusou não diz qual falhou",
+        category="goals",
+    )
+    assert hits
+    match = next(
+        (hit for hit in hits if hit.document.id == "goals-how-levels-are-validated"),
+        None,
+    )
+    assert match is not None
+    body = match.document.text.lower()
+    assert "lote ao acaso" in body
+    assert "não diz qual lote falhou" in body
 
 
 def test_search_docs_finds_speak_and_teleport_how_to():
@@ -123,6 +145,108 @@ def test_agent_calls_search_docs_then_answers():
     assert reply.tokens_out > 0
 
 
+class InspectScriptedProvider:
+    name = "scripted-inspect"
+
+    def __init__(self) -> None:
+        self.tool_names: list[str] = []
+        self.results: list[dict] = []
+
+    def embed_document(self, text):
+        return None
+
+    def embed_query(self, text):
+        return None
+
+    async def generate_with_tools(self, *, system, user, execute_tool, max_rounds=5):
+        tape = execute_tool("check_tape", {})
+        tape_again = execute_tool("check_tape", {})
+        program = execute_tool("check_program", {})
+        program_again = execute_tool("check_program", {})
+        search = execute_tool(
+            "search_docs",
+            {"query": "atender telefone mindinho", "category": "gameplay"},
+        )
+        self.tool_names = [
+            "check_tape",
+            "check_tape",
+            "check_program",
+            "check_program",
+            "search_docs",
+        ]
+        self.results = [tape, tape_again, program, program_again, search]
+        return "Na sua esteira o braço está na porca, trainee."
+
+
+def test_inspect_tools_are_one_shot_and_do_not_count_search_docs():
+    store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
+    provider = InspectScriptedProvider()
+    tape = {
+        "cells": ["vazio", "engrenagem", "parafuso", "porca", "vazio"],
+        "head_offset": 3,
+    }
+    program = {
+        "tomada_ligada": True,
+        "entrada": "m1",
+        "blocos": [{"id": "m1", "tipo": "movimento", "cartao": "esquerda"}],
+        "fios": [],
+    }
+    reply = asyncio.run(
+        answer_question(
+            store=store,
+            provider=provider,
+            level_id="MoveLeftRight",
+            question="O que tem na minha esteira agora?",
+            tape=tape,
+            program=program,
+        )
+    )
+    assert provider.results[0]["cells"][-2] == "porca"
+    assert provider.results[0]["head_offset"] == 3
+    assert provider.results[1] == {"error": "already_used"}
+    assert provider.results[2]["entrada"] == "m1"
+    assert provider.results[3] == {"error": "already_used"}
+    assert provider.results[4]["chunks"]
+    assert provider.tool_names.count("search_docs") == 1
+    assert "porca" in reply.text.lower()
+
+
+def test_inspect_tools_unavailable_without_payload():
+    store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
+
+    class MissingBenchProvider:
+        name = "missing-bench"
+
+        def __init__(self):
+            self.results = []
+
+        def embed_document(self, text):
+            return None
+
+        def embed_query(self, text):
+            return None
+
+        async def generate_with_tools(self, *, system, user, execute_tool, max_rounds=5):
+            tape = execute_tool("check_tape", {})
+            program = execute_tool("check_program", {})
+            self.results = [tape, program]
+            return "Não estou vendo a bancada agora, trainee."
+
+    provider = MissingBenchProvider()
+    asyncio.run(
+        answer_question(
+            store=store,
+            provider=provider,
+            level_id="MoveLeftRight",
+            question="Olha meu circuito",
+        )
+    )
+    assert provider.results == [
+        {"error": "unavailable"},
+        {"error": "unavailable"},
+    ]
+
+
 def test_agent_offline_uses_retrieved_docs():
     store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
     reply = asyncio.run(
@@ -154,9 +278,9 @@ def test_fallback_reply_keeps_player_essentials():
         level_id="MoveLeftRight",
         text=(
             "Título na fábrica: Mover Esquerda/Direita.\n\n"
-            "Objetivo: use os circuitos de movimento. "
+            "Objetivo: use os blocos de movimento. "
             "Mova a esteira duas vezes para a esquerda e uma vez para a direita.\n\n"
-            "Circuitos deste nível: movimento. Ainda não há manipulação de materiais.\n\n"
+            "Blocos deste nível: movimento. Ainda não há manipulação de materiais.\n\n"
             "O que conta como feito: a execução termina na posição certa."
         ),
         path="goal.md",
@@ -167,8 +291,9 @@ def test_fallback_reply_keeps_player_essentials():
         title="Como iniciar e pausar a execução do circuito",
         level_id="",
         text=(
-            "Na mesma mesa ficam a tomada, a grade para organizar circuitos, "
-            "as gavetas e os botões de controle da execução do circuito.\n\n"
+            "Na mesma mesa ficam a tomada, a grade para organizar os blocos, "
+            "a gaveta de blocos e os botões de controle da execução do circuito. "
+            "A gaveta de cartões fica no braço esquerdo.\n\n"
             "Começar / Recomeçar:\n"
             "- Em edição, o botão mostra Começar.\n"
             "Pausar / Rodar:\n"
@@ -196,6 +321,7 @@ def test_fallback_reply_keeps_player_essentials():
     assert "interferência" in reply
     assert "Mova a esteira duas vezes para a esquerda" in reply
     assert "Começar quando o circuito estiver ligado" in reply
+    assert "Blocos deste nível" not in reply
     assert "Circuitos deste nível" not in reply
     assert "O que conta como feito" not in reply
     assert "Título na fábrica" not in reply

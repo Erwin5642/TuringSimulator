@@ -45,7 +45,7 @@ class TutorProvider(Protocol):
         system: str,
         user: str,
         execute_tool: ExecuteTool,
-        max_rounds: int = 3,
+        max_rounds: int = 5,
     ) -> GenerationResult:
         ...
 
@@ -61,7 +61,7 @@ class FallbackTutorProvider(NullEmbedder):
         system: str,
         user: str,
         execute_tool: ExecuteTool,
-        max_rounds: int = 3,
+        max_rounds: int = 5,
     ) -> GenerationResult:
         raise TutorProviderUnavailable(
             "No remote tutor provider is configured for ask."
@@ -125,7 +125,7 @@ class GeminiTutorProvider:
         system: str,
         user: str,
         execute_tool: ExecuteTool,
-        max_rounds: int = 3,
+        max_rounds: int = 5,
     ) -> GenerationResult:
         contents: list[Any] = [
             {"role": "user", "parts": [{"text": f"{system}\n\n{user}"}]},

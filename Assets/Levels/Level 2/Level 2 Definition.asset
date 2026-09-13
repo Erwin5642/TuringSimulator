@@ -16,8 +16,8 @@ MonoBehaviour:
   description: "Objetivo: use movimento e escrita. Tr\xEAs vezes seguidas, mova o
     cabe\xE7ote para a direita e escreva uma Engrenagem. "
   levelId: PlaceGear
-  mainTest: {fileID: 11400000, guid: 02e397e956475814d872570aab910898, type: 2}
   validationTests:
+  - {fileID: 11400000, guid: 02e397e956475814d872570aab910898, type: 2}
   - {fileID: 11400000, guid: b19d6a1e4004fed429b395625f800c23, type: 2}
   - {fileID: 11400000, guid: 4fabb6235ac14fac9590c8fb82cb0baf, type: 2}
   - {fileID: 11400000, guid: 8b19a2c065734d9a922bd59bac8bda58, type: 2}

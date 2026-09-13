@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -24,14 +23,10 @@ namespace TuringSimulator.View
         public void SetValidationSummary(
             IReadOnlyList<TuringSimulator.Core.Validation.ValidationResult> results)
         {
-            if (validationSummary == null || results == null)
+            if (validationSummary == null)
                 return;
 
-            var passed = results.Count(result => result.Passed);
-            var lines = results.Select(result =>
-                $"{(result.Passed ? "PASS" : "FAIL")} {result.ScenarioId}");
-            validationSummary.text =
-                $"Validation: {passed}/{results.Count}\n{string.Join("\n", lines)}";
+            validationSummary.text = ValidationSummaryText.Format(results);
         }
     }
 }

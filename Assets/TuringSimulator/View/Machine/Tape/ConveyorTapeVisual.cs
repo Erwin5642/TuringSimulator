@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using TuringSimulator.Core.Tape;
 using TuringSimulator.Core.Types;
 using TuringSimulator.GameFlow.Events;
 using UnityEngine;
@@ -185,6 +186,9 @@ namespace TuringSimulator.View.Machine.Tape
             LayoutCells();
             RefreshSymbols();
         }
+
+        public TapeSnapshot Snapshot()
+            => new TapeSnapshot(_tape, HeadIndex);
 
         private void CollectPool()
         {

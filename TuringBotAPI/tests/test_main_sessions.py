@@ -42,6 +42,29 @@ def test_ask_offline_returns_ptbr_reply():
     assert body["tokens_out"] > 0
 
 
+def test_ask_accepts_optional_tape_and_program():
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "student_id": "student_test",
+                "level_id": "MoveLeftRight",
+                "question": "Como eu falo com o tutor?",
+                "tape": {
+                    "cells": ["vazio", "engrenagem", "parafuso", "porca", "vazio"],
+                    "head_offset": 3,
+                },
+                "program": {
+                    "tomada_ligada": False,
+                    "blocos": [],
+                    "fios": [],
+                },
+            },
+        )
+    assert response.status_code == 200
+    assert response.json()["reply"]
+
+
 def test_ask_rejects_empty_question():
     with TestClient(app) as client:
         response = client.post(
@@ -70,5 +93,7 @@ def test_web_tester_is_served():
     assert "ITS Web Tester" in page.text
     assert "tokens in" in page.text
     assert "tokens out" in page.text
+    assert "Esteira" in page.text
+    assert "Circuito" in page.text
     assert root.status_code == 307
     assert root.headers["location"] == "/web-tester/"

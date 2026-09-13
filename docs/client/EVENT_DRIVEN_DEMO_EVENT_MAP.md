@@ -45,8 +45,8 @@ Create one ScriptableObject asset for each channel class:
 
 - `LevelLoaded`
   - Raised by: `ControllerInstaller` (when `LevelLoader` changes level)
-  - Trigger in play mode: start game, or `Next` after victory/defeat
-  - Consumed by: `ControllerInstaller` (tape/model/view/session context setup)
+  - Trigger in play mode: start game, abort/reload, or `Next` after victory/defeat
+  - Consumed by: `ControllerInstaller` (picks `ActivePlayTest` from `validationTests`, leaves model+view tape empty, sets validation pool and session context)
 
 - `ProgramChanged`
   - Raised by: `ControllerInstaller` (from `ProgramEditController` updates)
@@ -54,7 +54,7 @@ Create one ScriptableObject asset for each channel class:
   - Consumed by: `ControllerInstaller` (sets simulation + validation program)
 
 - `RunStarted`
-  - Raised by: `GameFlowController` (when entering `Running`)
+  - Raised by: `GameFlowController` (when entering `Running`, after materializing `ActivePlayTest` onto the tape)
   - Trigger in play mode: run current program
   - Consumed by: optional analytics/listeners
 
@@ -66,7 +66,7 @@ Create one ScriptableObject asset for each channel class:
 - `PlaybackStep`
   - Raised by: `ControllerInstaller` (each playback step result)
   - Trigger in play mode: run/play/step controls
-  - Consumed by: `ControllerInstaller` (detect halt path; refresh execution wire colors after step/backward)
+  - Consumed by: `ControllerInstaller` (detect halt path; refresh execution wire colors after step/backward; mark ITS tape cache dirty after the view step is applied)
   - Side effect: `StepViewApplier.OnStepApplying` (before the tape animation) calls `ProgramWorkbench.HighlightTransition`, switching that wire from `connectedColor` to `previewColor`
 
 - `TapeMoved`

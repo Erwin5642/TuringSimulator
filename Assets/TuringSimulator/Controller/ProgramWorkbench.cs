@@ -41,6 +41,9 @@ namespace TuringSimulator.Controller
 
         public bool HasStartOutputPortAssigned => startOutputPort != null;
 
+        /// <summary>Raised after scene connectivity is rebuilt, including fingerprint-skip compiles.</summary>
+        public event Action GraphRebuilt;
+
         void Awake()
         {
             if (Instance != null && Instance != this)
@@ -86,6 +89,7 @@ namespace TuringSimulator.Controller
         /// </summary>
         public void MarkWireChanged(string nodeA, string nodeB, bool connected)
         {
+            GraphRebuilt?.Invoke();
             if (string.IsNullOrEmpty(nodeA) || string.IsNullOrEmpty(nodeB))
             {
                 MarkTopologyDirty();
@@ -450,6 +454,41 @@ namespace TuringSimulator.Controller
 
             _connectivity.Rebuild(nodeIds, undirected);
             _connectivityInitialized = true;
+            GraphRebuilt?.Invoke();
+        }
+
+        /// <summary>All placed blocks and wires, including energy-unreachable orphans.</summary>
+        public ProgramGraphSnapshot CaptureInspectSnapshot()
+        {
+            var allBlocks = CollectAllBlocks();
+            var nodes = new List<ProgramGraphNodeData>(allBlocks.Count);
+            var allSet = new HashSet<ProgramBlockBehaviour>();
+            for (var i = 0; i < allBlocks.Count; i++)
+            {
+                var block = allBlocks[i];
+                if (block == null)
+                    continue;
+                nodes.Add(block.BuildNodeData());
+                allSet.Add(block);
+            }
+
+            var edges = new List<ProgramGraphEdgeData>();
+            foreach (var block in allBlocks)
+            {
+                if (block == null)
+                    continue;
+
+                foreach (var output in block.EnumerateOutputSockets())
+                {
+                    var peer = output?.ConnectedPeer?.Owner;
+                    if (peer == null || !allSet.Contains(peer))
+                        continue;
+                    edges.Add(new ProgramGraphEdgeData(block.BlockId, output.PortIndex, peer.BlockId));
+                }
+            }
+
+            var entry = ResolveEntryBlockId() ?? string.Empty;
+            return new ProgramGraphSnapshot(nodes, edges, entry);
         }
 
         List<ProgramBlockBehaviour> CollectReachableBlocksFromEntry(string entryBlockId)

@@ -5,11 +5,11 @@ title: Como iniciar e pausar a execução do circuito
 level_id:
 ---
 
-Na mesma mesa ficam a tomada, a grade para organizar circuitos, as gavetas e os botões de controle da execução do circuito.
+Na mesma mesa ficam a tomada, a grade para organizar os blocos, a gaveta de blocos e os botões de controle da execução do circuito. A gaveta de cartões fica no braço esquerdo.
 
 Começar / Recomeçar:
-- Em edição, o botão mostra Começar. Aperte para ligar o programa e ver o circuito atuando sobre a esteira. Começar não coloca nem remove materiais — quem altera a posição atual é o bloco de materiais.
-- Enquanto está rodando, o mesmo botão mostra Recomeçar. Aperte para abortar a execução do circuito, resetar a esteira e voltar à edição.
+- Em edição a esteira fica vazia. O botão mostra Começar. Aperte para ligar o programa: um lote de teste chega na esteira e o circuito atua sobre ele. Começar não é um bloco de materiais — quem altera a posição atual durante a execução é o bloco de materiais.
+- Enquanto está rodando, o mesmo botão mostra Recomeçar. Aperte para abortar a execução do circuito, deixar a esteira vazia e voltar à edição. O próximo Começar traz um lote novo, escolhido ao acaso entre os testes do nível.
 
 Pausar / Rodar:
 - Enquanto a execução do circuito está pedida, o botão mostra Pausar.

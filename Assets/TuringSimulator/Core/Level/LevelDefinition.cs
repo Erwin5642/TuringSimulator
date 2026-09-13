@@ -1,8 +1,5 @@
-﻿using TuringSimulator.Core.Tape;
-using TuringSimulator.Core.Types;
-using TuringSimulator.Core.Validation;
+﻿using TuringSimulator.Core.Validation;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace TuringSimulator.Core.Level
 {
@@ -19,10 +16,8 @@ namespace TuringSimulator.Core.Level
         [Tooltip("Stable id for ITS/BKT and Python LEVEL_META (e.g. AppendScrew).")]
         public string levelId = "";
 
-        public ValidationTest mainTest;
         public ValidationTest[] validationTests;
 
-        public int ValidationScenarioCount =>
-            (mainTest == null ? 0 : 1) + (validationTests?.Length ?? 0);
+        public int ValidationScenarioCount => validationTests?.Length ?? 0;
     }
 }
