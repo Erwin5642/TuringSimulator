@@ -4,14 +4,14 @@ This guide is for agents making changes in this repository.
 
 ## Start-Here Checklist
 
-1. Read `docs/client/README.md` and `docs/server/README.md`.
+1. Read `docs/arquitetura.md`, then `docs/client/README.md` and `docs/server/README.md`.
 2. Identify whether change is client-only, server-only, or contract-crossing.
 3. If contract-crossing, update both sides in one change set.
 4. Preserve current runtime behavior unless user explicitly requests architecture migration.
 
 ## Contract-Sensitive Areas
 
-- `student_id`, `level_id` payload semantics on `/ask`
+- `student_id`, `level_id`, optional `tape` / `program` payload semantics on `/ask` (`tape` is the visible conveyor, not `CurrentTape` or the hidden play test)
 - REST JSON naming (`snake_case`) and Newtonsoft settings on Unity side
 
 Primary files:
@@ -22,10 +22,11 @@ Primary files:
   - `Assets/TuringSimulator/ITS/Protocol/*`
   - `Assets/TuringSimulator/ITS/LiveTutorSocket.cs`
 - Server:
-  - `TuringBotAPI/main.py`
-  - `TuringBotAPI/agent.py`
-  - `TuringBotAPI/rag/store.py`
-  - `TuringBotAPI/knowledge/`
+- `TuringBotAPI/main.py`
+- `TuringBotAPI/agent.py`
+- `TuringBotAPI/bench.py`
+- `TuringBotAPI/rag/store.py`
+- `TuringBotAPI/knowledge/`
 
 ## Common Pitfalls
 
@@ -33,8 +34,7 @@ Primary files:
 - Changing level IDs in Unity assets without updating `TuringBotAPI/knowledge/goals/` docs.
 - Breaking `SkillTracker` session/level fields used on `/ask` payloads.
 - Assuming menu/session lifecycle exists in current runtime flow.
-- Adding hidden runtime discovery when an Inspector-visible scene binding would
-  make the system easier to understand and debug.
+- Assuming the ITS `/ask` tape is `CurrentTape` or `ActivePlayTest`. It is `ITapeVisual.Snapshot()` (empty until Começar, then playback-synced).
 
 ## Verification Expectations
 

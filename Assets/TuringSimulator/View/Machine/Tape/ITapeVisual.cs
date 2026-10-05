@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using TuringSimulator.Core.Tape;
 using TuringSimulator.Core.Types;
 
 namespace TuringSimulator.View.Machine.Tape
@@ -18,5 +19,6 @@ namespace TuringSimulator.View.Machine.Tape
         IEnumerator ShowRead(Symbol readSymbol, Symbol writeSymbol);
 
         void Reset();
+        TapeSnapshot Snapshot();
     }
 }

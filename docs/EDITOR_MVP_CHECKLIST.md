@@ -34,8 +34,9 @@ TTS
 - `Right Hand`: ThumbsUp detector **and** Shaka pose detector + publishers
 - `Agent/AgentAvatar`: `Animator` + `AgentAnimator`
 - `Gameplay/ProgramWorkbench`: `ProgramWorkbench`
+- `Gameplay/BlockDrawer`: `BlockDrawerBehaviour` (on the workbench, not on a hand)
 - `Gameplay/PlayerInput`: `PlayerInputCatcher`
-- `Gameplay/CardDrawer`: `CardDrawerBehaviour`
+- `Gameplay/CardDrawer`: `CardDrawerBehaviour` (left arm)
 - `View/MachineView`: object implementing `IMachineView` (typically `MachineViewer`)
 - `View/TapeView`: object implementing `ITapeVisual` (typically `ConveyorTapeVisual`) + `TapeDebugHotkeys` + optional `TapeStepFeedback` + child `MoveAudio` (`EventChannelActionListener`)
 - `View/VictoryConfetti`: `EventChannelActionListener` on `LevelOutcome` / `Victory` → `ParticleSystem.Play()`

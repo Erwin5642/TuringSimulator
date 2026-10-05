@@ -9,6 +9,6 @@ Título na fábrica: Posicionar Engrenagem.
 
 Objetivo: use movimento e manipulação de materiais. Três vezes seguidas, desloque a esteira um slot para a direita e coloque uma Engrenagem.
 
-Circuitos deste nível: movimento e manipulação de materiais.
+Blocos deste nível: movimento e manipulação de materiais.
 
 O que conta como feito: nas três posições na esteira à direita do início, o circuito posiciona engrenagem. Posicione primeiro, depois ajuste o material — a alteração acontece na posição atual da esteira.

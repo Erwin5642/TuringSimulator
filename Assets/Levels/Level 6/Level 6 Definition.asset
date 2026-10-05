@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Level 6 Definition
   m_EditorClassIdentifier: 
   title: "Padrão Repetido"
-  description: "Objetivo: vá ao módulo Aceitar somente se toda a fita (até o branco) for formada por repetições completas do bloco Engrenagem → Porca → Parafuso. Caso contrário, vá ao módulo Rejeitar."
+  description: "Objetivo: vá ao bloco Aceitar somente se toda a fita (até o branco) for formada por repetições completas do trio Engrenagem → Porca → Parafuso. Caso contrário, vá ao bloco Rejeitar."
   levelId: PatternRepeated
-  mainTest: {fileID: 11400000, guid: 31098dca89b049a5a012e24df40fc672, type: 2}
   validationTests:
+  - {fileID: 11400000, guid: 31098dca89b049a5a012e24df40fc672, type: 2}
   - {fileID: 11400000, guid: 0c22672704d345ba9f01e466c9aaf0d0, type: 2}
   - {fileID: 11400000, guid: d8b5276e9f864a1d8c260249be0fa2be, type: 2}
   - {fileID: 11400000, guid: e451994d7a2445dca9742a39882b297a, type: 2}

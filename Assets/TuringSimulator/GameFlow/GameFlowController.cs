@@ -32,12 +32,14 @@ namespace TuringSimulator.GameFlow
         private int _simulationStepIndex;
         private Coroutine _runCoroutine;
         private Action<StepResult> _onSimulationStepProduced;
+        private readonly PlayTapeMaterializeActionHandler _playTapeMaterializer;
 
         public GameFlowController(ModelInstaller model, ViewInstaller view, ControllerInstaller controller)
         {
             _model = model;
             _view = view;
             _controller = controller;
+            _playTapeMaterializer = new PlayTapeMaterializeActionHandler(controller.BenchCache);
         }
 
         public void ConfigureEventChannels(
@@ -112,6 +114,7 @@ namespace TuringSimulator.GameFlow
                     yield break;
 
                 _controller.ProgramEdit.Disable();
+                _playTapeMaterializer.Apply(_model, _view.Tape);
                 PublishRunStarted();
                 _controller.Workbench?.HighlightStartWire();
 

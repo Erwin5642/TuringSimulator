@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Level 7 Definition
   m_EditorClassIdentifier: 
   title: Pares Balanceados
-  description: "Objetivo: vá ao módulo Aceitar somente se a quantidade de Engrenagens for igual à quantidade de Porcas na fita. Se as quantidades forem diferentes, vá ao módulo Rejeitar."
+  description: "Objetivo: vá ao bloco Aceitar somente se a quantidade de Engrenagens for igual à quantidade de Porcas na fita. Se as quantidades forem diferentes, vá ao bloco Rejeitar."
   levelId: BalancedPairs
-  mainTest: {fileID: 11400000, guid: ee0273c16b9041409c2302cf54343178, type: 2}
   validationTests:
+  - {fileID: 11400000, guid: ee0273c16b9041409c2302cf54343178, type: 2}
   - {fileID: 11400000, guid: 3eb009a3063646a79a0f441679d11f4c, type: 2}
   - {fileID: 11400000, guid: 60c89a07a2ed4f27b659832e29c28ea1, type: 2}
   - {fileID: 11400000, guid: 796bac2911464d76ab7f8bfe16f30199, type: 2}

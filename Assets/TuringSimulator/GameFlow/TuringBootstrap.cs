@@ -129,6 +129,7 @@ namespace TuringSimulator.GameFlow
             }
 
             _controllerInstaller.Install();
+            itsClient?.SetBenchCache(_controllerInstaller.BenchCache);
             return Task.CompletedTask;
         }
 

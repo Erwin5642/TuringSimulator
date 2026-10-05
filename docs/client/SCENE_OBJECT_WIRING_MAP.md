@@ -33,6 +33,7 @@ Agent
   AgentAvatar (Animator + AgentAnimator)
 Gameplay
   ProgramWorkbench
+  BlockDrawer
   PlayerInput
   CardDrawer
   Program blocks / sockets / wires
@@ -96,7 +97,8 @@ Assign all major scene objects:
 - `bootstrap`
 - `levelDatabase`
 - `programWorkbench`
-- `cardDrawer`
+- `cardDrawer` (left-arm card source)
+- `blockDrawer` (on the programming workbench, not on a hand)
 - `itsClient`
 - `skillTracker`
 - `agentDialogue`
@@ -154,6 +156,19 @@ Wiring:
 - During playback, `IProgramExecutionHighlight` switches the live energy wire to that socket's `previewColor`; idle wires stay on `connectedColor`
 - Drives `ProgramChanged` flow through `ControllerInstaller`
 
+### `BlockDrawer` (`BlockDrawerBehaviour`)
+
+Purpose: source of spawnable program blocks. Lives on the **programming workbench**, not on the right hand/arm.
+
+Assign in Inspector:
+
+- `moveBlockPrefab`, `writeBlockPrefab`, `conditionBlockPrefab`, `acceptBlockPrefab`, `rejectBlockPrefab`
+
+Wiring:
+
+- Child slots spawn blocks from these prefabs
+- Spawned blocks should be registered in `ProgramWorkbench` for edit/run lock and compilation
+
 ### `PlayerInput` (`PlayerInputCatcher`)
 
 Purpose: keyboard/gameplay control source.
@@ -180,7 +195,7 @@ Assign `_kind` and `_label` on those TMP objects. Runtime text follows game/play
 
 ### `CardDrawer` (`CardDrawerBehaviour`)
 
-Purpose: source of spawnable cards for editing.
+Purpose: source of spawnable cards for editing. Lives on the **left arm**, not on the workbench.
 
 Assign in Inspector:
 

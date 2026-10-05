@@ -1,9 +1,12 @@
 using System;
+using ITS;
 using TuringSimulator.Controller;
 using TuringSimulator.Controller.Syncronizer;
 using TuringSimulator.Core.Level;
 using TuringSimulator.Core.Program;
+using TuringSimulator.Core.ProgramGraph;
 using TuringSimulator.Core.Simulation.Step;
+using TuringSimulator.Core.Tape;
 using TuringSimulator.GameFlow.Events;
 using UnityEngine;
 
@@ -57,6 +60,7 @@ namespace TuringSimulator.GameFlow
         public ProgramEditController ProgramEdit { get; private set; }
         public StepViewApplier StepApplier { get; private set; }
         public GameFlowController GameFlowController { get; private set; }
+        public IItsBenchStateCache BenchCache { get; private set; }
 
         readonly ControllerPrefabs _prefabs;
         readonly ControllerSceneBindings _scene;
@@ -96,6 +100,7 @@ namespace TuringSimulator.GameFlow
             _haltReachedChannel = prefabs.haltReachedChannel;
             _validationCompletedChannel = prefabs.validationCompletedChannel;
             _levelOutcomeChannel = prefabs.levelOutcomeChannel;
+            BenchCache = new ItsBenchStateCache(CaptureTapeSnapshot, CaptureProgramSnapshot);
             _levelLoadedHandlers = BuildLevelLoadedHandlers();
             _useSceneBindings = false;
         }
@@ -116,6 +121,7 @@ namespace TuringSimulator.GameFlow
             _haltReachedChannel = sceneBindings.haltReachedChannel;
             _validationCompletedChannel = sceneBindings.validationCompletedChannel;
             _levelOutcomeChannel = sceneBindings.levelOutcomeChannel;
+            BenchCache = new ItsBenchStateCache(CaptureTapeSnapshot, CaptureProgramSnapshot);
             _levelLoadedHandlers = BuildLevelLoadedHandlers();
             _useSceneBindings = true;
         }
@@ -153,6 +159,8 @@ namespace TuringSimulator.GameFlow
             ValidateEventChannelWiring();
 
             _workbench?.Initialize(ProgramEdit);
+            if (_workbench != null)
+                _workbench.GraphRebuilt += BenchCache.MarkProgramDirty;
 
             PlayerInputCatcher.OnStartRequest += PublishRunRequested;
             PlayerInputCatcher.OnPauseRequest += Playback.Pause;
@@ -265,6 +273,7 @@ namespace TuringSimulator.GameFlow
 
         void ApplyPlaybackStep(PlaybackStepEventData eventData)
         {
+            BenchCache.MarkTapeDirty();
             RefreshExecutionHighlight();
 
             if (eventData.ResultKind != ResultKind.Halt)
@@ -402,8 +411,15 @@ namespace TuringSimulator.GameFlow
                 new LevelViewResetActionHandler(),
                 new LevelUiMetadataActionHandler(),
                 new LevelSessionContextActionHandler(),
+                new LevelItsBenchDirtyActionHandler(BenchCache),
             };
         }
+
+        TapeSnapshot CaptureTapeSnapshot()
+            => _view.Tape?.Snapshot();
+
+        ProgramGraphSnapshot CaptureProgramSnapshot()
+            => _workbench != null ? _workbench.CaptureInspectSnapshot() : null;
 
         void ValidateEventChannelWiring()
         {

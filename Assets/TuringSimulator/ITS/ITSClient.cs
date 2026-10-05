@@ -22,7 +22,7 @@ public class ITSClient : MonoBehaviour, IAskClient
     [Tooltip("ITS REST API URL (scheme + host, no trailing slash).")]
     [FormerlySerializedAs("_baseUrl")]
     [SerializeField] private string _apiUrl = "https://turing.erwinlabs.dev";
-    [SerializeField] private float _timeoutSeconds = 10f;
+    [SerializeField] private float _timeoutSeconds = 15f;
 
     [Header("Event Channels (event-driven wiring)")]
     [SerializeField] private TranscriptionReadyEventChannel _transcriptionReadyChannel;
@@ -39,6 +39,12 @@ public class ITSClient : MonoBehaviour, IAskClient
     bool _serverAvailable;
     string _pendingAskCorrelationId = string.Empty;
     bool _isAwaitingAskResult;
+    IItsBenchStateCache _benchCache;
+
+    public void SetBenchCache(IItsBenchStateCache benchCache)
+    {
+        _benchCache = benchCache;
+    }
 
     static string SerializeBody(object o) =>
         JsonConvert.SerializeObject(o, ItsRestJson.Settings);
@@ -85,6 +91,8 @@ public class ITSClient : MonoBehaviour, IAskClient
             student_id = studentId,
             level_id = levelId,
             question = question,
+            tape = _benchCache?.GetTapeForAsk(),
+            program = _benchCache?.GetProgramForAsk(),
         };
         StartCoroutine(Post("/ask", SerializeBody(req), OnAskResponse));
     }

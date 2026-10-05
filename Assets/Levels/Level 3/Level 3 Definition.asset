@@ -16,8 +16,8 @@ MonoBehaviour:
   description: "Objetivo: use os blocos de movimento, escrita e condi\xE7\xE3o. \n\nPercorra
     toda a fita e substitua cada s\xEDmbolo n\xE3o branco por Porca. "
   levelId: ReplaceAllWithNuts
-  mainTest: {fileID: 11400000, guid: 48676381244046159c0e4dc20b8ffc35, type: 2}
   validationTests:
+  - {fileID: 11400000, guid: 48676381244046159c0e4dc20b8ffc35, type: 2}
   - {fileID: 11400000, guid: 88bbf6e370664c33992243ec643305da, type: 2}
   - {fileID: 11400000, guid: a012e2f0dd6642f683753d9440c7c286, type: 2}
   - {fileID: 11400000, guid: ce8726f4b54a497492472d47553211ef, type: 2}

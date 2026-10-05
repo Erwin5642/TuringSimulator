@@ -27,12 +27,13 @@ Key file: `Assets/TuringSimulator/GameFlow/TuringBootstrap.cs`
   - `LevelContext`, `LevelLoader`
   - `SimulationRunner` (`SimulationRunRequest` -> `SimulationRunResult`)
   - `SimulationBuffer` (engine step capture + trace source)
+  - `IPlayTestSelector` and runtime `ActivePlayTest` (random draw from `validationTests`)
   - active run state (`CurrentProgram`, `CurrentTape`)
   - `ValidationRunner`
 - `ViewInstaller`:
   - Preferentially uses scene-bound references for `machine`, `tape`, `halt`, `levelUI`
   - Falls back to prefab instantiation only if scene bindings are missing
-  - `ITapeVisual.Initialize()` uses the existing `TapeCellView` pool under `cellsRoot`, then `MachineViewer` drives `SetTape` / `ShowRead` / `ShowWrite` / `MoveHead`
+  - `ITapeVisual.Initialize()` uses the existing `TapeCellView` pool under `cellsRoot`, then `MachineViewer` drives `SetTape` / `ShowRead` / `ShowWrite` / `MoveHead`. `ITapeVisual.Snapshot()` is the ITS `/ask` tape source.
 - `ControllerInstaller`:
   - Creates `ProgramEditController`, `PlaybackController`, `StepViewApplier`, `GameFlowController`
   - Preferentially uses scene-bound `PlayerInputCatcher` (XR/editor wiring)
@@ -84,10 +85,11 @@ Key execution path in `GameFlowController`:
 
 - `Start()`:
   - `Menu -> Loading -> Editing`
-  - loads current level
+  - loads current level (picks `ActivePlayTest` from the pool, leaves the esteira empty)
   - enables program editing
 - `Run()`:
   - transitions to `Running`
+  - materializes `ActivePlayTest` onto `CurrentTape` and the tape view
   - emits run lifecycle channels (`RunStarted`, `SimulationStepProduced`, `RunFinished`)
   - enables playback immediately and starts play-requested mode
   - appends each produced step into `StepViewApplier` and wakes playback as soon as any step exists
@@ -96,10 +98,11 @@ Key execution path in `GameFlowController`:
   - cancels the in-flight simulation coroutine
   - pauses/disables playback
   - clears simulation state, resets the machine/tape, reloads the current level
+  - `LoadCurrent` draws a new `ActivePlayTest` and shows an empty esteira
   - returns to `Editing` so the program can be changed again
 - `Halt()`:
   - transitions `Running -> Halted -> Validating`
-  - runs validation tests
+  - runs every test in `validationTests`
   - emits `ValidationCompleted` and `LevelOutcome` channels
   - transitions to `Victory` or `Defeat`
 - `Next()`:
@@ -143,7 +146,7 @@ Level definitions are Unity assets containing:
 
 - UI presentation (`title`, `description`) in pt-BR
 - ITS-compatible `levelId` matching `LevelID` and `TuringBotAPI/knowledge/goals/`
-- validation tests (`mainTest`, `validationTests`)
+- a `validationTests` pool (five `ValidationTest` assets per level)
 
 Progression in `LevelDatabase.asset` (order = play order; eight levels):
 
@@ -156,16 +159,24 @@ Progression in `LevelDatabase.asset` (order = play order; eight levels):
 7. `BalancedPairs` — Accept or Reject modules
 8. `PatternSomewhere` — Accept or Reject modules
 
-Each level has **5** validation scenarios (`mainTest` + 4 `validationTests`).
+Each level has **5** validation scenarios in `validationTests`. On load, one pool
+member becomes the runtime `ActivePlayTest`; the esteira stays empty until
+**Começar**, which loads that test’s symbols. **Recomeçar** (and other
+`LoadCurrent` returns to editing) draws a new pool member. Validation still
+runs the whole pool. There is no distinguished authored `mainTest`.
 `AppendScrew` is not in the Unity progression (removed from the game).
 
 Main files:
 
 - `Assets/TuringSimulator/Core/Level/LevelDefinition.cs`
 - `Assets/TuringSimulator/Core/Level/LevelDatabase.cs`
+- `Assets/TuringSimulator/Core/Level/IPlayTestSelector.cs`
+- `Assets/TuringSimulator/Core/Level/PlayTestSelector.cs`
+- `Assets/TuringSimulator/Core/Level/LevelTestPool.cs`
+- `Assets/TuringSimulator/GameFlow/LevelLoadedActionHandlers.cs`
 - `Assets/Levels/LevelDatabase.asset`
 - `Assets/Levels/Level */Level * Definition.asset`
-- `Assets/Levels/Level */Level * Test*.asset` / `* Main Test.asset`
+- `Assets/Levels/Level */Level * Test*.asset` (including former `* Main Test.asset` files, now ordinary pool members)
 
 ## ITS Integration from Client
 
@@ -173,10 +184,19 @@ Main files:
 
 - Inspector field `_apiUrl` defaults to `https://turing.erwinlabs.dev` (no trailing slash)
 - `/session/new`: allocates a fresh student session id for each new run
-- `/ask`: free-form question (from voice transcription pipeline). Reply JSON includes `{reply, tokens_in, tokens_out}`. Unity uses `reply` and synthesizes speech with Wit TTS; token fields are for the web tester.
+- `/ask`: free-form question (from voice transcription pipeline) plus optional compact `tape` and authored `program` snapshots from `IItsBenchStateCache`. Tape is the **visible** conveyor (`ITapeVisual.Snapshot`), not `CurrentTape` or the hidden `ActivePlayTest`. Reply JSON includes `{reply, tokens_in, tokens_out}`. Unity uses `reply` and synthesizes speech with Wit TTS; token fields are for the web tester.
+- HTTP timeout for `/ask` is 15 seconds
 - health check via `/health`
 
-File: `Assets/TuringSimulator/ITS/ITSClient.cs`
+Files:
+
+- `Assets/TuringSimulator/ITS/ITSClient.cs`
+- `Assets/TuringSimulator/ITS/IItsBenchStateCache.cs`
+- `Assets/TuringSimulator/ITS/ItsBenchTapeCompact.cs`
+- `Assets/TuringSimulator/ITS/ItsBenchProgramSerializer.cs`
+- `Assets/TuringSimulator/GameFlow/ItsBenchStateCache.cs`
+
+Tape/program payloads are rebuilt only when dirty: level load marks both; play-tape materialize and each applied playback step mark tape; `ProgramWorkbench.GraphRebuilt` marks program. `TuringBootstrap` injects the cache into `ITSClient` after `ControllerInstaller.Install()`.
 
 ### Skill tracking (`SkillTracker`)
 
@@ -254,7 +274,7 @@ Files:
 - `TuringBootstrap` is now a thinner composition root with editor-first references and optional auto-start.
 - `MvpSceneWiringValidator` can be attached to the scene `Systems` root and
   invoked from its Inspector context menu. It reports missing bootstrap,
-  workbench, tutor, drawer, and validation-scenario references.
+  workbench (including the block drawer), tutor, card drawer, and validation-scenario references.
 - `ProgramWorkbench` and the tutor components are intentionally expected to be
   assigned in the scene; runtime fallback does not create a visible editing
   layout.

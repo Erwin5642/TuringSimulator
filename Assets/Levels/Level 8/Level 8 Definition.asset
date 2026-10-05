@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Level 8 Definition
   m_EditorClassIdentifier: 
   title: "Padrão em Qualquer Posição"
-  description: "Objetivo: vá ao módulo Aceitar se existir pelo menos uma ocorrência consecutiva de Engrenagem → Porca → Parafuso em qualquer ponto da fita antes do branco. Se não existir, vá ao módulo Rejeitar."
+  description: "Objetivo: vá ao bloco Aceitar se existir pelo menos uma ocorrência consecutiva de Engrenagem → Porca → Parafuso em qualquer ponto da fita antes do branco. Se não existir, vá ao bloco Rejeitar."
   levelId: PatternSomewhere
-  mainTest: {fileID: 11400000, guid: 7e6caca16d3344d89079564ab74a9619, type: 2}
   validationTests:
+  - {fileID: 11400000, guid: 7e6caca16d3344d89079564ab74a9619, type: 2}
   - {fileID: 11400000, guid: 5c68514f78ef4aa0884c788c24adf7ff, type: 2}
   - {fileID: 11400000, guid: c86a63c009ad4a32945c6bda8c2b78b1, type: 2}
   - {fileID: 11400000, guid: 52b35678358e45659d4e30fd04fddc0f, type: 2}
