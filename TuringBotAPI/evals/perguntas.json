@@ -239,6 +239,60 @@
       "observacao": "Sim. O conjunto de fitas que terminam em Aceitar é a linguagem reconhecida. Ligar à fábrica, sem jargão demais."
     },
     {
+      "id": "e-01",
+      "categoria": "erros",
+      "level_id": "MoveLeftRight",
+      "pergunta": "Meu programa nem começa. O que eu checo primeiro?",
+      "resposta_claudio": "",
+      "resposta_aprovada": "",
+      "observacao": "Categoria errors. Tomada de energia sem fio. Só o próximo passo: ligar a tomada no primeiro bloco. Sem circuito completo."
+    },
+    {
+      "id": "e-02",
+      "categoria": "erros",
+      "level_id": "RejectIfGearExists",
+      "pergunta": "O circuito para no meio. Isso conta como Aceitar?",
+      "resposta_claudio": "",
+      "resposta_aprovada": "",
+      "observacao": "Não. Falta estado final ou energia morreu sem Aceitar/Rejeitar. Encerramento solto é rejeitar. Sem montar o critério do nível."
+    },
+    {
+      "id": "e-03",
+      "categoria": "erros",
+      "level_id": "ReplaceAllWithNuts",
+      "pergunta": "Varri a esteira até o fim e o programa não para. Esqueci do vazio?",
+      "resposta_claudio": "",
+      "resposta_aprovada": "",
+      "observacao": "Sim, caso vazio como saída do loop. Ciclo infinito: fábrica corta se não para. Não desenhar o loop completo."
+    },
+    {
+      "id": "e-04",
+      "categoria": "erros",
+      "level_id": "SwapNutsAndScrews",
+      "pergunta": "Um Começar deu certo e a fábrica recusou. Meu ramo cobre todos os materiais?",
+      "resposta_claudio": "",
+      "resposta_aprovada": "",
+      "observacao": "Transição incompleta. Começar de novo e olhar a esteira. Não nomear o lote que falhou."
+    },
+    {
+      "id": "e-05",
+      "categoria": "erros",
+      "level_id": "MoveLeftRight",
+      "pergunta": "A esteira foi para o lado vazio. Será o cartão de direção?",
+      "resposta_claudio": "",
+      "resposta_aprovada": "",
+      "observacao": "Direção errada. Perguntar para que lado anda agora. Não recitar a sequência inteira de movimentos."
+    },
+    {
+      "id": "e-06",
+      "categoria": "erros",
+      "level_id": "BalancedPairs",
+      "pergunta": "Como o circuito lembra das peças já casadas?",
+      "resposta_claudio": "",
+      "resposta_aprovada": "",
+      "observacao": "Esteira como memória: marcar material já visto. Aceitar cedo deixa peças sem casar. Sem o esquema completo de marcação."
+    },
+    {
       "id": "n-01",
       "categoria": "niveis",
       "level_id": "MoveLeftRight",

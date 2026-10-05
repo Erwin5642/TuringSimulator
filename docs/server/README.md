@@ -38,7 +38,7 @@ Removed from this MVP: `POST /event`, `POST /hint`, `GET /state/{id}`, `GET /ws/
 
 Files:
 
-- `TuringBotAPI/knowledge/**/*.md` — reviewed corpus (persona, gameplay, objects, goals, concepts)
+- `TuringBotAPI/knowledge/**/*.md` — reviewed corpus (persona, gameplay, objects, goals, concepts, errors)
 - `TuringBotAPI/rag/documents.py` — frontmatter loader
 - `TuringBotAPI/rag/store.py` — in-memory index + SQLite embedding cache
 - `TuringBotAPI/agent.py` — `search_docs` / `check_tape` / `check_program` tools + answer loop
@@ -55,10 +55,10 @@ Index:
 
 Agent:
 
-- Persona document is always injected into the system prompt. It covers voice, routing (search vs refuse), identity, player vocab (esteira/execução do circuito, not fita/corrida/simulação; circuito = program of blocos + fios, bloco = instruction), and answer shape (short, no unsolicited briefing, no full circuit). Factory facts live in `knowledge/gameplay`, `objects`, `goals`, and `concepts`.
+- Persona document is always injected into the system prompt. It covers voice, routing (search vs refuse), identity, player vocab (esteira/execução do circuito, not fita/corrida/simulação; circuito = program of blocos + fios, bloco = instruction), and answer shape (short, no unsolicited briefing, no full circuit). Factory facts live in `knowledge/gameplay`, `objects`, `goals`, `concepts`, and `errors`. Failing-circuit questions should search category `errors`.
 - Common greetings (`oi`, `bom dia`, `boa tarde`, …) still get a short in-character reply and skip retrieval.
 - The current `level_id` is labeled as internal context; the model should not recap the objective unless the trainee asked about the task.
-- Gemini function-calling, max 3 `search_docs` rounds plus one-shot `check_tape` / `check_program`, then a final pt-BR reply. `search_docs` is for how-to-play, factory objects, and task questions. Inspect tools are only for this trainee's visible esteira/circuito (`check_tape` may be only `vazio` before Começar) and are omitted from the user prompt unless the model calls them. The tutor must not name the hidden lot that failed validation.
+- Gemini function-calling, max 3 `search_docs` rounds plus one-shot `check_tape` / `check_program`, then a final pt-BR reply. `search_docs` is for how-to-play, factory objects, task questions, and program-design mistakes (`category` `errors`). Inspect tools are only for this trainee's visible esteira/circuito (`check_tape` may be only `vazio` before Começar) and are omitted from the user prompt unless the model calls them. The tutor must not name the hidden lot that failed validation.
 - If Gemini is missing or fails, the server still searches and returns a short player-facing pt-BR reply: the radio-interference prefix plus trimmed sentences from the top chunks. Persona text, bullet lists, and agent-only notes (`Blocos deste nível`, `O que conta como feito`, voice rules) are omitted. Offline fallback does not run inspect tools.
 
 Provider boundary:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-CATEGORIES = frozenset({"persona", "gameplay", "objects", "goals", "concepts"})
+CATEGORIES = frozenset({"persona", "gameplay", "objects", "goals", "concepts", "errors"})
 REQUIRED_FIELDS = ("id", "category", "title", "level_id")
 
 

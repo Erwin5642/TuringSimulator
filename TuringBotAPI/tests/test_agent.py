@@ -70,6 +70,8 @@ def test_persona_calibrates_short_social_replies():
     assert "execução do circuito" in persona
     assert "Não recuse pergunta sobre material ou vazio" in persona
     assert "Não feche com convite" in persona
+    assert "categoria errors" in persona
+    assert "erros comuns de circuito" in persona
     assert "check_tape" in persona
     assert "check_program" in persona
     assert "Não diga em qual lote o circuito falhou" in persona
@@ -96,6 +98,52 @@ def test_search_docs_finds_empty_material_and_implicit_reject():
     )
 
 
+def test_search_docs_finds_common_circuit_errors():
+    store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
+    start = search_docs(
+        store,
+        "programa nem começa tomada de energia sem fio",
+        category="errors",
+    )
+    assert start
+    assert any(hit.document.id == "errors-missing-start" for hit in start)
+
+    blank = search_docs(
+        store,
+        "varreu esteira esqueceu o caso vazio saída do loop",
+        category="errors",
+    )
+    assert any(hit.document.id == "errors-forgotten-blank" for hit in blank)
+
+    loop = search_docs(
+        store,
+        "ciclo infinito esteira não para saída no vazio",
+        category="errors",
+    )
+    assert any(hit.document.id == "errors-infinite-loop" for hit in loop)
+
+    halt = search_docs(
+        store,
+        "falta estado final aceitar rejeitar parar no meio",
+        category="errors",
+    )
+    assert any(hit.document.id == "errors-missing-halt" for hit in halt)
+
+
+def test_errors_category_filter_hides_goals_and_objects():
+    store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
+    hits = search_docs(
+        store,
+        "objetivo do nível tomada de energia bloco de condição",
+        category="errors",
+    )
+    assert hits
+    assert all(hit.document.category == "errors" for hit in hits)
+    assert all(
+        not hit.document.id.startswith(("goals-", "objects-")) for hit in hits
+    )
+
+
 def test_search_docs_finds_random_lots_and_socratic_validation():
     store = KnowledgeStore.from_directory(KNOWLEDGE_DIR)
     hits = search_docs(
@@ -112,6 +160,8 @@ def test_search_docs_finds_random_lots_and_socratic_validation():
     body = match.document.text.lower()
     assert "lote ao acaso" in body
     assert "não diz qual lote falhou" in body
+
+
 
 
 def test_search_docs_finds_speak_and_teleport_how_to():

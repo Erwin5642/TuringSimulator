@@ -137,7 +137,7 @@ allows up to five tool rounds. Unity `/ask` waits 15 seconds.
   "status": "ok",
   "version": "0.2.0",
   "tutor_provider": "gemini",
-  "documents": 28
+  "documents": 41
 }
 ```
 
@@ -153,7 +153,8 @@ knowledge/
 ├── gameplay/    how to play, teleport, speak, grab, run, thumbs-up
 ├── objects/     workbench, drawers, blocks, cards, tape, buttons
 ├── goals/       eight playable levels + validation
-└── concepts/    factory ↔ TM metaphor, loops, common mistakes
+├── concepts/    factory ↔ TM metaphor, loops
+└── errors/      common TM-design mistakes and how to treat them
 ```
 
 Frontmatter fields: `id`, `category`, `title`, `level_id` (empty or a Unity level id).

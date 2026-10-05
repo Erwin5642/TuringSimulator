@@ -15,7 +15,14 @@ def test_corpus_loads_with_unique_ids():
     assert len(ids) == len(set(ids))
     assert len(docs) >= 20
     categories = {doc.category for doc in docs}
-    assert categories == {"persona", "gameplay", "objects", "goals", "concepts"}
+    assert categories == {
+        "persona",
+        "gameplay",
+        "objects",
+        "goals",
+        "concepts",
+        "errors",
+    }
 
 
 def test_parse_rejects_unknown_category():
