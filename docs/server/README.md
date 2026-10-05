@@ -88,6 +88,8 @@ Features:
 - Player-facing replies and fallbacks stay pt-BR.
 - Knowledge edits happen in `TuringBotAPI/knowledge/`, not in Python skill tables.
 - Keep `level_id` values aligned with Unity `LevelDefinition.levelId`.
+- Tutor quality is scored by `python -m evals.run` against `evals/perguntas.json` (deterministic rubric). Pytest only checks the bank and the scorer; it does not call Gemini.
+- A live `python -m evals.run` waits 12 seconds between Gemini calls (generation rounds and embeddings). `--interval` overrides that gap (`0` disables it). The wait applies only to that live run.
 
 ## Deploy (Quave ONE)
 
@@ -104,3 +106,4 @@ Image: `TuringBotAPI/Dockerfile` (context `TuringBotAPI`). Custom Dockerfile pre
 - No live WebSocket advisory channel.
 - Teleport with hands is the Spider-Man gesture with the pinky tucked (thumb + index); XR controller still uses the configured locomotion command. Confirm pads/controls against the shipped scene.
 - Spoken clips are not generated on the server.
+- Live tutor benchmark (`python -m evals.run`) needs `GEMINI_API_KEY`; `--offline` scores the keyword fallback instead. The live run paces Gemini calls (default 12s, `--interval` to change).
