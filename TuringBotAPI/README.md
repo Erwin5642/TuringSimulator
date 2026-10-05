@@ -174,6 +174,7 @@ every item.
 python -m evals.run --offline                 # keyword RAG fallback
 python -m evals.run                           # Gemini when GEMINI_API_KEY is set
 python -m evals.run --category erros --json-out evals/last-run.json
+python -m evals.run --category errors              # same items; RAG calls this category errors
 python -m evals.run --ids o-11,e-01
 python -m evals.run --interval 20             # slower live pacing
 python -m evals.run --interval 0              # live run with no wait

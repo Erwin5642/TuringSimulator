@@ -1,7 +1,13 @@
 """Tutor benchmark bank + deterministic scorer."""
 
+from pathlib import Path
+
 from evals.bank import load_bank
+from evals.run import select_items
 from evals.score import count_sentences, score_reply, term_in
+
+_KNOWLEDGE_ERRORS = Path(__file__).resolve().parents[1] / "knowledge" / "errors"
+_ERROR_PAGE_WITHOUT_ITEM = "errors-how-to-treat"
 
 
 def test_bank_loads_with_unique_scored_items():
@@ -67,6 +73,56 @@ def test_scorer_catches_missing_fact_and_refuse():
         bank["global_checks"],
     )
     assert refused.passed
+
+
+def test_error_corpus_pages_have_a_benchmark_item():
+    bank = load_bank()
+    notes = "\n".join(item.get("notes") or "" for item in bank["itens"])
+    missing = []
+    for path in sorted(_KNOWLEDGE_ERRORS.glob("*.md")):
+        frontmatter_id = _frontmatter_id(path)
+        if frontmatter_id == _ERROR_PAGE_WITHOUT_ITEM:
+            continue
+        if frontmatter_id not in notes:
+            missing.append(frontmatter_id)
+    assert not missing
+
+
+def test_errors_alias_selects_the_same_items_as_erros():
+    bank = load_bank()
+    by_pt = select_items(bank, ids="", category="erros")
+    by_en = select_items(bank, ids="", category="errors")
+    assert [item["id"] for item in by_pt] == [item["id"] for item in by_en]
+    assert {item["id"] for item in by_pt} >= {f"e-{number:02d}" for number in range(1, 12)}
+
+
+def test_energy_dies_treatment_passes_without_saying_rejeitar():
+    bank = load_bank()
+    item = next(row for row in bank["itens"] if row["id"] == "e-02")
+    reply = (
+        "Não, parar no meio não conta como Aceitar. "
+        "A energia morreu porque ficou faltando fio numa saída ou porta. "
+        "Siga o sinal até achar onde a ponta está solta e ligue no próximo bloco."
+    )
+    assert score_reply(reply, item, bank["global_checks"]).passed
+
+
+def test_tape_memory_reply_must_mark_material():
+    bank = load_bank()
+    item = next(row for row in bank["itens"] if row["id"] == "e-06")
+    wires = (
+        "O circuito guarda a contagem usando a posição dos blocos e os fios, "
+        "conforme a esteira avança."
+    )
+    scored = score_reply(wires, item, bank["global_checks"])
+    assert not scored.passed
+
+
+def _frontmatter_id(path: Path) -> str:
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("id:"):
+            return line.split(":", 1)[1].strip()
+    raise AssertionError(f"{path} has no id")
 
 
 def test_term_in_accepts_portuguese_plurals():

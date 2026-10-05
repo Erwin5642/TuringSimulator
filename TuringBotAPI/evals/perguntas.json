@@ -665,7 +665,7 @@
       "level_id": "MoveLeftRight",
       "pergunta": "Meu programa nem começa. O que eu checo primeiro?",
       "referencia": "Liga um fio da tomada de energia até a entrada da primeira instrução. Sem esse fio o programa nem começa.",
-      "notes": "errors-missing-start. Só o próximo passo.",
+      "notes": "errors-missing-start. Só o fio da tomada.",
       "checks": {
         "contain_any": [
           "tomada",
@@ -682,15 +682,18 @@
       "categoria": "erros",
       "level_id": "RejectIfGearExists",
       "pergunta": "O circuito para no meio. Isso conta como Aceitar?",
-      "referencia": "Não. Energia sem saída encerra o programa e a máquina conta como rejeitar. Aceite só existe se o sinal chegar num bloco Aceitar.",
-      "notes": "Encerramento ≠ Aceitar.",
+      "referencia": "Não. Parar no meio não é Aceitar. Siga o sinal até a porta sem fio e ligue essa saída no próximo bloco.",
+      "notes": "errors-energy-dies. O tratamento é achar a porta solta; não exija a palavra rejeitar.",
       "checks": {
         "contain_groups": [
           [
             "nao"
           ],
           [
-            "rejeit"
+            "fio",
+            "porta",
+            "saida",
+            "energia"
           ]
         ]
       }
@@ -700,8 +703,8 @@
       "categoria": "erros",
       "level_id": "ReplaceAllWithNuts",
       "pergunta": "Varri a esteira até o fim e o programa não para. Esqueci do vazio?",
-      "referencia": "Sim. Sem tratar o vazio o loop não tem saída e a fábrica corta se o programa não para.",
-      "notes": "Caso vazio / ciclo infinito.",
+      "referencia": "Sim. O vazio é a saída do loop. Depois de mover, esse caso deve sair do loop.",
+      "notes": "errors-forgotten-blank. Só o caso vazio, sem desenhar o loop.",
       "checks": {
         "contain_groups": [
           [
@@ -709,9 +712,7 @@
           ],
           [
             "loop",
-            "para",
-            "ciclo",
-            "nao para"
+            "saida"
           ]
         ]
       }
@@ -722,7 +723,7 @@
       "level_id": "SwapNutsAndScrews",
       "pergunta": "Um Começar deu certo e a fábrica recusou. Meu ramo cobre todos os materiais?",
       "referencia": "O circuito precisa lidar com todos os lotes. Aperte Começar de novo e olhe a esteira. Não digo qual lote falhou.",
-      "notes": "Transição incompleta. Não nomear o lote.",
+      "notes": "errors-incomplete-branch. Não nomear o lote.",
       "checks": {
         "contain_any": [
           "lote",
@@ -743,7 +744,7 @@
       "level_id": "MoveLeftRight",
       "pergunta": "A esteira foi para o lado vazio. Será o cartão de direção?",
       "referencia": "Pode ser o cartão de direção errado. Pergunte para que lado a esteira anda agora.",
-      "notes": "Direção errada. Sem a sequência inteira.",
+      "notes": "errors-wrong-direction. Sem a sequência inteira.",
       "checks": {
         "contain_any": [
           "direcao",
@@ -758,14 +759,116 @@
       "categoria": "erros",
       "level_id": "BalancedPairs",
       "pergunta": "Como o circuito lembra das peças já casadas?",
-      "referencia": "A esteira é a memória: marque a peça já vista ajustando o material. Aceitar cedo deixa peças sem casar.",
-      "notes": "Esteira como memória. Sem o esquema completo.",
+      "referencia": "A esteira é a memória. Marque a peça já vista ajustando o material.",
+      "notes": "errors-tape-as-memory. Sem o esquema completo e sem misturar Aceitar cedo.",
       "checks": {
-        "contain_any": [
-          "memoria",
-          "marcar",
-          "material",
-          "esteira"
+        "contain_groups": [
+          [
+            "memoria",
+            "marque",
+            "marcar"
+          ],
+          [
+            "material"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "e-07",
+      "categoria": "erros",
+      "level_id": "RejectIfGearExists",
+      "pergunta": "O circuito percorre a esteira e para, mas a fábrica não registra o aceite. Parar já vale?",
+      "referencia": "Não. Aceite só existe se o sinal chegar num bloco Aceitar. Se o nível pede aprovar ou recusar, o fio do fim entra em Aceitar ou em Rejeitar.",
+      "notes": "errors-missing-halt. Só lembre que parar não é Aceitar.",
+      "checks": {
+        "contain_groups": [
+          [
+            "nao"
+          ],
+          [
+            "aceitar",
+            "rejeitar"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "e-08",
+      "categoria": "erros",
+      "level_id": "PlaceGear",
+      "pergunta": "O material cai na posição errada. A peça debaixo do braço muda e a vizinha não. O que eu checo?",
+      "referencia": "O bloco de materiais altera a posição atual. Mova a esteira primeiro e depois ajuste o material.",
+      "notes": "errors-write-before-move. Só a ordem mover, depois material.",
+      "checks": {
+        "contain_groups": [
+          [
+            "mova",
+            "mover",
+            "movimento"
+          ],
+          [
+            "material"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "e-09",
+      "categoria": "erros",
+      "level_id": "ReplaceAllWithNuts",
+      "pergunta": "Coloquei um bloco para cada peça que vi. No próximo Começar o lote tem outro tamanho. O que falta?",
+      "referencia": "Não enfileire um bloco por peça. Se não sabe quantas peças vêm, precisa de loop com saída no vazio.",
+      "notes": "errors-unroll-vs-loop. Recuse a fileira; não monte o loop.",
+      "checks": {
+        "contain_groups": [
+          [
+            "loop"
+          ],
+          [
+            "vazio"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "e-10",
+      "categoria": "erros",
+      "level_id": "PatternRepeated",
+      "pergunta": "A esteira não para e a fábrica cortou a execução. O que falta no loop?",
+      "referencia": "Falta a saída do loop. Tem que haver movimento e um ramo que não volta, em geral o vazio. A fábrica corta se o programa não para.",
+      "notes": "errors-infinite-loop. Não cite limite interno de passos.",
+      "checks": {
+        "contain_groups": [
+          [
+            "vazio",
+            "saida"
+          ],
+          [
+            "loop",
+            "corta",
+            "nao para"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "e-11",
+      "categoria": "erros",
+      "level_id": "BalancedPairs",
+      "pergunta": "O circuito aceita depois da primeira passada e ainda sobram peças sem casar. Está certo?",
+      "referencia": "Não. Aceitar cedo deixa o trabalho incompleto. Só aceite quando o objetivo da esteira estiver completo.",
+      "notes": "errors-early-accept. Só o aviso de Aceitar cedo.",
+      "checks": {
+        "contain_groups": [
+          [
+            "nao"
+          ],
+          [
+            "aceitar",
+            "cedo",
+            "incompleto"
+          ]
         ]
       }
     },

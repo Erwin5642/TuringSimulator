@@ -72,6 +72,9 @@ def resolve_request_interval(*, live: bool, interval: float | None) -> float:
     return chosen
 
 
+_CATEGORY_ALIASES = {"errors": "erros"}
+
+
 def select_items(bank: dict[str, Any], *, ids: str, category: str) -> list[dict[str, Any]]:
     items = list(bank["itens"])
     wanted_ids = [part.strip() for part in ids.split(",") if part.strip()]
@@ -82,7 +85,8 @@ def select_items(bank: dict[str, Any], *, ids: str, category: str) -> list[dict[
             raise SystemExit(f"Unknown ids: {', '.join(missing)}")
         items = [by_id[item_id] for item_id in wanted_ids]
     if category.strip():
-        items = [item for item in items if item["categoria"] == category.strip()]
+        wanted = _CATEGORY_ALIASES.get(category.strip(), category.strip())
+        items = [item for item in items if item["categoria"] == wanted]
         if not items:
             raise SystemExit(f"No items in categoria {category!r}.")
     return items
