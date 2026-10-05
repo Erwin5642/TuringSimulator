@@ -8,6 +8,7 @@ __pycache__/
 .ruff_cache/
 .env
 embeddings.sqlite
+evals/last-run.json
 *.egg-info/
 dist/
 build/

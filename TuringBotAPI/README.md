@@ -161,6 +161,35 @@ Frontmatter fields: `id`, `category`, `title`, `level_id` (empty or a Unity leve
 
 ---
 
+## Tutor benchmark
+
+`evals/perguntas.json` is a scored bank (not a draft of approved replies). Each
+item has `pergunta`, `level_id`, a gold `referencia`, and machine checks
+(`contain_all` / `contain_any` / `contain_groups` / `forbid` / `max_sentences` /
+`expect_refuse`). Global persona forbids (admitting to being an AI) apply to
+every item.
+
+```bash
+# From TuringBotAPI
+python -m evals.run --offline                 # keyword RAG fallback
+python -m evals.run                           # Gemini when GEMINI_API_KEY is set
+python -m evals.run --category erros --json-out evals/last-run.json
+python -m evals.run --category errors              # same items; RAG calls this category errors
+python -m evals.run --ids o-11,e-01
+python -m evals.run --interval 20             # slower live pacing
+python -m evals.run --interval 0              # live run with no wait
+```
+
+A live run waits 12 seconds between Gemini calls (each generation round and
+each embedding) so the token window lasts through the suite. `--interval`
+changes that gap; `0` turns it off. The wait applies only to that live run.
+
+Pytest validates the bank schema and that every gold `referencia` passes its
+own checks. It does not call Gemini. A non-zero exit from `evals.run` means at
+least one live/offline reply failed the rubric.
+
+---
+
 ## File structure
 
 ```
@@ -170,6 +199,7 @@ TuringBotAPI/
 ├── tutor_provider.py    Gemini / fallback provider
 ├── rag/                 markdown loader, SQLite cache, in-memory search
 ├── knowledge/           RAG corpus (pt-BR)
+├── evals/               tutor benchmark (`perguntas.json` + `python -m evals.run`)
 ├── Dockerfile           Quave ONE / container image (API + web tester)
 ├── web-tester/          browser tester served at `/web-tester/`
 ├── .dockerignore

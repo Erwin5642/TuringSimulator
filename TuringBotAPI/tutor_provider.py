@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional, Protocol
 
 from rag.embeddings import NullEmbedder
+from request_pacer import IRequestPacer, RequestPacer
 
 _LOG = logging.getLogger("tutor_provider")
 
@@ -75,9 +76,14 @@ class GeminiTutorProvider:
         model_name: str,
         tools: Optional[list[dict[str, Any]]] = None,
         embed_model: str = DEFAULT_GEMINI_EMBED_MODEL,
+        request_interval_s: float = 0.0,
+        pacer: Optional[IRequestPacer] = None,
     ) -> None:
         if not api_key.strip():
             raise TutorProviderUnavailable("GEMINI_API_KEY is empty.")
+        self._pacer: IRequestPacer = (
+            pacer if pacer is not None else RequestPacer(request_interval_s)
+        )
 
         try:
             import google.generativeai as genai
@@ -105,6 +111,7 @@ class GeminiTutorProvider:
         return self._embed(text, "retrieval_query")
 
     def _embed(self, text: str, task_type: str) -> Optional[list[float]]:
+        self._pacer.wait()
         try:
             result = self._genai.embed_content(
                 model=self._embed_model,
@@ -130,10 +137,7 @@ class GeminiTutorProvider:
         contents: list[Any] = [
             {"role": "user", "parts": [{"text": f"{system}\n\n{user}"}]},
         ]
-        response = await self._model.generate_content_async(
-            contents,
-            tool_config={"function_calling_config": {"mode": "auto"}},
-        )
+        response = await self._generate(contents, mode="auto")
         tokens_in, tokens_out = _token_usage(response)
 
         rounds = 0
@@ -165,10 +169,7 @@ class GeminiTutorProvider:
             contents.append({"role": "user", "parts": parts})
             rounds += 1
             mode = "none" if rounds >= max_rounds else "auto"
-            response = await self._model.generate_content_async(
-                contents,
-                tool_config={"function_calling_config": {"mode": mode}},
-            )
+            response = await self._generate(contents, mode=mode)
             prompt_n, cand_n = _token_usage(response)
             tokens_in += prompt_n
             tokens_out += cand_n
@@ -182,9 +183,17 @@ class GeminiTutorProvider:
             )
         raise TutorProviderUnavailable("Gemini returned no text after tool calls.")
 
+    async def _generate(self, contents: list[Any], mode: str) -> Any:
+        self._pacer.wait()
+        return await self._model.generate_content_async(
+            contents,
+            tool_config={"function_calling_config": {"mode": mode}},
+        )
+
 
 def build_tutor_provider(
     tools: Optional[list[dict[str, Any]]] = None,
+    request_interval_s: float = 0.0,
 ) -> TutorProvider:
     try:
         return GeminiTutorProvider(
@@ -192,7 +201,8 @@ def build_tutor_provider(
             model_name=os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
             tools=tools,
             embed_model=os.getenv("GEMINI_EMBED_MODEL", DEFAULT_GEMINI_EMBED_MODEL),
-            )
+            request_interval_s=request_interval_s,
+        )
     except TutorProviderUnavailable:
         return FallbackTutorProvider()
 
