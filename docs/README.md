@@ -4,8 +4,10 @@ This folder documents how the repository works **today** (as-is), with emphasis 
 
 ## Structure
 
+- `arquitetura.md`: visão formal UML do sistema, do cliente Unity e do servidor ITS
 - `client/`: Unity client architecture, runtime flow, key data paths
 - `server/`: FastAPI ITS server architecture, agentic RAG, API behavior
+- `casos-de-uso.md`: atores, diagramas UML (PlantUML) e especificações dos casos de uso
 - `EDITOR_MVP_CHECKLIST.md`: serialized Unity hierarchy and Inspector wiring
 - `client/SCENE_OBJECT_WIRING_MAP.md`: per-object scene wiring map for full demo
 - `client/EVENT_DRIVEN_DEMO_EVENT_MAP.md`: event-channel trigger map
@@ -21,7 +23,7 @@ High-level flow:
 
 1. Unity boots `BasicScene` and initializes game systems from `TuringBootstrap`.
 2. Player edits/runs a visual Turing program in the Unity scene.
-3. Unity sends session + question traffic to the hosted ITS REST API at `https://turing.erwinlabs.dev` (`/session/new`, `/ask`, `/health`) and receives tutoring responses (`reply`). Tutor speech is synthesized in Unity with Wit.ai TTS.
+3. Unity sends session + question traffic to the hosted ITS REST API at `https://turing.erwinlabs.dev` (`/session/new`, `/ask`, `/health`) and receives tutoring responses (`reply`). `/ask` may include compact tape and program snapshots. Tutor speech is synthesized in Unity with Wit.ai TTS.
 4. Server searches the knowledge corpus (boosted by `level_id`) and returns a pt-BR tutor reply.
 
 ## Canonical Entry Points
@@ -37,7 +39,7 @@ High-level flow:
 
 - Gameplay is still bootstrapped through `TuringBootstrap`, now simplified to prefer editor scene bindings and only use prefab/runtime fallback when needed.
 - Unity progression has eight levels (`LevelDatabase`), each with five validation
-  scenarios. Server goal docs use those same `levelId`s (no `AppendScrew`).
+  scenarios in `validationTests`. Server goal docs use those same `levelId`s (no `AppendScrew`).
 - `student_id` from `/session/new` is a per-run identity on `/ask` payloads; the server does not store BKT or chat history. Returning to menu clears the local active session before the next run.
 - The current main-line client is voice Ask/Answer scoped, with event-driven
   channel wiring for gameplay and tutor reactions.
@@ -55,6 +57,7 @@ High-level flow:
 
 ## How To Use These Docs
 
+- Start in `arquitetura.md` for the system/client/server structure (UML).
 - Start in `client/README.md` when changing Unity behavior.
 - Start in `server/README.md` when changing ITS logic or API contracts.
-- When changing contracts between both sides, update both documents in the same PR.
+- When changing contracts between both sides, update `arquitetura.md` plus both side documents in the same PR.

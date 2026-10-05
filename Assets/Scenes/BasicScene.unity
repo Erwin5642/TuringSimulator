@@ -9693,7 +9693,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: TuringSimulator.ITS::ITSClient
   _apiUrl: https://turing.erwinlabs.dev
-  _timeoutSeconds: 10
+  _timeoutSeconds: 15
   _transcriptionReadyChannel: {fileID: 11400000, guid: 03dc9979ec2c2a1c48405f246babda22,
     type: 2}
   _askRequestedChannel: {fileID: 11400000, guid: 7a1c3e5b9d2f4e8a6c0b1d3e5f708192,

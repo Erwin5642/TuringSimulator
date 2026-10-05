@@ -17,11 +17,14 @@ Main app file: `TuringBotAPI/main.py`
 Unity's main demo line uses only these three endpoints.
 
 - `POST /ask`
-  - free-form question with `student_id`, `level_id`, `question`
-  - agentic RAG: Gemini may call `search_docs` up to three times, then answers
+  - free-form question with `student_id`, `level_id`, `question`, and optional `tape` / `program` snapshots
+  - agentic RAG: Gemini may call `search_docs` up to three times, plus `check_tape` and `check_program` at most once each (inspect calls do not count toward the three searches)
+  - generate loop allows up to 5 function-call rounds so inspect does not starve retrieval
   - response is `{reply, tokens_in, tokens_out}`
   - Unity uses `reply` and synthesizes speech with Wit TTS; extra token fields are for the web tester and logs
   - `tokens_in` / `tokens_out` come from Gemini usage metadata when present; otherwise they are estimated from question and reply length (~4 characters per token)
+  - `tape` is a compact window of the **visible** esteira `{cells, head_offset}` (blank padding around occupied cells, always including the braço). Before Começar the conveyor is empty, so the window may be only `vazio`. An all-blank esteira still spans index 0 through the current head so `head_offset` is the real braço position, not a collapsed 0. `program` is the authored block graph in factory names (`blocos`, `fios`), not the compiled transition table
+  - snapshots are request-scoped; the server does not store student work
 - `POST /session/new`
   - allocates a fresh `student_id` (`student_{uuid}`)
   - no BKT or per-student memory is stored
@@ -38,7 +41,8 @@ Files:
 - `TuringBotAPI/knowledge/**/*.md` — reviewed corpus (persona, gameplay, objects, goals, concepts, errors)
 - `TuringBotAPI/rag/documents.py` — frontmatter loader
 - `TuringBotAPI/rag/store.py` — in-memory index + SQLite embedding cache
-- `TuringBotAPI/agent.py` — `search_docs` tool + answer loop
+- `TuringBotAPI/agent.py` — `search_docs` / `check_tape` / `check_program` tools + answer loop
+- `TuringBotAPI/bench.py` — compact tape window + program payload sanitizer
 - `TuringBotAPI/tutor_provider.py` — Gemini or offline fallback
 
 Index:
@@ -51,11 +55,11 @@ Index:
 
 Agent:
 
-- Persona document is always injected into the system prompt. It covers voice, routing (search vs refuse), identity, player vocab (esteira/execução do circuito, not fita/corrida/simulação), and answer shape (short, no unsolicited briefing, no full circuit). Factory facts live in `knowledge/gameplay`, `objects`, `goals`, `concepts`, and `errors`. Failing-circuit questions should search category `errors`.
+- Persona document is always injected into the system prompt. It covers voice, routing (search vs refuse), identity, player vocab (esteira/execução do circuito, not fita/corrida/simulação; circuito = program of blocos + fios, bloco = instruction), and answer shape (short, no unsolicited briefing, no full circuit). Factory facts live in `knowledge/gameplay`, `objects`, `goals`, `concepts`, and `errors`. Failing-circuit questions should search category `errors`.
 - Common greetings (`oi`, `bom dia`, `boa tarde`, …) still get a short in-character reply and skip retrieval.
 - The current `level_id` is labeled as internal context; the model should not recap the objective unless the trainee asked about the task.
-- Gemini function-calling, max 3 `search_docs` rounds, then a final pt-BR reply. The tool is for how-to-play, factory objects, task questions, and program-design mistakes (`category` `errors`), not identity chitchat or off-topic asks.
-- If Gemini is missing or fails, the server still searches and returns a short player-facing pt-BR reply: the radio-interference prefix plus trimmed sentences from the top chunks. Persona text, bullet lists, and agent-only notes (`Circuitos deste nível`, `O que conta como feito`, voice rules) are omitted.
+- Gemini function-calling, max 3 `search_docs` rounds plus one-shot `check_tape` / `check_program`, then a final pt-BR reply. `search_docs` is for how-to-play, factory objects, task questions, and program-design mistakes (`category` `errors`). Inspect tools are only for this trainee's visible esteira/circuito (`check_tape` may be only `vazio` before Começar) and are omitted from the user prompt unless the model calls them. The tutor must not name the hidden lot that failed validation.
+- If Gemini is missing or fails, the server still searches and returns a short player-facing pt-BR reply: the radio-interference prefix plus trimmed sentences from the top chunks. Persona text, bullet lists, and agent-only notes (`Blocos deste nível`, `O que conta como feito`, voice rules) are omitted. Offline fallback does not run inspect tools.
 
 Provider boundary:
 
@@ -78,7 +82,7 @@ Features:
 
 ## AI-Agent Safe Invariants (Server)
 
-- Unity `/ask` JSON stays `snake_case` with `student_id`, `level_id`, `question`.
+- Unity `/ask` JSON stays `snake_case` with `student_id`, `level_id`, `question`, and optional `tape` / `program`.
 - `/ask` always includes `reply`; Unity synthesizes tutor speech with Wit TTS and ignores extra fields.
 - `/ask` also returns `tokens_in` and `tokens_out` for the web tester.
 - Player-facing replies and fallbacks stay pt-BR.

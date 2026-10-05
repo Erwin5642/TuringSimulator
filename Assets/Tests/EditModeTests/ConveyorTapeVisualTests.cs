@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
+using TuringSimulator.Core.Tape;
 using TuringSimulator.Core.Types;
 using TuringSimulator.GameFlow.Events;
 using TuringSimulator.View.Machine.Tape;
@@ -10,6 +11,53 @@ namespace EditModeTests
 {
     public class ConveyorTapeVisualTests
     {
+        [Test]
+        public void Snapshot_MatchesSetTapeCellsAndHead()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Gear, Symbol.Nut }, headIndex: 1);
+
+            var snap = setup.Visual.Snapshot();
+            Assert.That(snap.HeadIndex, Is.EqualTo(1));
+            Assert.That(snap.Read(0), Is.EqualTo(Symbol.Gear));
+            Assert.That(snap.Read(1), Is.EqualTo(Symbol.Nut));
+
+            setup.Destroy();
+        }
+
+        [Test]
+        public void Snapshot_FollowsWriteAndMoveHead()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Gear }, headIndex: 0);
+
+            Drain(setup.Visual.ShowWrite(Symbol.Screw));
+            Drain(setup.Visual.MoveHead(MoveDirection.Right));
+
+            var snap = setup.Visual.Snapshot();
+            Assert.That(snap.Read(0), Is.EqualTo(Symbol.Screw));
+            Assert.That(snap.HeadIndex, Is.EqualTo(1));
+
+            setup.Destroy();
+        }
+
+        [Test]
+        public void Snapshot_AfterReset_IsEmptyAtOrigin()
+        {
+            var setup = CreateVisual(templateCells: 5);
+            setup.Visual.Initialize();
+            setup.Visual.SetTape(new[] { Symbol.Gear }, headIndex: 0);
+            setup.Visual.Reset();
+
+            var snap = setup.Visual.Snapshot();
+            Assert.That(snap.HeadIndex, Is.EqualTo(0));
+            Assert.That(snap.Cells, Is.Empty);
+
+            setup.Destroy();
+        }
+
         [Test]
         public void Initialize_UsesExistingPool_DoesNotClone()
         {

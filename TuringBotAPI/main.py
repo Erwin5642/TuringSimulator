@@ -1,8 +1,8 @@
 """
 FastAPI server for the Turing Machine factory tutor (agentic RAG).
 
-Unity contract (unchanged):
-    POST /ask
+Unity contract:
+    POST /ask  (student_id, level_id, question, optional tape/program)
     POST /session/new
     GET  /health
 """
@@ -21,11 +21,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
-from agent import SEARCH_DOCS_TOOL, answer_question
+from agent import TUTOR_TOOLS, answer_question
 from logging_config import setup_logging
 from rag.store import KnowledgeStore
 from tutor_provider import build_tutor_provider
@@ -49,7 +51,7 @@ def _agent_name() -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
-    provider = build_tutor_provider(tools=[SEARCH_DOCS_TOOL])
+    provider = build_tutor_provider(tools=[TUTOR_TOOLS])
     store = KnowledgeStore.from_directory(
         _knowledge_dir(),
         embedder=provider,
@@ -80,10 +82,36 @@ app.add_middleware(
 )
 
 
+class AskTape(BaseModel):
+    cells: list[str]
+    head_offset: int = 0
+
+
+class AskProgramBlock(BaseModel):
+    id: str
+    tipo: str
+    cartao: Optional[str] = None
+
+
+class AskProgramEdge(BaseModel):
+    de: str
+    porta: str
+    para: str
+
+
+class AskProgram(BaseModel):
+    tomada_ligada: bool = False
+    entrada: Optional[str] = None
+    blocos: list[AskProgramBlock] = Field(default_factory=list)
+    fios: list[AskProgramEdge] = Field(default_factory=list)
+
+
 class AskRequest(BaseModel):
     student_id: str
     level_id: str
     question: str
+    tape: Optional[AskTape] = None
+    program: Optional[AskProgram] = None
 
 
 class AskResponse(BaseModel):
@@ -108,6 +136,8 @@ async def handle_ask(req: AskRequest) -> AskResponse:
         level_id=req.level_id,
         question=req.question,
         agent_name=_agent_name(),
+        tape=req.tape.model_dump() if req.tape is not None else None,
+        program=req.program.model_dump() if req.program is not None else None,
     )
     ms = (time.perf_counter() - t0) * 1000.0
     _LOG.info(

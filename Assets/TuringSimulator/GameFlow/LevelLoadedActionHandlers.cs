@@ -2,7 +2,9 @@ using System;
 using ITS;
 using TuringSimulator.Core.Level;
 using TuringSimulator.Core.Tape;
+using TuringSimulator.Core.Types;
 using TuringSimulator.Core.Validation;
+using TuringSimulator.View.Machine.Tape;
 
 namespace TuringSimulator.GameFlow.Events
 {
@@ -39,10 +41,11 @@ namespace TuringSimulator.GameFlow.Events
     {
         public void Apply(LevelLoadedActionContext context)
         {
-            var mainTest = LevelLoadedActionGuard.RequireMainTest(context.Level);
-            var tape = new SimulationTape(mainTest.headIndex, mainTest.initialSymbols);
+            var pool = LevelTestPool.Require(context.Level);
+            var selected = context.Model.PlayTestSelector.Select(pool, context.Model.ActivePlayTest);
+            context.Model.ActivePlayTest = selected;
             context.Model.Buffer.Clear();
-            context.Model.CurrentTape = tape;
+            context.Model.CurrentTape = new SimulationTape(0);
         }
     }
 
@@ -50,13 +53,7 @@ namespace TuringSimulator.GameFlow.Events
     {
         public void Apply(LevelLoadedActionContext context)
         {
-            var main = LevelLoadedActionGuard.RequireMainTest(context.Level);
-            var extras = context.Level.validationTests ?? Array.Empty<ValidationTest>();
-            var tests = new ValidationTest[1 + extras.Length];
-            tests[0] = main;
-            for (var i = 0; i < extras.Length; i++)
-                tests[i + 1] = extras[i];
-            context.Model.Validation.SetTests(tests);
+            context.Model.Validation.SetTests(LevelTestPool.Require(context.Level));
         }
     }
 
@@ -64,8 +61,7 @@ namespace TuringSimulator.GameFlow.Events
     {
         public void Apply(LevelLoadedActionContext context)
         {
-            var mainTest = LevelLoadedActionGuard.RequireMainTest(context.Level);
-            context.View.Tape.SetTape(mainTest.initialSymbols, mainTest.headIndex);
+            context.View.Tape.SetTape(Array.Empty<Symbol>(), 0);
         }
     }
 
@@ -87,13 +83,45 @@ namespace TuringSimulator.GameFlow.Events
         }
     }
 
-    static class LevelLoadedActionGuard
+    public sealed class LevelItsBenchDirtyActionHandler : ILevelLoadedActionHandler
     {
-        public static ValidationTest RequireMainTest(LevelDefinition level)
+        readonly IItsBenchStateCache _benchCache;
+
+        public LevelItsBenchDirtyActionHandler(IItsBenchStateCache benchCache)
         {
-            if (level.mainTest == null)
-                throw new InvalidOperationException("LevelDefinition.mainTest must be assigned.");
-            return level.mainTest;
+            _benchCache = benchCache ?? throw new ArgumentNullException(nameof(benchCache));
+        }
+
+        public void Apply(LevelLoadedActionContext context)
+        {
+            _benchCache.MarkTapeDirty();
+            _benchCache.MarkProgramDirty();
+        }
+    }
+
+    public sealed class PlayTapeMaterializeActionHandler
+    {
+        readonly IItsBenchStateCache _benchCache;
+
+        public PlayTapeMaterializeActionHandler(IItsBenchStateCache benchCache)
+        {
+            _benchCache = benchCache ?? throw new ArgumentNullException(nameof(benchCache));
+        }
+
+        public void Apply(ModelInstaller model, ITapeVisual tape)
+        {
+            if (model == null)
+                throw new ArgumentNullException(nameof(model));
+            if (tape == null)
+                throw new ArgumentNullException(nameof(tape));
+
+            var test = model.ActivePlayTest
+                ?? throw new InvalidOperationException("ActivePlayTest must be selected before a run.");
+
+            var symbols = test.initialSymbols ?? Array.Empty<Symbol>();
+            model.CurrentTape = new SimulationTape(test.headIndex, symbols);
+            tape.SetTape(symbols, test.headIndex);
+            _benchCache.MarkTapeDirty();
         }
     }
 }

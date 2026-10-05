@@ -9,4 +9,4 @@ O bloco de movimento desloca a esteira inteira um único slot para a esquerda ou
 
 Configure a direção com um cartão de direção no encaixe do bloco. Sem cartão, o bloco não sabe para que lado avançar. Cartão de direção não encaixa em condição nem em materiais.
 
-Cada bloco move a esteira exatamente uma posição. Para avançar dois slots, encadeie dois circuitos de movimento.
+Cada bloco move a esteira exatamente uma posição. Para avançar dois slots, encadeie dois blocos de movimento.

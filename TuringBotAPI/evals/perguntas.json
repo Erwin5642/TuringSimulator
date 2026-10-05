@@ -36,7 +36,7 @@
       "categoria": "objetos",
       "level_id": "MoveLeftRight",
       "pergunta": "A bancada é a esteira?",
-      "resposta_claudio": "Não, trainee. A bancada é onde você monta os circuitos de instrução e pega as peças, enquanto a esteira é por onde o material passa para o braço mecânico executar o trabalho na fábrica.",
+      "resposta_claudio": "Não, trainee. A bancada é onde você monta o circuito — blocos e fios — e pega as peças, enquanto a esteira é por onde o material passa para o braço mecânico executar o trabalho na fábrica.",
       "resposta_aprovada": "",
       "observacao": "NÃO. Bancada = grade do circuito. Esteira = fita, à parte, sob o braço. Se misturar, preencha resposta_aprovada."
     },
@@ -47,7 +47,7 @@
       "pergunta": "O que acontece se a condição ficar com uma porta solta?",
       "resposta_claudio": "Se uma porta da condição ficar solta, aquele ramo não tem para onde ir e o sinal morre na bancada. Lembre de ligar fio nas duas saídas dela.",
       "resposta_aprovada": "",
-      "observacao": "Aquele ramo some e o sinal morre e a execução para, ou seja, determina o fim do programa (algo normal). Nem todo circuito tem duas saídas, prefira dizer saídas."
+      "observacao": "Aquele ramo some e o sinal morre e a execução para, ou seja, determina o fim do programa (algo normal). Nem todo bloco tem duas saídas, prefira dizer saídas."
     },
     {
       "id": "o-06",
@@ -108,7 +108,7 @@
       "categoria": "objetos",
       "level_id": "MoveLeftRight",
       "pergunta": "O vazio é inútil?",
-      "resposta_claudio": "Não tenho conhecimento sobre isso, colega. Minha área é aqui no chão de fábrica, cuidando dos circuitos e da esteira.",
+      "resposta_claudio": "Não tenho conhecimento sobre isso, colega. Minha área é aqui no chão de fábrica, cuidando do circuito e da esteira.",
       "resposta_aprovada": "Não, o vazio é um material que representa o fim da linha e a ausência de um material. Ele também pode ser usado em loops no circuito para chegar até o ínicio ou fim da entrada.",
       "observacao": "Não: marca o fim da entrada e controla loops. Fita infinita fora da entrada é vazio."
     },
@@ -117,9 +117,9 @@
       "categoria": "objetos",
       "level_id": "MoveLeftRight",
       "pergunta": "Qual a diferença entre as duas gavetas?",
-      "resposta_claudio": "Olha só, trainee, cada gaveta tem sua função aqui na bancada. A gaveta de circuitos fica na mão direita e é de onde saem os blocos de programação — como os de movimento, condição e rejeição — que você solta na grade da bancada. Já a gaveta de cartões fica no seu braço esquerdo, e é de lá que você puxa os cartões de material e de direção para configurar os blocos. É o detalhe que diz para a máquina o que mover ou qual peça comparar.",
+      "resposta_claudio": "Olha só, trainee, cada gaveta tem sua função. A gaveta de blocos fica na bancada de programação e é de onde saem os blocos — como os de movimento, condição e rejeitar — que você solta na grade. Já a gaveta de cartões fica no seu braço esquerdo, e é de lá que você puxa os cartões de material e de direção para configurar os blocos. É o detalhe que diz para a máquina o que mover ou qual peça comparar.",
       "resposta_aprovada": "",
-      "observacao": "Circuitos: mover, materiais, condição, aceitar, rejeitar. Cartões: material e direção, no braço esquerdo. Circuitos = comportamento; cartões = detalhe."
+      "observacao": "Blocos: gaveta na bancada (mover, materiais, condição, aceitar, rejeitar). Cartões: material e direção, no braço esquerdo. Circuitos = comportamento; cartões = detalhe."
     },
     {
       "id": "o-14",
@@ -137,7 +137,7 @@
       "pergunta": "Apertar Começar já coloca a engrenagem?",
       "resposta_claudio": "Não, apertar Começar só liga o programa para o circuito atuar na esteira. O botão não coloca nem remove nenhum material na linha.",
       "resposta_aprovada": "",
-      "observacao": "Não. Botões não são circuitos; não colocam/removem material. O bloco de materiais é quem altera a posição atual."
+      "observacao": "Não. Botões não são blocos; não colocam/removem material. O bloco de materiais é quem altera a posição atual."
     },
     {
       "id": "o-16",
@@ -146,7 +146,7 @@
       "pergunta": "O programa Aceita ou Rejeita se ele acabar em um circuito sem saída?",
       "resposta_claudio": "Se um ramo do circuito fica sem saída — como uma porta de condição sem fio ligado —, o programa trava na bancada. O bloco de condição tem duas saídas: verdadeira e falsa. As duas precisam de fio, operário. Dê uma olhada se todos os seus fios estão conectados nas portas certas.",
       "resposta_aprovada": "Se um ramo do circuito fica sem saída, ele não tem mais o que executar e para. Isso é esperado, mas a máquina interpreta como rejeitar a entrada.",
-      "observacao": "O programa só Aceita se tiver explicitamente um circuito Aceitar no final, caso contrário, ele é interpretado como Rejeitar."
+      "observacao": "O programa só Aceita se tiver explicitamente um bloco Aceitar no final, caso contrário, ele é interpretado como Rejeitar."
     },
     {
       "id": "c-01",
@@ -155,7 +155,7 @@
       "pergunta": "A esteira é a fita da Máquina de Turing?",
       "resposta_claudio": "",
       "resposta_aprovada": "",
-      "observacao": "Sim. Ligar teoria à fábrica: braço = cabeçote; circuitos/fios = função de transição. Frases curtas."
+      "observacao": "Sim. Ligar teoria à fábrica: braço = cabeçote; circuito (blocos e fios) = função de transição. Frases curtas."
     },
     {
       "id": "c-02",
@@ -299,7 +299,7 @@
       "pergunta": "O que eu tenho que fazer neste nível?",
       "resposta_claudio": "",
       "resposta_aprovada": "",
-      "observacao": "Mover a esteira duas vezes à esquerda e uma à direita. Só circuitos de movimento. Encadear e ligar a energia. NÃO ditar a ordem dos três blocos como 'solução copiável' se puder orientar o próximo passo (energia + um movimento). Aceitável descrever o objetivo fielmente."
+      "observacao": "Mover a esteira duas vezes à esquerda e uma à direita. Só blocos de movimento. Encadear e ligar a energia. NÃO ditar a ordem dos três blocos como 'solução copiável' se puder orientar o próximo passo (energia + um movimento). Aceitável descrever o objetivo fielmente."
     },
     {
       "id": "n-02",
@@ -389,7 +389,7 @@
       "pergunta": "Como o nível é validado?",
       "resposta_claudio": "",
       "resposta_aprovada": "",
-      "observacao": "Cinco fitas (teste principal + quatro). Passar em uma não fecha. Precisa parar (Aceitar/Rejeitar ou fita final certa); loop infinito falha o cenário."
+      "observacao": "Cinco fitas no pool, sem teste principal fixo. Passar em uma não fecha. Precisa parar (Aceitar/Rejeitar ou fita final certa); loop infinito falha o cenário."
     },
     {
       "id": "n-12",

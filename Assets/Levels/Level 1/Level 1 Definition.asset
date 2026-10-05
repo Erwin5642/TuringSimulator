@@ -16,8 +16,8 @@ MonoBehaviour:
   description: "Objetivo: use os blocos de movimento. Mova o cabe\xE7ote duas vezes
     para a esquerda e uma vez para a direita."
   levelId: MoveLeftRight
-  mainTest: {fileID: 11400000, guid: 166e22489fdc2054db806839c5689672, type: 2}
   validationTests:
+  - {fileID: 11400000, guid: 166e22489fdc2054db806839c5689672, type: 2}
   - {fileID: 11400000, guid: eeda4b45cfc3477f822af763de5cf5a9, type: 2}
   - {fileID: 11400000, guid: 903a074b266442b684b618abba12efe2, type: 2}
   - {fileID: 11400000, guid: 450676c1c89f451d8a8951cbeeb612a4, type: 2}

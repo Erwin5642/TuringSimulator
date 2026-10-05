@@ -37,6 +37,11 @@
       font-size: 24px;
     }
 
+    h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
     .hint {
       margin: 0 0 18px;
       color: var(--muted);
@@ -61,6 +66,7 @@
     .col-8 { grid-column: span 8; }
     .col-6 { grid-column: span 6; }
     .col-4 { grid-column: span 4; }
+    .col-3 { grid-column: span 3; }
 
     label {
       display: block;
@@ -157,6 +163,84 @@
       color: var(--muted);
       font-variant-numeric: tabular-nums;
     }
+
+    .tape-strip {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 6px 0;
+    }
+
+    .tape-cell {
+      min-width: 84px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f1420;
+      padding: 8px 6px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .tape-cell.head {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .tape-cell .sym {
+      font-size: 12px;
+      display: block;
+    }
+
+    .tape-cell .braço {
+      font-size: 10px;
+      color: var(--accent);
+      min-height: 14px;
+    }
+
+    .schematic {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      min-height: 48px;
+    }
+
+    .schematic-block {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #0f1420;
+      font-size: 12px;
+    }
+
+    .schematic-block.entry {
+      border-color: var(--ok);
+    }
+
+    .schematic-arrow {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .wire-row, .block-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1.2fr auto;
+      gap: 6px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .check input {
+      width: auto;
+    }
   </style>
 </head>
 <body>
@@ -164,7 +248,8 @@
     <h1>ITS Web Tester (Unity Contract)</h1>
     <p class="hint">
       Interface simples para testar no navegador o mesmo fluxo do cliente Unity:
-      <code>GET /health</code>, <code>POST /session/new</code>, <code>POST /ask</code>.
+      <code>GET /health</code>, <code>POST /session/new</code>, <code>POST /ask</code>
+      com esteira e circuito opcionais (<code>check_tape</code> / <code>check_program</code>).
     </p>
 
     <div class="card">
@@ -206,6 +291,44 @@
     </div>
 
     <div class="card">
+      <h2>Esteira (tape)</h2>
+      <p class="hint">Presets de um cenário do pool <code>validationTests</code> de cada nível. Clique na célula para selecionar o braço. Trocar material altera a célula selecionada.</p>
+      <div id="tapeStrip" class="tape-strip"></div>
+      <div class="row-btns" style="margin-top: 8px;">
+        <button id="btnTapeCycle" type="button">Trocar material</button>
+        <button id="btnTapeDeleteSelected" type="button">Excluir célula selecionada</button>
+        <button id="btnTapeAddLeft" type="button">Adicionar à esquerda</button>
+        <button id="btnTapeRemoveLeft" type="button">Remover à esquerda</button>
+        <button id="btnTapeAddRight" type="button">Adicionar à direita</button>
+        <button id="btnTapeRemoveRight" type="button">Remover à direita</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Circuito (program)</h2>
+      <p class="hint">Construtor simplificado da bancada. Mudar o nível recarrega só a esteira.</p>
+      <div class="row-btns" style="margin-bottom: 10px;">
+        <button id="btnAddMove" type="button">+ movimento</button>
+        <button id="btnAddWrite" type="button">+ materiais</button>
+        <button id="btnAddCond" type="button">+ condição</button>
+        <button id="btnAddAccept" type="button">+ aceitar</button>
+        <button id="btnAddReject" type="button">+ rejeitar</button>
+        <button id="btnClearProgram" type="button">Limpar circuito</button>
+      </div>
+      <label class="check"><input id="tomadaLigada" type="checkbox" /> Tomada ligada</label>
+      <label for="entradaBlock">Entrada (bloco da tomada)</label>
+      <select id="entradaBlock"></select>
+      <div id="blockList" style="margin-top: 10px;"></div>
+      <label>Fios</label>
+      <div id="wireList"></div>
+      <div class="row-btns">
+        <button id="btnAddWire" type="button">+ fio</button>
+      </div>
+      <label style="margin-top: 10px;">Esquema</label>
+      <div id="schematic" class="schematic"></div>
+    </div>
+
+    <div class="card">
       <label>Resposta do agente (reply)</label>
       <div id="reply" class="reply"></div>
       <div class="token-meta">tokens out: <span id="tokensOut">—</span></div>
@@ -221,7 +344,6 @@
     const LEVEL_IDS = [
       "MoveLeftRight",
       "PlaceGear",
-      "AppendScrew",
       "ReplaceAllWithNuts",
       "RejectIfGearExists",
       "SwapNutsAndScrews",
@@ -230,9 +352,37 @@
       "PatternSomewhere"
     ];
 
+    const MATERIALS = ["vazio", "engrenagem", "porca", "parafuso", "marcador"];
+    const TIPOS = [
+      { id: "movimento", label: "movimento" },
+      { id: "materiais", label: "materiais" },
+      { id: "condicao", label: "condicao" },
+      { id: "aceitar", label: "aceitar" },
+      { id: "rejeitar", label: "rejeitar" }
+    ];
+    const CARTOES_DIR = ["", "esquerda", "direita"];
+    const CARTOES_MAT = ["", "engrenagem", "porca", "parafuso", "vazio", "marcador"];
+    const PORTAS = ["saida", "verdadeiro", "falso"];
+
+    const TAPE_PRESETS = {
+      MoveLeftRight: { cells: ["engrenagem", "parafuso", "porca"], headOffset: 2 },
+      PlaceGear: { cells: [], headOffset: 0 },
+      ReplaceAllWithNuts: { cells: ["parafuso", "engrenagem", "parafuso"], headOffset: 0 },
+      RejectIfGearExists: { cells: ["parafuso", "engrenagem", "parafuso"], headOffset: 0 },
+      SwapNutsAndScrews: { cells: ["porca", "parafuso", "porca"], headOffset: 0 },
+      PatternRepeated: { cells: ["engrenagem", "porca", "parafuso"], headOffset: 0 },
+      BalancedPairs: { cells: ["engrenagem", "porca"], headOffset: 0 },
+      PatternSomewhere: { cells: ["parafuso", "engrenagem", "porca", "parafuso"], headOffset: 0 }
+    };
+
     const state = {
       serverAvailable: false,
-      thinking: false
+      thinking: false,
+      tapeCells: ["vazio"],
+      tapeHead: 0,
+      blocks: [],
+      wires: [],
+      blockSeq: 1
     };
 
     const el = {
@@ -247,7 +397,16 @@
       reply: document.getElementById("reply"),
       tokensIn: document.getElementById("tokensIn"),
       tokensOut: document.getElementById("tokensOut"),
-      log: document.getElementById("log")
+      log: document.getElementById("log"),
+      tapeStrip: document.getElementById("tapeStrip"),
+      btnTapeDeleteSelected: document.getElementById("btnTapeDeleteSelected"),
+      btnTapeRemoveLeft: document.getElementById("btnTapeRemoveLeft"),
+      btnTapeRemoveRight: document.getElementById("btnTapeRemoveRight"),
+      blockList: document.getElementById("blockList"),
+      wireList: document.getElementById("wireList"),
+      schematic: document.getElementById("schematic"),
+      tomadaLigada: document.getElementById("tomadaLigada"),
+      entradaBlock: document.getElementById("entradaBlock")
     };
 
     function now() {
@@ -308,6 +467,281 @@
 
     function buildLocalFallbackStudentId() {
       return `local_${crypto.randomUUID().replace(/-/g, "")}`;
+    }
+
+    function readCell(cells, index) {
+      if (index >= 0 && index < cells.length) return cells[index];
+      return "vazio";
+    }
+
+    function compactTape(cells, headOffset) {
+      const mapped = (cells || []).map((c) => MATERIALS.includes(c) ? c : "vazio");
+      let head = Number.parseInt(headOffset, 10);
+      if (!Number.isFinite(head)) head = 0;
+      const occupied = [];
+      mapped.forEach((token, index) => {
+        if (token !== "vazio") occupied.push(index);
+      });
+      let lo;
+      let hi;
+      if (occupied.length === 0) {
+        lo = Math.min(0, head);
+        hi = Math.max(0, head);
+        if (mapped.length) hi = Math.max(hi, mapped.length - 1);
+      } else {
+        lo = occupied[0] - 1;
+        hi = occupied[occupied.length - 1] + 1;
+        if (head < lo) lo = head - 1;
+        if (head > hi) hi = head + 1;
+      }
+      if (head < lo) lo = head;
+      if (head > hi) hi = head;
+      while (hi - lo + 1 > 64) {
+        if (head - lo >= hi - head) lo += 1;
+        else hi -= 1;
+      }
+      const window = [];
+      for (let i = lo; i <= hi; i += 1) window.push(readCell(mapped, i));
+      return { cells: window, head_offset: head - lo };
+    }
+
+    function loadTapePreset(levelId) {
+      const preset = TAPE_PRESETS[levelId] || { cells: [], headOffset: 0 };
+      const compacted = compactTape(preset.cells, preset.headOffset);
+      state.tapeCells = compacted.cells.slice();
+      state.tapeHead = compacted.head_offset;
+      renderTape();
+    }
+
+    function clampTapeHead() {
+      if (state.tapeCells.length === 0) {
+        state.tapeCells = ["vazio"];
+      }
+      if (state.tapeHead < 0) state.tapeHead = 0;
+      if (state.tapeHead >= state.tapeCells.length) {
+        state.tapeHead = state.tapeCells.length - 1;
+      }
+    }
+
+    function renderTape() {
+      clampTapeHead();
+      el.tapeStrip.innerHTML = "";
+      state.tapeCells.forEach((token, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tape-cell" + (index === state.tapeHead ? " head" : "");
+        btn.innerHTML = `<span class="sym">${token}</span><span class="braço">${index === state.tapeHead ? "braço" : ""}</span>`;
+        btn.addEventListener("click", () => {
+          state.tapeHead = index;
+          renderTape();
+        });
+        el.tapeStrip.appendChild(btn);
+      });
+      const canShrink = state.tapeCells.length > 1;
+      el.btnTapeDeleteSelected.disabled = !canShrink;
+      el.btnTapeRemoveLeft.disabled = !canShrink;
+      el.btnTapeRemoveRight.disabled = !canShrink;
+    }
+
+    function cycleHeadMaterial() {
+      const current = state.tapeCells[state.tapeHead] || "vazio";
+      const next = MATERIALS[(MATERIALS.indexOf(current) + 1) % MATERIALS.length];
+      state.tapeCells[state.tapeHead] = next;
+      renderTape();
+    }
+
+    function addCellLeft() {
+      state.tapeCells.unshift("vazio");
+      state.tapeHead += 1;
+      renderTape();
+    }
+
+    function removeCellLeft() {
+      if (state.tapeCells.length <= 1) return;
+      state.tapeCells.shift();
+      state.tapeHead -= 1;
+      renderTape();
+    }
+
+    function addCellRight() {
+      state.tapeCells.push("vazio");
+      renderTape();
+    }
+
+    function removeCellRight() {
+      if (state.tapeCells.length <= 1) return;
+      state.tapeCells.pop();
+      renderTape();
+    }
+
+    function deleteSelectedCell() {
+      if (state.tapeCells.length <= 1) return;
+      state.tapeCells.splice(state.tapeHead, 1);
+      renderTape();
+    }
+
+    function cardsForTipo(tipo) {
+      if (tipo === "movimento") return CARTOES_DIR;
+      if (tipo === "materiais" || tipo === "condicao") return CARTOES_MAT;
+      return [""];
+    }
+
+    function addBlock(tipo) {
+      const id = `b${state.blockSeq++}`;
+      state.blocks.push({ id, tipo, cartao: "" });
+      renderProgram();
+    }
+
+    function renderProgram() {
+      el.blockList.innerHTML = "";
+      state.blocks.forEach((block, index) => {
+        const row = document.createElement("div");
+        row.className = "block-row";
+        const idLabel = document.createElement("div");
+        idLabel.textContent = block.id;
+        const tipoSel = document.createElement("select");
+        TIPOS.forEach((tipo) => {
+          const opt = document.createElement("option");
+          opt.value = tipo.id;
+          opt.textContent = tipo.label;
+          if (tipo.id === block.tipo) opt.selected = true;
+          tipoSel.appendChild(opt);
+        });
+        tipoSel.addEventListener("change", () => {
+          block.tipo = tipoSel.value;
+          block.cartao = "";
+          renderProgram();
+        });
+        const cardSel = document.createElement("select");
+        cardsForTipo(block.tipo).forEach((card) => {
+          const opt = document.createElement("option");
+          opt.value = card;
+          opt.textContent = card || "(sem cartão)";
+          if (card === (block.cartao || "")) opt.selected = true;
+          cardSel.appendChild(opt);
+        });
+        cardSel.addEventListener("change", () => {
+          block.cartao = cardSel.value;
+        });
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "x";
+        del.addEventListener("click", () => {
+          state.blocks.splice(index, 1);
+          state.wires = state.wires.filter((w) => w.de !== block.id && w.para !== block.id);
+          renderProgram();
+        });
+        row.append(idLabel, tipoSel, cardSel, del);
+        el.blockList.appendChild(row);
+      });
+
+      const previousEntrada = el.entradaBlock.value;
+      el.entradaBlock.innerHTML = "";
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "(nenhum)";
+      el.entradaBlock.appendChild(empty);
+      state.blocks.forEach((block) => {
+        const opt = document.createElement("option");
+        opt.value = block.id;
+        opt.textContent = block.id;
+        el.entradaBlock.appendChild(opt);
+      });
+      if ([...el.entradaBlock.options].some((o) => o.value === previousEntrada)) {
+        el.entradaBlock.value = previousEntrada;
+      } else if (state.blocks[0]) {
+        el.entradaBlock.value = state.blocks[0].id;
+      }
+
+      el.wireList.innerHTML = "";
+      state.wires.forEach((wire, index) => {
+        const row = document.createElement("div");
+        row.className = "wire-row";
+        row.append(
+          blockSelect(wire.de, (v) => { wire.de = v; renderSchematic(); }),
+          portaSelect(wire.porta, (v) => { wire.porta = v; renderSchematic(); }),
+          blockSelect(wire.para, (v) => { wire.para = v; renderSchematic(); })
+        );
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "x";
+        del.addEventListener("click", () => {
+          state.wires.splice(index, 1);
+          renderProgram();
+        });
+        row.appendChild(del);
+        el.wireList.appendChild(row);
+      });
+
+      renderSchematic();
+    }
+
+    function blockSelect(value, onChange) {
+      const sel = document.createElement("select");
+      state.blocks.forEach((block) => {
+        const opt = document.createElement("option");
+        opt.value = block.id;
+        opt.textContent = block.id;
+        if (block.id === value) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener("change", () => onChange(sel.value));
+      return sel;
+    }
+
+    function portaSelect(value, onChange) {
+      const sel = document.createElement("select");
+      PORTAS.forEach((porta) => {
+        const opt = document.createElement("option");
+        opt.value = porta;
+        opt.textContent = porta;
+        if (porta === value) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener("change", () => onChange(sel.value));
+      return sel;
+    }
+
+    function renderSchematic() {
+      el.schematic.innerHTML = "";
+      if (!state.blocks.length) {
+        el.schematic.textContent = "(bancada vazia)";
+        return;
+      }
+      const entrada = el.entradaBlock.value;
+      state.blocks.forEach((block, index) => {
+        if (index > 0) {
+          const arrow = document.createElement("span");
+          arrow.className = "schematic-arrow";
+          const wire = state.wires.find((w) => w.de === state.blocks[index - 1].id && w.para === block.id);
+          arrow.textContent = wire ? `→ ${wire.porta}` : "…";
+          el.schematic.appendChild(arrow);
+        }
+        const box = document.createElement("div");
+        box.className = "schematic-block" + (block.id === entrada && el.tomadaLigada.checked ? " entry" : "");
+        box.textContent = `${block.id}:${block.tipo}${block.cartao ? `(${block.cartao})` : ""}`;
+        el.schematic.appendChild(box);
+      });
+    }
+
+    function buildProgramPayload() {
+      const blocos = state.blocks.map((block) => {
+        const item = { id: block.id, tipo: block.tipo };
+        if (block.cartao) item.cartao = block.cartao;
+        return item;
+      });
+      const ids = new Set(blocos.map((b) => b.id));
+      const fios = state.wires
+        .filter((w) => ids.has(w.de) && ids.has(w.para))
+        .map((w) => ({ de: w.de, porta: w.porta, para: w.para }));
+      const entrada = el.entradaBlock.value;
+      const tomada = el.tomadaLigada.checked && ids.has(entrada);
+      return {
+        tomada_ligada: tomada,
+        entrada: tomada ? entrada : null,
+        blocos,
+        fios
+      };
     }
 
     async function fetchJson(path, options = {}, timeoutMs = 10000) {
@@ -414,7 +848,9 @@
       const payload = {
         student_id: studentId,
         level_id: levelId,
-        question
+        question,
+        tape: compactTape(state.tapeCells, state.tapeHead),
+        program: buildProgramPayload()
       };
 
       setThinking(true);
@@ -427,7 +863,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           },
-          10000
+          15000
         );
 
         if (!result.ok || !result.json) {
@@ -471,17 +907,47 @@
         el.levelId.appendChild(option);
       });
       el.levelId.value = "MoveLeftRight";
+      loadTapePreset("MoveLeftRight");
     }
 
     function bindEvents() {
       el.btnHealth.addEventListener("click", checkHealth);
       el.btnSession.addEventListener("click", newSession);
       el.btnAsk.addEventListener("click", ask);
+      el.levelId.addEventListener("change", () => loadTapePreset(el.levelId.value));
+      document.getElementById("btnTapeCycle").addEventListener("click", cycleHeadMaterial);
+      document.getElementById("btnTapeDeleteSelected").addEventListener("click", deleteSelectedCell);
+      document.getElementById("btnTapeAddLeft").addEventListener("click", addCellLeft);
+      document.getElementById("btnTapeRemoveLeft").addEventListener("click", removeCellLeft);
+      document.getElementById("btnTapeAddRight").addEventListener("click", addCellRight);
+      document.getElementById("btnTapeRemoveRight").addEventListener("click", removeCellRight);
+      document.getElementById("btnAddMove").addEventListener("click", () => addBlock("movimento"));
+      document.getElementById("btnAddWrite").addEventListener("click", () => addBlock("materiais"));
+      document.getElementById("btnAddCond").addEventListener("click", () => addBlock("condicao"));
+      document.getElementById("btnAddAccept").addEventListener("click", () => addBlock("aceitar"));
+      document.getElementById("btnAddReject").addEventListener("click", () => addBlock("rejeitar"));
+      document.getElementById("btnClearProgram").addEventListener("click", () => {
+        state.blocks = [];
+        state.wires = [];
+        renderProgram();
+      });
+      document.getElementById("btnAddWire").addEventListener("click", () => {
+        if (state.blocks.length < 2) return;
+        state.wires.push({
+          de: state.blocks[0].id,
+          porta: "saida",
+          para: state.blocks[1].id
+        });
+        renderProgram();
+      });
+      el.tomadaLigada.addEventListener("change", renderSchematic);
+      el.entradaBlock.addEventListener("change", renderSchematic);
     }
 
     function init() {
       initLevels();
       bindEvents();
+      renderProgram();
       el.baseUrl.value = defaultApiBaseUrl();
       setServerStatus("warn", "desconhecido");
       log("tester inicializado");

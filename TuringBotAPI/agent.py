@@ -1,4 +1,4 @@
-"""Agentic RAG loop: Gemini may call search_docs up to three times."""
+"""Agentic RAG loop: Gemini may call search_docs up to three times plus one-shot inspect tools."""
 
 from __future__ import annotations
 
@@ -6,48 +6,84 @@ import logging
 import re
 from typing import Any, Optional
 
+from bench import compact_tape, normalize_program
 from rag.documents import KnowledgeDocument
 from rag.store import KnowledgeStore, SearchHit
 from tutor_provider import GenerationResult, TutorProvider, TutorProviderUnavailable
 
 _LOG = logging.getLogger("agent")
 
-MAX_TOOL_ROUNDS = 3
+MAX_SEARCH_DOCS = 3
+MAX_GENERATE_ROUNDS = 5
 PERSONA_NAME_DEFAULT = "Claudio"
 
-SEARCH_DOCS_TOOL: dict[str, Any] = {
-    "function_declarations": [
-        {
-            "name": "search_docs",
-            "description": (
-                "Busca trechos da base da fábrica (gameplay, objects, goals, "
-                "concepts, errors). "
-                "Chame para dúvida de fábrica: como jogar, objeto, material, "
-                "execução ou objetivo do nível. "
-                "Use category errors quando o circuito não começa, não para, "
-                "rejeita, ou altera a esteira no lugar errado. "
-                "Não chame para cumprimento, agradecimento, identidade "
-                "(nome, se é IA, para quem trabalha) nem assunto fora da fábrica."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Consulta em português sobre o jogo, o nível ou um objeto.",
-                    },
-                    "category": {
-                        "type": "string",
-                        "description": (
-                            "Filtro opcional: persona, gameplay, objects, goals, "
-                            "concepts, errors."
-                        ),
-                    },
-                },
-                "required": ["query"],
+# Backward-compatible alias used by older tests/docs.
+MAX_TOOL_ROUNDS = MAX_SEARCH_DOCS
+
+_EMPTY_TOOL_PARAMS: dict[str, Any] = {
+    "type": "object",
+    "properties": {},
+}
+
+SEARCH_DOCS_DECL: dict[str, Any] = {
+    "name": "search_docs",
+    "description": (
+        "Busca trechos da base da fábrica (gameplay, objects, goals, "
+        "concepts, errors). "
+        "Chame para dúvida de fábrica: como jogar, objeto, material, execução "
+        "ou objetivo do nível. "
+        "Use category errors quando o circuito não começa, não para, "
+        "rejeita, ou altera a esteira no lugar errado. "
+        "Não chame para cumprimento, agradecimento, identidade "
+        "(nome, se é IA, para quem trabalha) nem assunto fora da fábrica."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Consulta em português sobre o jogo, o nível ou um objeto.",
             },
-        }
-    ]
+            "category": {
+                "type": "string",
+                "description": (
+                    "Filtro opcional: persona, gameplay, objects, goals, concepts, errors."
+                ),
+            },
+        },
+        "required": ["query"],
+    },
+}
+
+CHECK_TAPE_DECL: dict[str, Any] = {
+    "name": "check_tape",
+    "description": (
+        "Olha a esteira visível agora do trainee (materiais e posição do braço). "
+        "Antes de Começar a esteira está vazia e a ferramenta pode devolver só "
+        "vazio. Chame no máximo uma vez, só se a pergunta for sobre a esteira "
+        "ou o material na frente do braço deste trainee. Não conta como "
+        "search_docs."
+    ),
+    "parameters": _EMPTY_TOOL_PARAMS,
+}
+
+CHECK_PROGRAM_DECL: dict[str, Any] = {
+    "name": "check_program",
+    "description": (
+        "Olha o circuito atual na bancada do trainee (blocos, cartões e fios). "
+        "Chame no máximo uma vez, só se a pergunta for sobre o circuito deste "
+        "trainee. Oriente o próximo passo; não entregue o circuito completo. "
+        "Não conta como search_docs."
+    ),
+    "parameters": _EMPTY_TOOL_PARAMS,
+}
+
+SEARCH_DOCS_TOOL: dict[str, Any] = {
+    "function_declarations": [SEARCH_DOCS_DECL]
+}
+
+TUTOR_TOOLS: dict[str, Any] = {
+    "function_declarations": [SEARCH_DOCS_DECL, CHECK_TAPE_DECL, CHECK_PROGRAM_DECL]
 }
 
 _OFFLINE_PREFIX = (
@@ -72,6 +108,7 @@ _FALLBACK_NUMBERED_RE = re.compile(r"^\d+\.\s")
 _FALLBACK_SKIP_CATEGORIES = frozenset({"persona"})
 _FALLBACK_SKIP_PREFIXES = (
     "circuitos deste nível",
+    "blocos deste nível",
     "o que conta como feito",
     "título na fábrica",
     "você é ",
@@ -191,6 +228,9 @@ def build_system_prompt(store: KnowledgeStore, level_id: str, agent_name: str) -
         "A persona define voz, o que responder e o que recusar. "
         "Os fatos estão nos documentos: para dúvida de fábrica, chame search_docs "
         "(no máximo três vezes) e use o trecho. "
+        "Se a pergunta for sobre a esteira ou o circuito DESTE trainee, você pode "
+        "chamar check_tape e/ou check_program no máximo uma vez cada; isso não "
+        "conta nas três buscas. "
         "Cumprimento, identidade e assunto fora da fábrica: não busque. "
         "Não invente o que os documentos não trouxerem."
     )
@@ -224,6 +264,8 @@ async def answer_question(
     level_id: str,
     question: str,
     agent_name: str = PERSONA_NAME_DEFAULT,
+    tape: Optional[dict[str, Any]] = None,
+    program: Optional[dict[str, Any]] = None,
 ) -> GenerationResult:
     q = question.strip()
     if not q:
@@ -233,14 +275,34 @@ async def answer_question(
         reply = greeting_reply(q)
         return _as_generation(reply, q)
 
-    calls = {"count": 0}
+    tape_view = compact_tape(
+        None if tape is None else tape.get("cells"),
+        None if tape is None else tape.get("head_offset", 0),
+    )
+    program_view = normalize_program(program)
+    search_calls = {"count": 0}
+    inspect_used = {"check_tape": False, "check_program": False}
 
     def execute_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
+        if name == "check_tape":
+            if inspect_used["check_tape"]:
+                return {"error": "already_used"}
+            inspect_used["check_tape"] = True
+            if tape_view is None:
+                return {"error": "unavailable"}
+            return tape_view
+        if name == "check_program":
+            if inspect_used["check_program"]:
+                return {"error": "already_used"}
+            inspect_used["check_program"] = True
+            if program_view is None:
+                return {"error": "unavailable"}
+            return program_view
         if name != "search_docs":
             return {"error": f"unknown_tool:{name}"}
-        if calls["count"] >= MAX_TOOL_ROUNDS:
+        if search_calls["count"] >= MAX_SEARCH_DOCS:
             return {"error": "search_limit_reached", "chunks": []}
-        calls["count"] += 1
+        search_calls["count"] += 1
         query = str(args.get("query") or q)
         category = args.get("category")
         category_s = str(category) if category else None
@@ -252,7 +314,7 @@ async def answer_question(
         )
         _LOG.info(
             "search_docs n=%d query=%s category=%s hits=%s",
-            calls["count"],
+            search_calls["count"],
             query[:80],
             category_s,
             [hit.document.id for hit in hits],
@@ -264,7 +326,7 @@ async def answer_question(
             system=build_system_prompt(store, level_id, agent_name),
             user=f"Pergunta do trainee: {q}",
             execute_tool=execute_tool,
-            max_rounds=MAX_TOOL_ROUNDS,
+            max_rounds=MAX_GENERATE_ROUNDS,
         )
         return _as_generation(raw, q)
     except TutorProviderUnavailable:

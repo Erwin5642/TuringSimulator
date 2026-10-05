@@ -5,7 +5,7 @@ title: Cartões de material e de direção
 level_id:
 ---
 
-Cartões configuram os circuitos. Eles vêm da gaveta de cartões no braço esquerdo, não da gaveta de circuitos.
+Cartões configuram os blocos. Eles vêm da gaveta de cartões no braço esquerdo, não da gaveta de blocos (essa fica na bancada).
 
 Cartão de material: encaixa no bloco de materiais (qual material colocar/remover) e no bloco de condição (o que comparar). Peças: engrenagem, porca, parafuso e vazio.
 

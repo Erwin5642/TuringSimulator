@@ -10,6 +10,40 @@ namespace ITS
         public string student_id;
         public string level_id;
         public string question;
+        public AskTapeDto tape;
+        public AskProgramDto program;
+    }
+
+    [Serializable]
+    public class AskTapeDto
+    {
+        public string[] Cells { get; set; }
+        public int HeadOffset { get; set; }
+    }
+
+    [Serializable]
+    public class AskProgramBlockDto
+    {
+        public string Id { get; set; }
+        public string Tipo { get; set; }
+        public string Cartao { get; set; }
+    }
+
+    [Serializable]
+    public class AskProgramEdgeDto
+    {
+        public string De { get; set; }
+        public string Porta { get; set; }
+        public string Para { get; set; }
+    }
+
+    [Serializable]
+    public class AskProgramDto
+    {
+        public bool TomadaLigada { get; set; }
+        public string Entrada { get; set; }
+        public AskProgramBlockDto[] Blocos { get; set; }
+        public AskProgramEdgeDto[] Fios { get; set; }
     }
 
     [Serializable]

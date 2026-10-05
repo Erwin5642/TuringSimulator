@@ -36,7 +36,7 @@ o mesmo fluxo do cliente Unity:
 
 - `GET /health`
 - `POST /session/new` (com fallback local de `student_id`)
-- `POST /ask` com `student_id`, `level_id`, `question`
+- `POST /ask` com `student_id`, `level_id`, `question` e opcionalmente `tape` / `program`
 
 O FastAPI serve essa página em `/web-tester/` (e `/` redireciona para lá). Com
 uvicorn local, acesse:
@@ -98,7 +98,17 @@ Student asks the tutor a free-form question (voice STT in Unity).
 {
   "student_id": "student_42",
   "level_id": "MoveLeftRight",
-  "question": "Como eu falo com você?"
+  "question": "Como eu falo com você?",
+  "tape": {
+    "cells": ["vazio", "engrenagem", "parafuso", "porca", "vazio"],
+    "head_offset": 3
+  },
+  "program": {
+    "tomada_ligada": true,
+    "entrada": "m1",
+    "blocos": [{"id": "m1", "tipo": "movimento", "cartao": "esquerda"}],
+    "fios": []
+  }
 }
 ```
 
@@ -116,7 +126,9 @@ Unity uses `reply` and synthesizes tutor speech with Wit.ai TTS. `tokens_in` /
 otherwise an estimate from question and reply length).
 
 The tutor may call `search_docs` up to three times against `knowledge/**/*.md`
-before answering.
+before answering. It may also call `check_tape` and `check_program` once each;
+those inspect calls do not count toward the three searches. The generate loop
+allows up to five tool rounds. Unity `/ask` waits 15 seconds.
 
 ### `GET /health`
 
